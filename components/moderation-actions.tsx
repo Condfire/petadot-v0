@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Check, X, Loader2 } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useToast } from "@/hooks/use-toast"
+import { approveItem, rejectItem } from "@/app/actions"
 
 type ModerationActionsProps = {
   id: string
@@ -47,30 +48,10 @@ export function ModerationActions({ id, type, onModerated }: ModerationActionsPr
 
       console.log(`Aprovando item do tipo ${type} com ID ${id} na tabela ${tableName}`)
 
-      const { error } = await supabase.from(tableName).update({ status: "approved" }).eq("id", id)
+      const result = await approveItem(id, type)
 
-      if (error) {
-        console.error("Erro ao aprovar:", error)
-        throw error
-      }
-
-      // Revalidar páginas
-      try {
-        await fetch("/api/revalidate?path=/")
-
-        if (type === "adoption") {
-          await fetch("/api/revalidate?path=/adocao")
-        } else if (type === "lost") {
-          await fetch("/api/revalidate?path=/perdidos")
-        } else if (type === "found") {
-          await fetch("/api/revalidate?path=/encontrados")
-        } else if (type === "event") {
-          await fetch("/api/revalidate?path=/eventos")
-        } else if (type === "pet_story") {
-          await fetch("/api/revalidate?path=/historias")
-        }
-      } catch (revalidateError) {
-        console.error("Erro ao revalidar páginas:", revalidateError)
+      if (!result.success) {
+        throw new Error(result.error || "Erro ao aprovar item")
       }
 
       toast({
@@ -108,11 +89,10 @@ export function ModerationActions({ id, type, onModerated }: ModerationActionsPr
 
       console.log(`Rejeitando item do tipo ${type} com ID ${id} na tabela ${tableName}`)
 
-      const { error } = await supabase.from(tableName).update({ status: "rejected" }).eq("id", id)
+      const result = await rejectItem(id, type)
 
-      if (error) {
-        console.error("Erro ao rejeitar:", error)
-        throw error
+      if (!result.success) {
+        throw new Error(result.error || "Erro ao rejeitar item")
       }
 
       toast({
