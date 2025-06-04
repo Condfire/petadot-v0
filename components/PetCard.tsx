@@ -8,6 +8,8 @@ interface PetCardProps {
   id: string
   name?: string
   image?: string
+  main_image_url?: string // Adicionar esta prop
+  image_url?: string // Manter compatibilidade
   species?: string
   species_other?: string
   breed?: string
@@ -27,6 +29,8 @@ export default function PetCard({
   id,
   name,
   image,
+  main_image_url,
+  image_url,
   species,
   species_other,
   breed,
@@ -127,11 +131,14 @@ export default function PetCard({
       <Card className="overflow-hidden h-full flex flex-col hover:shadow-md transition-shadow">
         <div className="relative aspect-square">
           <Image
-            src={image || "/placeholder.svg?height=300&width=300&query=pet"}
+            src={image || main_image_url || image_url || "/placeholder.svg?height=300&width=300&query=pet"}
             alt={name || "Pet"}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            onError={(e) => {
+              e.currentTarget.src = "/placeholder.svg?height=300&width=300"
+            }}
           />
           {isSpecialNeeds && (
             <div className="absolute top-2 right-2 bg-amber-500 text-white p-1 rounded-full">
