@@ -209,6 +209,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    e.stopPropagation() // Adicionar esta linha também
 
     // Validar formulário
     if (!validateForm()) {
@@ -257,11 +258,31 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
       } else {
         // Criar novo pet - usar tabela pets com category "found"
         const newPetData = {
-          ...processedData,
+          name: petData.name,
+          species: petData.species === "other" ? petData.species_other : petData.species,
+          breed: petData.breed,
+          size: petData.size === "other" ? petData.size_other : petData.size,
+          gender: petData.gender === "other" ? petData.gender_other : petData.gender,
+          color: petData.color === "other" ? petData.color_other : petData.color,
+          description: petData.description,
+          found_date: petData.found_date,
+          found_location: petData.found_location,
+          current_location: petData.current_location,
+          contact: petData.contact,
+          main_image_url: imageUrl,
+          is_special_needs: isSpecialNeeds,
+          special_needs_description: petData.special_needs_description,
+          good_with_kids: petData.good_with_kids,
+          good_with_cats: petData.good_with_cats,
+          good_with_dogs: petData.good_with_dogs,
+          is_vaccinated: petData.is_vaccinated,
+          is_neutered: petData.is_neutered,
+          status: "pending",
+          user_id: user.id,
+          state: petData.state,
+          city: petData.city,
           category: "found", // Adicionar categoria
-          main_image_url: processedData.image_url, // Usar main_image_url
         }
-        delete newPetData.image_url // Remover image_url duplicado
 
         response = await supabase.from("pets").insert([newPetData])
       }
@@ -281,7 +302,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
 
       // Aguardar 2 segundos antes de redirecionar
       setTimeout(() => {
-        router.push("/my-pets")
+        router.push("/encontrados")
         router.refresh()
       }, 2000)
     } catch (error) {
