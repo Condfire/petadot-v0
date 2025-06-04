@@ -12,13 +12,6 @@ const nextConfig = {
     ],
     unoptimized: true,
   },
-  webpack: (config) => {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      'react-day-picker': false,
-    }
-    return config
-  },
   eslint: {
     ignoreDuringBuilds: true,
   },
