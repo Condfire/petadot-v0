@@ -8,8 +8,7 @@ interface PetCardProps {
   id: string
   name?: string
   image?: string
-  main_image_url?: string // Adicionar esta prop
-  image_url?: string // Manter compatibilidade
+  main_image_url?: string
   species?: string
   species_other?: string
   breed?: string
@@ -30,7 +29,6 @@ export default function PetCard({
   name,
   image,
   main_image_url,
-  image_url,
   species,
   species_other,
   breed,
@@ -55,6 +53,17 @@ export default function PetCard({
 
     // Usar slug se disponível, caso contrário usar id
     return `${baseUrl}${slug || id}`
+  }
+
+  // Função para obter a imagem com fallback
+  const getImageSrc = () => {
+    if (main_image_url && main_image_url.trim() !== "") {
+      return main_image_url
+    }
+    if (image && image.trim() !== "") {
+      return image
+    }
+    return "/placeholder.svg?height=300&width=300"
   }
 
   // Mapear espécie para texto legível
@@ -125,20 +134,20 @@ export default function PetCard({
   }
 
   const statusInfo = getStatusText()
+  const imageSrc = getImageSrc()
 
   return (
     <Link href={getDetailUrl()}>
       <Card className="overflow-hidden h-full flex flex-col hover:shadow-md transition-shadow">
         <div className="relative aspect-square">
           <Image
-            src={image || main_image_url || image_url || "/placeholder.svg?height=300&width=300&query=pet"}
+            src={imageSrc || "/placeholder.svg"}
             alt={name || "Pet"}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            onError={(e) => {
-              e.currentTarget.src = "/placeholder.svg?height=300&width=300"
-            }}
+            priority={false}
+            unoptimized={imageSrc.includes("placeholder.svg")}
           />
           {isSpecialNeeds && (
             <div className="absolute top-2 right-2 bg-amber-500 text-white p-1 rounded-full">
