@@ -38,6 +38,42 @@ export async function ensureUserExists(userId: string, userData: any) {
   return true
 }
 
+// Função para verificar conteúdo contra palavras-chave bloqueadas
+async function checkContentForBlockedKeywords(
+  content: string,
+  supabaseClient: ReturnType<typeof createServerComponentClient>,
+): Promise<{ blocked: boolean; keyword?: string }> {
+  const { data: setting, error: settingError } = await supabaseClient
+    .from("moderation_settings")
+    .select("setting_value")
+    .eq("setting_key", "enable_keyword_moderation")
+    .single()
+
+  if (settingError || !setting || !setting.setting_value?.enabled) {
+    // Moderação por palavra-chave não está habilitada ou erro ao buscar configuração
+    return { blocked: false }
+  }
+
+  const { data: keywords, error: keywordsError } = await supabaseClient
+    .from("moderation_keywords")
+    .select("keyword")
+    .eq("is_active", true)
+
+  if (keywordsError) {
+    console.error("Erro ao buscar palavras-chave de moderação:", keywordsError)
+    return { blocked: false } // Não bloquear se houver erro na busca das palavras-chave
+  }
+
+  const lowerCaseContent = content.toLowerCase()
+  for (const kw of keywords || []) {
+    if (lowerCaseContent.includes(kw.keyword.toLowerCase())) {
+      return { blocked: true, keyword: kw.keyword }
+    }
+  }
+
+  return { blocked: false }
+}
+
 // Função para criar uma ONG
 export async function createOng(ongData: any) {
   const supabase = createServerComponentClient({ cookies })
@@ -201,6 +237,14 @@ export async function createAdoptionPet(petData: any) {
       return { success: false, error: "Erro ao verificar ONG" }
     }
 
+    // --- Nova verificação de palavras-chave ---
+    const contentToCheck = `${petData.name || ""} ${petData.description || ""}`
+    const { blocked, keyword } = await checkContentForBlockedKeywords(contentToCheck, supabase)
+    if (blocked) {
+      return { success: false, error: `Conteúdo bloqueado devido à palavra-chave proibida: "${keyword}"` }
+    }
+    // --- Fim da nova verificação ---
+
     // Gerar slug para o pet
     const baseSlug = generateEntitySlug(
       petData.name || "pet",
@@ -282,6 +326,14 @@ export async function createLostPet(petData: any) {
     const userId = session.user.id
     console.log("ID do usuário da sessão:", userId)
 
+    // --- Nova verificação de palavras-chave ---
+    const contentToCheck = `${petData.name || ""} ${petData.description || ""}`
+    const { blocked, keyword } = await checkContentForBlockedKeywords(contentToCheck, supabase)
+    if (blocked) {
+      return { success: false, error: `Conteúdo bloqueado devido à palavra-chave proibida: "${keyword}"` }
+    }
+    // --- Fim da nova verificação ---
+
     // Gerar slug para o pet
     const baseSlug = generateEntitySlug(
       petData.name || "pet-perdido",
@@ -362,6 +414,14 @@ export async function createFoundPet(petData: any) {
     // Usar o ID do usuário da sessão
     const userId = session.user.id
     console.log("Using user ID from session:", userId)
+
+    // --- Nova verificação de palavras-chave ---
+    const contentToCheck = `${petData.name || ""} ${petData.description || ""}`
+    const { blocked, keyword } = await checkContentForBlockedKeywords(contentToCheck, supabase)
+    if (blocked) {
+      return { success: false, error: `Conteúdo bloqueado devido à palavra-chave proibida: "${keyword}"` }
+    }
+    // --- Fim da nova verificação ---
 
     // Gerar slug para o pet
     const baseSlug = generateEntitySlug(
@@ -462,6 +522,14 @@ export async function createEvent(eventData: EventFormData) {
       console.log("Campos obrigatórios ausentes:", missingFields)
       return { success: false, error: `Campos obrigatórios ausentes: ${missingFields.join(", ")}` }
     }
+
+    // --- Nova verificação de palavras-chave ---
+    const contentToCheck = `${eventData.name || ""} ${eventData.description || ""}`
+    const { blocked, keyword } = await checkContentForBlockedKeywords(contentToCheck, supabase)
+    if (blocked) {
+      return { success: false, error: `Conteúdo bloqueado devido à palavra-chave proibida: "${keyword}"` }
+    }
+    // --- Fim da nova verificação ---
 
     // Gerar slug para o evento
     const baseSlug = generateEntitySlug(
@@ -830,6 +898,14 @@ export async function createPet(formData: FormData) {
     const city = formData.get("city") as string
     const state = formData.get("state") as string
     const ong_id = formData.get("ong_id") as string
+
+    // --- Nova verificação de palavras-chave ---
+    const contentToCheck = `${name || ""} ${description || ""}`
+    const { blocked, keyword } = await checkContentForBlockedKeywords(contentToCheck, supabase)
+    if (blocked) {
+      return { error: `Conteúdo bloqueado devido à palavra-chave proibida: "${keyword}"` }
+    }
+    // --- Fim da nova verificação ---
 
     // Generate a slug for the pet
     const baseSlug = generateEntitySlug(
