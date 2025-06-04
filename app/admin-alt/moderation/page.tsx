@@ -352,7 +352,7 @@ export default function AdminModerationPage() {
                     {pendingItems.rejectedPets.map((pet) => (
                       <div
                         key={pet.id}
-                        className="flex flex-col md:flex-row gap-4 p-4 border border-red-200 rounded-lg bg-red-50"
+                        className="flex flex-col md:flex-row gap-4 p-4 border border-destructive/20 rounded-lg bg-card hover:bg-accent/50 transition-colors"
                       >
                         <div className="w-full md:w-1/4 aspect-square relative rounded-md overflow-hidden">
                           <Image
@@ -383,12 +383,12 @@ export default function AdminModerationPage() {
                           </div>
 
                           {pet.rejection_reason && (
-                            <div className="mt-3 p-3 bg-red-100 border border-red-200 rounded-md">
+                            <div className="mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
                               <div className="flex items-center gap-2">
                                 <AlertTriangle className="h-4 w-4 text-red-600" />
-                                <span className="text-sm font-medium text-red-800">Motivo da rejeição:</span>
+                                <span className="text-sm font-medium text-destructive">Motivo da rejeição:</span>
                               </div>
-                              <p className="text-sm text-red-700 mt-1">{pet.rejection_reason}</p>
+                              <p className="text-sm text-destructive/80 mt-1">{pet.rejection_reason}</p>
                             </div>
                           )}
 
@@ -404,7 +404,7 @@ export default function AdminModerationPage() {
                     {pendingItems.rejectedEvents.map((event) => (
                       <div
                         key={event.id}
-                        className="flex flex-col md:flex-row gap-4 p-4 border border-red-200 rounded-lg bg-red-50"
+                        className="flex flex-col md:flex-row gap-4 p-4 border border-destructive/20 rounded-lg bg-card hover:bg-accent/50 transition-colors"
                       >
                         <div className="w-full md:w-1/4 aspect-square relative rounded-md overflow-hidden">
                           <Image
@@ -428,12 +428,12 @@ export default function AdminModerationPage() {
                           </div>
 
                           {event.rejection_reason && (
-                            <div className="mt-3 p-3 bg-red-100 border border-red-200 rounded-md">
+                            <div className="mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
                               <div className="flex items-center gap-2">
                                 <AlertTriangle className="h-4 w-4 text-red-600" />
-                                <span className="text-sm font-medium text-red-800">Motivo da rejeição:</span>
+                                <span className="text-sm font-medium text-destructive">Motivo da rejeição:</span>
                               </div>
-                              <p className="text-sm text-red-700 mt-1">{event.rejection_reason}</p>
+                              <p className="text-sm text-destructive/80 mt-1">{event.rejection_reason}</p>
                             </div>
                           )}
 
