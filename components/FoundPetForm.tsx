@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { toast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, XCircle } from "lucide-react"
 import ImageUpload from "./ImageUpload"
 import { SimpleLocationSelector } from "./simple-location-selector"
 
@@ -82,7 +82,45 @@ const defaultFoundPetData: FoundPetData = {
   city: "",
 }
 
-// Componente com exportação padrão
+// Função para verificar palavras-chave bloqueadas
+async function checkForBlockedKeywords(
+  content: string,
+  supabase: any,
+): Promise<{ blocked: boolean; keyword?: string }> {
+  try {
+    // Verificar se a moderação está habilitada
+    const { data: setting } = await supabase
+      .from("moderation_settings")
+      .select("setting_value")
+      .eq("setting_key", "enable_keyword_moderation")
+      .single()
+
+    if (!setting || !setting.setting_value?.enabled) {
+      return { blocked: false }
+    }
+
+    // Buscar palavras-chave ativas
+    const { data: keywords } = await supabase.from("moderation_keywords").select("keyword").eq("is_active", true)
+
+    if (!keywords || keywords.length === 0) {
+      return { blocked: false }
+    }
+
+    // Verificar se o conteúdo contém alguma palavra bloqueada
+    const lowerContent = content.toLowerCase()
+    for (const kw of keywords) {
+      if (lowerContent.includes(kw.keyword.toLowerCase())) {
+        return { blocked: true, keyword: kw.keyword }
+      }
+    }
+
+    return { blocked: false }
+  } catch (error) {
+    console.error("Erro ao verificar palavras-chave:", error)
+    return { blocked: false }
+  }
+}
+
 function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
   const [petData, setPetData] = useState<FoundPetData>(initialData || defaultFoundPetData)
   const [loading, setLoading] = useState(false)
@@ -90,6 +128,8 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
   const [isSpecialNeeds, setIsSpecialNeeds] = useState(initialData?.is_special_needs || false)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [submitSuccess, setSubmitSuccess] = useState(false)
+  const [rejectedByModeration, setRejectedByModeration] = useState(false)
+  const [rejectionReason, setRejectionReason] = useState("")
   const router = useRouter()
   const supabase = createClientComponentClient()
 
@@ -105,7 +145,6 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
     const { name, value } = e.target
     setPetData((prev) => ({ ...prev, [name]: value }))
 
-    // Limpar erro do campo quando o usuário digita
     if (formErrors[name]) {
       setFormErrors((prev) => {
         const newErrors = { ...prev }
@@ -122,7 +161,6 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
   const handleSelectChange = (name: string, value: string) => {
     setPetData((prev) => ({ ...prev, [name]: value }))
 
-    // Limpar erro do campo quando o usuário seleciona
     if (formErrors[name]) {
       setFormErrors((prev) => {
         const newErrors = { ...prev }
@@ -131,7 +169,6 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
       })
     }
 
-    // Limpar o campo "other" correspondente quando o valor não é "other"
     if (value !== "other") {
       const otherFieldName = `${name}_other` as keyof FoundPetData
       if (petData[otherFieldName]) {
@@ -140,23 +177,8 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
     }
   }
 
-  const handleOtherOptionChange = (field: string, value: string) => {
-    const fieldName = `${field}_other` as keyof FoundPetData
-    setPetData((prev) => ({ ...prev, [fieldName]: value }))
-
-    // Limpar erro do campo quando o usuário digita
-    if (formErrors[fieldName]) {
-      setFormErrors((prev) => {
-        const newErrors = { ...prev }
-        delete newErrors[fieldName]
-        return newErrors
-      })
-    }
-  }
-
   const handleStateChange = (state: string) => {
     setPetData((prev) => ({ ...prev, state }))
-
     if (formErrors.state) {
       setFormErrors((prev) => {
         const newErrors = { ...prev }
@@ -168,7 +190,6 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
 
   const handleCityChange = (city: string) => {
     setPetData((prev) => ({ ...prev, city }))
-
     if (formErrors.city) {
       setFormErrors((prev) => {
         const newErrors = { ...prev }
@@ -181,19 +202,14 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {}
 
-    // Validar campos obrigatórios
     if (!petData.species) errors.species = "Espécie é obrigatória"
     if (petData.species === "other" && !petData.species_other) errors.species_other = "Especifique a espécie"
-
     if (!petData.size) errors.size = "Porte é obrigatório"
     if (petData.size === "other" && !petData.size_other) errors.size_other = "Especifique o porte"
-
     if (!petData.gender) errors.gender = "Gênero é obrigatório"
     if (petData.gender === "other" && !petData.gender_other) errors.gender_other = "Especifique o gênero"
-
     if (!petData.color) errors.color = "Cor é obrigatória"
     if (petData.color === "other" && !petData.color_other) errors.color_other = "Especifique a cor"
-
     if (!petData.found_date) errors.found_date = "Data em que foi encontrado é obrigatória"
     if (!petData.found_location) errors.found_location = "Local onde foi encontrado é obrigatório"
     if (!petData.contact) errors.contact = "Contato para informações é obrigatório"
@@ -209,9 +225,8 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    e.stopPropagation() // Adicionar esta linha também
+    e.stopPropagation()
 
-    // Validar formulário
     if (!validateForm()) {
       toast({
         title: "Erro no formulário",
@@ -238,54 +253,50 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
         return
       }
 
-      // Preparar dados para envio, substituindo valores "other" pelos valores personalizados
-      const processedData = {
-        ...petData,
+      // Verificar moderação por palavras-chave
+      const contentToCheck = `${petData.name || ""} ${petData.description || ""} ${petData.found_location || ""} ${petData.current_location || ""}`
+      const { blocked, keyword } = await checkForBlockedKeywords(contentToCheck, supabase)
+
+      let finalStatus = "pending"
+      let finalRejectionReason = null
+
+      if (blocked && keyword) {
+        finalStatus = "rejected"
+        finalRejectionReason = `Rejeitado automaticamente: palavra-chave proibida "${keyword}"`
+        setRejectedByModeration(true)
+        setRejectionReason(finalRejectionReason)
+      }
+
+      // Preparar dados para inserção
+      const newPetData = {
+        name: petData.name,
         species: petData.species === "other" ? petData.species_other : petData.species,
+        breed: petData.breed,
         size: petData.size === "other" ? petData.size_other : petData.size,
         gender: petData.gender === "other" ? petData.gender_other : petData.gender,
         color: petData.color === "other" ? petData.color_other : petData.color,
-        image_url: imageUrl,
+        description: petData.description,
+        found_date: petData.found_date,
+        found_location: petData.found_location,
+        current_location: petData.current_location,
+        contact: petData.contact,
+        main_image_url: imageUrl,
         is_special_needs: isSpecialNeeds,
+        special_needs_description: petData.special_needs_description,
+        good_with_kids: petData.good_with_kids,
+        good_with_cats: petData.good_with_cats,
+        good_with_dogs: petData.good_with_dogs,
+        is_vaccinated: petData.is_vaccinated,
+        is_neutered: petData.is_neutered,
+        status: finalStatus,
+        rejection_reason: finalRejectionReason,
         user_id: user.id,
+        state: petData.state,
+        city: petData.city,
+        category: "found",
       }
 
-      let response
-
-      if (isEditing && petData.id) {
-        // Atualizar pet existente
-        response = await supabase.from("pets").update(processedData).eq("id", petData.id)
-      } else {
-        // Criar novo pet - usar tabela pets com category "found"
-        const newPetData = {
-          name: petData.name,
-          species: petData.species === "other" ? petData.species_other : petData.species,
-          breed: petData.breed,
-          size: petData.size === "other" ? petData.size_other : petData.size,
-          gender: petData.gender === "other" ? petData.gender_other : petData.gender,
-          color: petData.color === "other" ? petData.color_other : petData.color,
-          description: petData.description,
-          found_date: petData.found_date,
-          found_location: petData.found_location,
-          current_location: petData.current_location,
-          contact: petData.contact,
-          main_image_url: imageUrl,
-          is_special_needs: isSpecialNeeds,
-          special_needs_description: petData.special_needs_description,
-          good_with_kids: petData.good_with_kids,
-          good_with_cats: petData.good_with_cats,
-          good_with_dogs: petData.good_with_dogs,
-          is_vaccinated: petData.is_vaccinated,
-          is_neutered: petData.is_neutered,
-          status: "pending",
-          user_id: user.id,
-          state: petData.state,
-          city: petData.city,
-          category: "found", // Adicionar categoria
-        }
-
-        response = await supabase.from("pets").insert([newPetData])
-      }
+      const response = await supabase.from("pets").insert([newPetData])
 
       if (response.error) {
         throw response.error
@@ -293,18 +304,24 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
 
       setSubmitSuccess(true)
 
-      toast({
-        title: isEditing ? "Pet atualizado" : "Pet reportado",
-        description: isEditing
-          ? "As informações do pet encontrado foram atualizadas com sucesso!"
-          : "O pet encontrado foi reportado com sucesso!",
-      })
+      if (blocked) {
+        toast({
+          title: "Pet cadastrado mas rejeitado",
+          description: `Pet foi rejeitado automaticamente devido à palavra-chave proibida: "${keyword}". Entre em contato com o suporte se isso foi um erro.`,
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Pet reportado",
+          description: "O pet encontrado foi reportado com sucesso e está aguardando aprovação!",
+        })
+      }
 
-      // Aguardar 2 segundos antes de redirecionar
+      // Redirecionar após 3 segundos
       setTimeout(() => {
         router.push("/encontrados")
         router.refresh()
-      }, 2000)
+      }, 3000)
     } catch (error) {
       console.error("Erro ao salvar pet encontrado:", error)
       toast({
@@ -319,12 +336,24 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
-      {submitSuccess && (
+      {submitSuccess && !rejectedByModeration && (
         <Alert className="bg-green-50 border-green-200 mb-4">
           <AlertCircle className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-700">
-            {isEditing ? "Pet atualizado com sucesso!" : "Pet reportado com sucesso!"}
-            Você será redirecionado em instantes...
+            Pet reportado com sucesso! Aguardando aprovação da moderação. Você será redirecionado em instantes...
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {submitSuccess && rejectedByModeration && (
+        <Alert className="bg-red-50 border-red-200 mb-4">
+          <XCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-700">
+            <strong>Pet rejeitado automaticamente!</strong>
+            <br />
+            {rejectionReason}
+            <br />
+            <em>Entre em contato com o suporte se isso foi um erro.</em>
           </AlertDescription>
         </Alert>
       )}
@@ -617,6 +646,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
             value={petData.description || ""}
             onChange={handleChange}
             rows={3}
+            placeholder="Descreva detalhes sobre o pet encontrado..."
           />
         </div>
 
@@ -648,6 +678,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
               onChange={handleChange}
               required
               className={formErrors.found_location ? "border-red-500" : ""}
+              placeholder="Ex: Rua das Flores, Centro"
             />
             {formErrors.found_location && <p className="text-red-500 text-sm mt-1">{formErrors.found_location}</p>}
           </div>
@@ -668,6 +699,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
             name="current_location"
             value={petData.current_location || ""}
             onChange={handleChange}
+            placeholder="Onde o pet está atualmente"
           />
         </div>
 
@@ -701,15 +733,12 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
           Cancelar
         </Button>
         <Button type="submit" disabled={loading}>
-          {loading ? "Salvando..." : isEditing ? "Atualizar Pet" : "Reportar Pet Encontrado"}
+          {loading ? "Salvando..." : "Reportar Pet Encontrado"}
         </Button>
       </div>
     </form>
   )
 }
 
-// Adicionando exportação nomeada para o componente
 export { FoundPetForm }
-
-// Mantendo a exportação padrão para compatibilidade com código existente
 export default FoundPetForm
