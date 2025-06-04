@@ -62,10 +62,10 @@ export async function getPetsForAdoption(page = 1, pageSize = 12, filters = {}):
       }
     }
 
-    // Iniciar a query sem o join com ongs (que pode não existir)
+    // Substituir a query que fazia join com ongs por:
     let query = supabase
       .from("pets")
-      .select(`*`, { count: "exact" })
+      .select(`*, ongs(id, name, logo_url, city)`, { count: "exact" })
       .eq("category", "adoption") // Filter for adoption pets
       .in("status", ["approved", "pending"]) // Include both approved and pending
       .order("created_at", { ascending: false })
@@ -374,7 +374,8 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
       return { data: [], count: 0 }
     }
 
-    let query = supabase.from("events").select("*", { count: "exact" })
+    // Substituir a query por:
+    let query = supabase.from("events").select("*, ongs(id, name, logo_url, city)", { count: "exact" })
 
     // Mostrar apenas eventos aprovados ou sem status (legados)
     query = query.in("status", ["approved", "pending"]) // Include both approved and pending

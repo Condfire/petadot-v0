@@ -31,7 +31,7 @@ export default function TestimonialsSection() {
     status,
     user_id,
     created_at,
-    likes_count
+    likes
   `)
           .eq("status", "approved")
           .order("created_at", { ascending: false })

@@ -43,35 +43,66 @@ async function checkContentForBlockedKeywords(
   content: string,
   supabaseClient: ReturnType<typeof createServerComponentClient>,
 ): Promise<{ blocked: boolean; keyword?: string }> {
-  const { data: setting, error: settingError } = await supabaseClient
-    .from("moderation_settings")
-    .select("setting_value")
-    .eq("setting_key", "enable_keyword_moderation")
-    .single()
+  try {
+    console.log("Verificando conteúdo para palavras-chave bloqueadas:", content)
 
-  if (settingError || !setting || !setting.setting_value?.enabled) {
-    // Moderação por palavra-chave não está habilitada ou erro ao buscar configuração
-    return { blocked: false }
-  }
+    // Verificar se a moderação por palavras-chave está habilitada
+    const { data: setting, error: settingError } = await supabaseClient
+      .from("moderation_settings")
+      .select("setting_value")
+      .eq("setting_key", "enable_keyword_moderation")
+      .single()
 
-  const { data: keywords, error: keywordsError } = await supabaseClient
-    .from("moderation_keywords")
-    .select("keyword")
-    .eq("is_active", true)
-
-  if (keywordsError) {
-    console.error("Erro ao buscar palavras-chave de moderação:", keywordsError)
-    return { blocked: false } // Não bloquear se houver erro na busca das palavras-chave
-  }
-
-  const lowerCaseContent = content.toLowerCase()
-  for (const kw of keywords || []) {
-    if (lowerCaseContent.includes(kw.keyword.toLowerCase())) {
-      return { blocked: true, keyword: kw.keyword }
+    if (settingError) {
+      console.error("Erro ao buscar configuração de moderação:", settingError)
+      return { blocked: false }
     }
-  }
 
-  return { blocked: false }
+    console.log("Configuração de moderação:", setting)
+
+    // Se a configuração não existir ou não estiver habilitada, não bloquear
+    if (!setting || !setting.setting_value?.enabled) {
+      console.log("Moderação por palavras-chave não está habilitada")
+      return { blocked: false }
+    }
+
+    // Buscar palavras-chave ativas
+    const { data: keywords, error: keywordsError } = await supabaseClient
+      .from("moderation_keywords")
+      .select("keyword")
+      .eq("is_active", true)
+
+    if (keywordsError) {
+      console.error("Erro ao buscar palavras-chave de moderação:", keywordsError)
+      return { blocked: false } // Não bloquear se houver erro na busca das palavras-chave
+    }
+
+    console.log("Palavras-chave encontradas:", keywords)
+
+    // Se não houver palavras-chave, não bloquear
+    if (!keywords || keywords.length === 0) {
+      console.log("Nenhuma palavra-chave ativa encontrada")
+      return { blocked: false }
+    }
+
+    // Converter conteúdo para minúsculas para comparação case-insensitive
+    const lowerCaseContent = content.toLowerCase()
+
+    // Verificar cada palavra-chave
+    for (const kw of keywords) {
+      console.log(`Verificando palavra-chave: "${kw.keyword}"`)
+      if (lowerCaseContent.includes(kw.keyword.toLowerCase())) {
+        console.log(`Conteúdo bloqueado devido à palavra-chave: "${kw.keyword}"`)
+        return { blocked: true, keyword: kw.keyword }
+      }
+    }
+
+    console.log("Nenhuma palavra-chave bloqueada encontrada no conteúdo")
+    return { blocked: false }
+  } catch (error) {
+    console.error("Erro ao verificar palavras-chave bloqueadas:", error)
+    return { blocked: false } // Em caso de erro, não bloquear
+  }
 }
 
 // Função para criar uma ONG
@@ -241,6 +272,7 @@ export async function createAdoptionPet(petData: any) {
     const contentToCheck = `${petData.name || ""} ${petData.description || ""}`
     const { blocked, keyword } = await checkContentForBlockedKeywords(contentToCheck, supabase)
     if (blocked) {
+      console.log(`Conteúdo bloqueado devido à palavra-chave: "${keyword}"`)
       return { success: false, error: `Conteúdo bloqueado devido à palavra-chave proibida: "${keyword}"` }
     }
     // --- Fim da nova verificação ---
@@ -330,6 +362,7 @@ export async function createLostPet(petData: any) {
     const contentToCheck = `${petData.name || ""} ${petData.description || ""}`
     const { blocked, keyword } = await checkContentForBlockedKeywords(contentToCheck, supabase)
     if (blocked) {
+      console.log(`Conteúdo bloqueado devido à palavra-chave: "${keyword}"`)
       return { success: false, error: `Conteúdo bloqueado devido à palavra-chave proibida: "${keyword}"` }
     }
     // --- Fim da nova verificação ---
@@ -419,6 +452,7 @@ export async function createFoundPet(petData: any) {
     const contentToCheck = `${petData.name || ""} ${petData.description || ""}`
     const { blocked, keyword } = await checkContentForBlockedKeywords(contentToCheck, supabase)
     if (blocked) {
+      console.log(`Conteúdo bloqueado devido à palavra-chave: "${keyword}"`)
       return { success: false, error: `Conteúdo bloqueado devido à palavra-chave proibida: "${keyword}"` }
     }
     // --- Fim da nova verificação ---
@@ -527,6 +561,7 @@ export async function createEvent(eventData: EventFormData) {
     const contentToCheck = `${eventData.name || ""} ${eventData.description || ""}`
     const { blocked, keyword } = await checkContentForBlockedKeywords(contentToCheck, supabase)
     if (blocked) {
+      console.log(`Conteúdo bloqueado devido à palavra-chave: "${keyword}"`)
       return { success: false, error: `Conteúdo bloqueado devido à palavra-chave proibida: "${keyword}"` }
     }
     // --- Fim da nova verificação ---
@@ -903,6 +938,7 @@ export async function createPet(formData: FormData) {
     const contentToCheck = `${name || ""} ${description || ""}`
     const { blocked, keyword } = await checkContentForBlockedKeywords(contentToCheck, supabase)
     if (blocked) {
+      console.log(`Conteúdo bloqueado devido à palavra-chave: "${keyword}"`)
       return { error: `Conteúdo bloqueado devido à palavra-chave proibida: "${keyword}"` }
     }
     // --- Fim da nova verificação ---
