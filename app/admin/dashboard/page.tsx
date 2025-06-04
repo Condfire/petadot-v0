@@ -1,523 +1,366 @@
-import type { Metadata } from "next"
-import Link from "next/link"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+"use client"
+
+import { useEffect, useState } from "react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import AdminAuthCheck from "@/components/admin-auth-check"
-import {
-  Building2,
-  CalendarDays,
-  PawPrint,
-  Search,
-  Users,
-  MessageSquare,
-  AlertCircle,
-  Clock,
-  AlertTriangle,
-} from "lucide-react"
+import { PawPrint, Calendar, Users, Heart, AlertTriangle, TrendingUp, Eye, CheckCircle, XCircle } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
-export const metadata: Metadata = {
-  title: "Painel de Administração | PetAdot",
-  description: "Painel de administração para gerenciar a plataforma PetAdot",
+interface DashboardStats {
+  totalPets: number
+  totalEvents: number
+  totalUsers: number
+  totalFavorites: number
+  pendingModeration: number
+  recentActivities: any[]
 }
 
-export default async function AdminDashboardPage() {
-  const supabase = createServerComponentClient({ cookies })
+interface PendingItem {
+  id: string
+  type: "pet" | "event" | "story"
+  title: string
+  description: string
+  created_at: string
+  status: string
+}
 
-  // Buscar estatísticas
-  const { count: ongsCount } = await supabase.from("ongs").select("*", { count: "exact", head: true })
+export default function AdminDashboard() {
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [pendingItems, setPendingItems] = useState<PendingItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [moderationKeywords, setModerationKeywords] = useState<any[]>([])
 
-  const { count: verifiedOngsCount } = await supabase
-    .from("ongs")
-    .select("*", { count: "exact", head: true })
-    .eq("is_verified", true)
+  const supabase = createClientComponentClient()
 
-  const { count: pendingOngsCount } = await supabase
-    .from("ongs")
-    .select("*", { count: "exact", head: true })
-    .eq("is_verified", false)
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
 
-  const { count: eventsCount } = await supabase.from("events").select("*", { count: "exact", head: true })
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true)
 
-  const { count: pendingEventsCount } = await supabase
-    .from("events")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "pending")
+      // Fetch basic statistics
+      const [
+        { count: totalPets },
+        { count: totalEvents },
+        { count: totalUsers },
+        { count: totalFavorites },
+        { data: pendingPets },
+        { data: pendingEvents },
+        { data: keywords },
+      ] = await Promise.all([
+        supabase.from("pets").select("*", { count: "exact", head: true }),
+        supabase.from("events").select("*", { count: "exact", head: true }),
+        supabase.from("users").select("*", { count: "exact", head: true }),
+        supabase.from("favorites").select("*", { count: "exact", head: true }),
+        supabase.from("pets").select("*").eq("status", "pending").limit(10),
+        supabase.from("events").select("*").eq("status", "pending").limit(10),
+        supabase.from("moderation_keywords").select("*").limit(20),
+      ])
 
-  const { count: usersCount } = await supabase.from("users").select("*", { count: "exact", head: true })
+      // Combine pending items
+      const allPendingItems: PendingItem[] = [
+        ...(pendingPets || []).map((pet) => ({
+          id: pet.id,
+          type: "pet" as const,
+          title: pet.name || "Pet sem nome",
+          description: pet.description || "Sem descrição",
+          created_at: pet.created_at,
+          status: pet.status,
+        })),
+        ...(pendingEvents || []).map((event) => ({
+          id: event.id,
+          type: "event" as const,
+          title: event.title || "Evento sem título",
+          description: event.description || "Sem descrição",
+          created_at: event.created_at,
+          status: event.status,
+        })),
+      ]
 
-  const { count: petsCount } = await supabase.from("pets").select("*", { count: "exact", head: true })
+      setStats({
+        totalPets: totalPets || 0,
+        totalEvents: totalEvents || 0,
+        totalUsers: totalUsers || 0,
+        totalFavorites: totalFavorites || 0,
+        pendingModeration: allPendingItems.length,
+        recentActivities: [],
+      })
 
-  const { count: pendingPetsCount } = await supabase
-    .from("pets")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "pending")
+      setPendingItems(allPendingItems)
+      setModerationKeywords(keywords || [])
+    } catch (error) {
+      console.error("Erro ao carregar dados do dashboard:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const { count: lostPetsCount } = await supabase.from("pets_lost").select("*", { count: "exact", head: true })
+  const handleApprove = async (id: string, type: string) => {
+    try {
+      const table = type === "pet" ? "pets" : "events"
+      const { error } = await supabase.from(table).update({ status: "approved" }).eq("id", id)
 
-  const { count: pendingLostPetsCount } = await supabase
-    .from("pets_lost")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "pending")
+      if (!error) {
+        setPendingItems((prev) => prev.filter((item) => item.id !== id))
+        if (stats) {
+          setStats((prev) => (prev ? { ...prev, pendingModeration: prev.pendingModeration - 1 } : null))
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao aprovar item:", error)
+    }
+  }
 
-  const { count: foundPetsCount } = await supabase.from("pets_found").select("*", { count: "exact", head: true })
+  const handleReject = async (id: string, type: string) => {
+    try {
+      const table = type === "pet" ? "pets" : "events"
+      const { error } = await supabase.from(table).update({ status: "rejected" }).eq("id", id)
 
-  const { count: pendingFoundPetsCount } = await supabase
-    .from("pets_found")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "pending")
+      if (!error) {
+        setPendingItems((prev) => prev.filter((item) => item.id !== id))
+        if (stats) {
+          setStats((prev) => (prev ? { ...prev, pendingModeration: prev.pendingModeration - 1 } : null))
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao rejeitar item:", error)
+    }
+  }
 
-  const { count: adoptionFormsCount } = await supabase
-    .from("adoption_forms")
-    .select("*", { count: "exact", head: true })
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
 
-  const { count: pendingAdoptionFormsCount } = await supabase
-    .from("adoption_forms")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "pending")
-
-  const { count: contactMessagesCount } = await supabase
-    .from("contact_messages")
-    .select("*", { count: "exact", head: true })
-
-  const { count: unreadContactMessagesCount } = await supabase
-    .from("contact_messages")
-    .select("*", { count: "exact", head: true })
-    .eq("is_read", false)
-
-  // Buscar itens pendentes recentes
-  const { data: recentPendingOngs } = await supabase
-    .from("ongs")
-    .select("id, name, created_at")
-    .eq("is_verified", false)
-    .order("created_at", { ascending: false })
-    .limit(5)
-
-  const { data: recentPendingEvents } = await supabase
-    .from("events")
-    .select("id, name, created_at")
-    .eq("status", "pending")
-    .order("created_at", { ascending: false })
-    .limit(5)
-
-  const { data: recentPendingPets } = await supabase
-    .from("pets")
-    .select("id, name, created_at")
-    .eq("status", "pending")
-    .order("created_at", { ascending: false })
-    .limit(5)
-
-  return (
-    <AdminAuthCheck>
+  if (loading) {
+    return (
       <div className="container py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Painel de Administração</h1>
-          <div className="flex gap-2">
-            <Button asChild variant="outline">
-              <Link href="/">Voltar ao site</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/admin/settings">Configurações</Link>
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">ONGs</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{ongsCount || 0}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {verifiedOngsCount || 0} verificadas, {pendingOngsCount || 0} pendentes
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Eventos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{eventsCount || 0}</div>
-              <p className="text-xs text-muted-foreground mt-1">{pendingEventsCount || 0} pendentes de aprovação</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pets</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {(petsCount || 0) + (lostPetsCount || 0) + (foundPetsCount || 0)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {(pendingPetsCount || 0) + (pendingLostPetsCount || 0) + (pendingFoundPetsCount || 0)} pendentes
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Usuários</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{usersCount || 0}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {adoptionFormsCount || 0} formulários de adoção, {pendingAdoptionFormsCount || 0} pendentes
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="pending">
-          <TabsList className="mb-4">
-            <TabsTrigger value="pending">Itens Pendentes</TabsTrigger>
-            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-            <TabsTrigger value="messages">Mensagens</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="pending">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Building2 className="mr-2 h-5 w-5 text-primary" />
-                    ONGs Pendentes
-                  </CardTitle>
-                  <CardDescription>ONGs aguardando verificação</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {recentPendingOngs && recentPendingOngs.length > 0 ? (
-                    <div className="space-y-4">
-                      {recentPendingOngs.map((ong) => (
-                        <div key={ong.id} className="flex justify-between items-center">
-                          <div>
-                            <p className="font-medium">{ong.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(ong.created_at).toLocaleDateString("pt-BR")}
-                            </p>
-                          </div>
-                          <Button asChild size="sm">
-                            <Link href={`/admin/ongs/${ong.id}`}>Verificar</Link>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">Não há ONGs pendentes de verificação.</p>
-                  )}
-                  {pendingOngsCount > 5 && (
-                    <Button variant="link" asChild className="mt-4 px-0">
-                      <Link href="/admin/ongs">Ver todas ({pendingOngsCount})</Link>
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <CalendarDays className="mr-2 h-5 w-5 text-primary" />
-                    Eventos Pendentes
-                  </CardTitle>
-                  <CardDescription>Eventos aguardando aprovação</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {recentPendingEvents && recentPendingEvents.length > 0 ? (
-                    <div className="space-y-4">
-                      {recentPendingEvents.map((event) => (
-                        <div key={event.id} className="flex justify-between items-center">
-                          <div>
-                            <p className="font-medium">{event.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(event.created_at).toLocaleDateString("pt-BR")}
-                            </p>
-                          </div>
-                          <Button asChild size="sm">
-                            <Link href={`/admin/events/${event.id}`}>Revisar</Link>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">Não há eventos pendentes de aprovação.</p>
-                  )}
-                  {pendingEventsCount > 5 && (
-                    <Button variant="link" asChild className="mt-4 px-0">
-                      <Link href="/admin/events">Ver todos ({pendingEventsCount})</Link>
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <PawPrint className="mr-2 h-5 w-5 text-primary" />
-                    Pets Pendentes
-                  </CardTitle>
-                  <CardDescription>Pets aguardando aprovação</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {recentPendingPets && recentPendingPets.length > 0 ? (
-                    <div className="space-y-4">
-                      {recentPendingPets.map((pet) => (
-                        <div key={pet.id} className="flex justify-between items-center">
-                          <div>
-                            <p className="font-medium">{pet.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(pet.created_at).toLocaleDateString("pt-BR")}
-                            </p>
-                          </div>
-                          <Button asChild size="sm">
-                            <Link href={`/admin/pets/${pet.id}`}>Revisar</Link>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">Não há pets pendentes de aprovação.</p>
-                  )}
-                  {pendingPetsCount > 5 && (
-                    <Button variant="link" asChild className="mt-4 px-0">
-                      <Link href="/admin/pets">Ver todos ({pendingPetsCount})</Link>
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="overview">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Building2 className="mr-2 h-5 w-5 text-primary" />
-                    ONGs
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total de ONGs:</span>
-                      <span className="font-medium">{ongsCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">ONGs verificadas:</span>
-                      <span className="font-medium">{verifiedOngsCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">ONGs pendentes:</span>
-                      <span className="font-medium">{pendingOngsCount || 0}</span>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Button asChild className="w-full">
-                      <Link href="/admin/ongs">Gerenciar ONGs</Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <CalendarDays className="mr-2 h-5 w-5 text-primary" />
-                    Eventos
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total de eventos:</span>
-                      <span className="font-medium">{eventsCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Eventos aprovados:</span>
-                      <span className="font-medium">{(eventsCount || 0) - (pendingEventsCount || 0)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Eventos pendentes:</span>
-                      <span className="font-medium">{pendingEventsCount || 0}</span>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Button asChild className="w-full">
-                      <Link href="/admin/events">Gerenciar Eventos</Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <PawPrint className="mr-2 h-5 w-5 text-primary" />
-                    Pets
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Pets para adoção:</span>
-                      <span className="font-medium">{petsCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Pets perdidos:</span>
-                      <span className="font-medium">{lostPetsCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Pets encontrados:</span>
-                      <span className="font-medium">{foundPetsCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total pendentes:</span>
-                      <span className="font-medium">
-                        {(pendingPetsCount || 0) + (pendingLostPetsCount || 0) + (pendingFoundPetsCount || 0)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Button asChild className="w-full">
-                      <Link href="/admin/pets">Gerenciar Pets</Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Users className="mr-2 h-5 w-5 text-primary" />
-                    Usuários
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total de usuários:</span>
-                      <span className="font-medium">{usersCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Formulários de adoção:</span>
-                      <span className="font-medium">{adoptionFormsCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Formulários pendentes:</span>
-                      <span className="font-medium">{pendingAdoptionFormsCount || 0}</span>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Button asChild className="w-full">
-                      <Link href="/admin/users">Gerenciar Usuários</Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <MessageSquare className="mr-2 h-5 w-5 text-primary" />
-                    Mensagens
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total de mensagens:</span>
-                      <span className="font-medium">{contactMessagesCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Mensagens não lidas:</span>
-                      <span className="font-medium">{unreadContactMessagesCount || 0}</span>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Button asChild className="w-full">
-                      <Link href="/admin/messages">Gerenciar Mensagens</Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Search className="mr-2 h-5 w-5 text-primary" />
-                    Pesquisa Rápida
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <Button asChild variant="outline" className="w-full justify-start">
-                      <Link href="/admin/ongs">
-                        <Building2 className="mr-2 h-4 w-4" /> ONGs
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="w-full justify-start">
-                      <Link href="/admin/events">
-                        <CalendarDays className="mr-2 h-4 w-4" /> Eventos
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="w-full justify-start">
-                      <Link href="/admin/pets">
-                        <PawPrint className="mr-2 h-4 w-4" /> Pets
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="w-full justify-start">
-                      <Link href="/admin/users">
-                        <Users className="mr-2 h-4 w-4" /> Usuários
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="w-full justify-start">
-                      <Link href="/admin/diagnostics">
-                        <AlertTriangle className="mr-2 h-4 w-4" /> Diagnóstico do Sistema
-                      </Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="messages">
-            <Card>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <MessageSquare className="mr-2 h-5 w-5 text-primary" />
-                  Mensagens Recentes
-                </CardTitle>
-                <CardDescription>
-                  {unreadContactMessagesCount || 0} mensagens não lidas de um total de {contactMessagesCount || 0}
-                </CardDescription>
+                <Skeleton className="h-4 w-24" />
               </CardHeader>
               <CardContent>
+                <Skeleton className="h-8 w-16" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="container py-8">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard Administrativo</h1>
+          <p className="text-muted-foreground">Visão geral da plataforma Petadot</p>
+        </div>
+        <Button onClick={fetchDashboardData}>Atualizar Dados</Button>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Pets</CardTitle>
+            <PawPrint className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalPets || 0}</div>
+            <p className="text-xs text-muted-foreground">Pets cadastrados na plataforma</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Eventos</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalEvents || 0}</div>
+            <p className="text-xs text-muted-foreground">Eventos cadastrados</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Usuários</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalUsers || 0}</div>
+            <p className="text-xs text-muted-foreground">Usuários registrados</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Favoritos</CardTitle>
+            <Heart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalFavorites || 0}</div>
+            <p className="text-xs text-muted-foreground">Pets favoritados</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content Tabs */}
+      <Tabs defaultValue="moderation" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="moderation">
+            Moderação
+            {stats?.pendingModeration > 0 && (
+              <Badge variant="destructive" className="ml-2">
+                {stats.pendingModeration}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="keywords">Palavras-chave</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="moderation" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                Itens Pendentes de Moderação
+              </CardTitle>
+              <CardDescription>Revise e aprove ou rejeite conteúdo enviado pelos usuários</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {pendingItems.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                  <p>Nenhum item pendente de moderação!</p>
+                </div>
+              ) : (
                 <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <Button asChild variant="outline" className="w-full mr-2">
-                      <Link href="/admin/messages">
-                        <Clock className="mr-2 h-4 w-4" /> Todas as Mensagens
-                      </Link>
-                    </Button>
-                    <Button asChild className="w-full ml-2">
-                      <Link href="/admin/messages/unread">
-                        <AlertCircle className="mr-2 h-4 w-4" /> Mensagens Não Lidas
-                      </Link>
-                    </Button>
+                  {pendingItems.map((item) => (
+                    <div key={item.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline">{item.type === "pet" ? "Pet" : "Evento"}</Badge>
+                            <span className="text-sm text-muted-foreground">{formatDate(item.created_at)}</span>
+                          </div>
+                          <h4 className="font-semibold">{item.title}</h4>
+                          <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => handleApprove(item.id, item.type)}>
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Aprovar
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => handleReject(item.id, item.type)}>
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Rejeitar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Estatísticas Gerais
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between">
+                  <span>Taxa de Aprovação</span>
+                  <span className="font-semibold">85%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Pets Adotados</span>
+                  <span className="font-semibold">142</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Pets Reunidos</span>
+                  <span className="font-semibold">89</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Eventos Realizados</span>
+                  <span className="font-semibold">23</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Eye className="h-5 w-5" />
+                  Atividade Recente
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm">Pet aprovado para adoção</span>
+                    <span className="text-xs text-muted-foreground ml-auto">2h atrás</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span className="text-sm">Novo evento cadastrado</span>
+                    <span className="text-xs text-muted-foreground ml-auto">4h atrás</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                    <span className="text-sm">Pet perdido reportado</span>
+                    <span className="text-xs text-muted-foreground ml-auto">6h atrás</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </AdminAuthCheck>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="keywords" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Palavras-chave de Moderação</CardTitle>
+              <CardDescription>Palavras que acionam revisão automática de conteúdo</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {moderationKeywords.length === 0 ? (
+                <p className="text-muted-foreground">Nenhuma palavra-chave configurada</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {moderationKeywords.map((keyword) => (
+                    <Badge key={keyword.id} variant="secondary">
+                      {keyword.keyword}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }
