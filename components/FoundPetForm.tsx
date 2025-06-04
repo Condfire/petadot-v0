@@ -253,10 +253,17 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
 
       if (isEditing && petData.id) {
         // Atualizar pet existente
-        response = await supabase.from("pets_found").update(processedData).eq("id", petData.id)
+        response = await supabase.from("pets").update(processedData).eq("id", petData.id)
       } else {
-        // Criar novo pet
-        response = await supabase.from("pets_found").insert([processedData])
+        // Criar novo pet - usar tabela pets com category "found"
+        const newPetData = {
+          ...processedData,
+          category: "found", // Adicionar categoria
+          main_image_url: processedData.image_url, // Usar main_image_url
+        }
+        delete newPetData.image_url // Remover image_url duplicado
+
+        response = await supabase.from("pets").insert([newPetData])
       }
 
       if (response.error) {
