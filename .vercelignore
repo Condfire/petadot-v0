@@ -1,0 +1,10 @@
+# Ignorar arquivos que podem causar problemas durante o build
+.git
+.github
+.vscode
+node_modules
+bun.lockb
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

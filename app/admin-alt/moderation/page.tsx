@@ -1,0 +1,528 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { AlertCircle, Loader2 } from "lucide-react"
+import Image from "next/image"
+import { ModerationActions } from "@/components/moderation-actions"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import AdminAltAuthCheck from "@/components/admin-alt-auth-check"
+
+// Tipos
+type Pet = {
+  id: string
+  name: string
+  species: string
+  breed: string | null
+  image_url: string | null
+  description: string | null
+  created_at: string
+  user_id: string
+  status: string
+  // Campos específicos para pets de adoção
+  age?: string
+  size?: string
+  is_castrated?: boolean
+  is_vaccinated?: boolean
+  // Campos específicos para pets perdidos
+  last_seen_location?: string
+  last_seen_date?: string
+  contact?: string
+  // Campos específicos para pets encontrados
+  found_location?: string
+  found_date?: string
+  contact?: string
+  category: string
+}
+
+type Event = {
+  id: string
+  name: string
+  description: string
+  date: string
+  location: string
+  image_url: string | null
+  created_at: string
+  user_id: string
+  status: string
+  users?: {
+    name: string
+  }
+}
+
+type PendingItems = {
+  pets: Pet[]
+  lostPets: Pet[]
+  foundPets: Pet[]
+  events: Event[]
+}
+
+export default function AdminModerationPage() {
+  const [isLoading, setIsLoading] = useState(true)
+  const [pendingItems, setPendingItems] = useState<PendingItems>({
+    pets: [],
+    lostPets: [],
+    foundPets: [],
+    events: [],
+  })
+  const supabase = createClientComponentClient()
+
+  useEffect(() => {
+    fetchPendingItems()
+  }, [])
+
+  async function fetchPendingItems() {
+    try {
+      console.log("Buscando itens pendentes...")
+
+      // Buscar pets para adoção pendentes
+      const { data: pets, error: petsError } = await supabase
+        .from("pets")
+        .select("*")
+        .eq("status", "pending")
+        .eq("category", "adoption")
+        .order("created_at", { ascending: false })
+
+      if (petsError) {
+        console.error("Erro ao buscar pets para adoção:", petsError.message)
+        throw new Error("Erro ao buscar pets para adoção: " + petsError.message)
+      }
+
+      // Buscar pets perdidos pendentes
+      const { data: lostPets, error: lostPetsError } = await supabase
+        .from("pets")
+        .select("*")
+        .eq("status", "pending")
+        .eq("category", "lost")
+        .order("created_at", { ascending: false })
+
+      if (lostPetsError) {
+        console.error("Erro ao buscar pets perdidos:", lostPetsError.message)
+        throw new Error("Erro ao buscar pets perdidos: " + lostPetsError.message)
+      }
+
+      // Buscar pets encontrados pendentes
+      const { data: foundPets, error: foundPetsError } = await supabase
+        .from("pets")
+        .select("*")
+        .eq("status", "pending")
+        .eq("category", "found")
+        .order("created_at", { ascending: false })
+
+      if (foundPetsError) {
+        console.error("Erro ao buscar pets encontrados:", foundPetsError.message)
+        throw new Error("Erro ao buscar pets encontrados: " + foundPetsError.message)
+      }
+
+      // Buscar eventos pendentes
+      const { data: events, error: eventsError } = await supabase
+        .from("events")
+        .select("*, users!events_user_id_fkey(name)")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+
+      if (eventsError) {
+        console.error("Erro ao buscar eventos:", eventsError.message)
+        throw new Error("Erro ao buscar eventos: " + eventsError.message)
+      }
+
+      setPendingItems({
+        pets: pets || [],
+        lostPets: lostPets || [],
+        foundPets: foundPets || [],
+        events: events || [],
+      })
+
+      setIsLoading(false)
+      console.log("Itens pendentes carregados com sucesso")
+    } catch (err) {
+      console.error("Erro ao buscar itens pendentes:", err)
+      setIsLoading(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container py-10 flex flex-col items-center justify-center min-h-[50vh]">
+        <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+        <p className="text-lg">Carregando itens pendentes...</p>
+      </div>
+    )
+  }
+
+  return (
+    <AdminAltAuthCheck>
+      <div className="container py-10">
+        <h1 className="text-3xl font-bold mb-6">Moderação de Conteúdo</h1>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Pendente</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {pendingItems.pets.length +
+                  pendingItems.lostPets.length +
+                  pendingItems.foundPets.length +
+                  pendingItems.events.length}
+              </div>
+              <p className="text-xs text-muted-foreground">Itens aguardando aprovação</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Pets para Adoção</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{pendingItems.pets.length}</div>
+              <p className="text-xs text-muted-foreground">Aguardando aprovação</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Pets Perdidos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{pendingItems.lostPets.length}</div>
+              <p className="text-xs text-muted-foreground">Aguardando aprovação</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Pets Encontrados</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{pendingItems.foundPets.length}</div>
+              <p className="text-xs text-muted-foreground">Aguardando aprovação</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Tabs defaultValue="lost" className="w-full">
+          <TabsList className="grid grid-cols-4 mb-8">
+            <TabsTrigger value="lost">Pets Perdidos ({pendingItems.lostPets.length})</TabsTrigger>
+            <TabsTrigger value="found">Pets Encontrados ({pendingItems.foundPets.length})</TabsTrigger>
+            <TabsTrigger value="adoption">Adoção ({pendingItems.pets.length})</TabsTrigger>
+            <TabsTrigger value="events">Eventos ({pendingItems.events.length})</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="lost">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pets Perdidos Pendentes</CardTitle>
+                <CardDescription>Aprove ou rejeite os pets perdidos cadastrados pelos usuários.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {pendingItems.lostPets.length > 0 ? (
+                  <div className="space-y-6">
+                    {pendingItems.lostPets.map((pet) => (
+                      <div key={pet.id} className="flex flex-col md:flex-row gap-4 p-4 border rounded-lg">
+                        <div className="w-full md:w-1/4 aspect-square relative rounded-md overflow-hidden">
+                          <Image
+                            src={pet.image_url || "/placeholder.svg?height=200&width=200&query=pet"}
+                            alt={pet.name || "Pet perdido"}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-semibold text-lg">{pet.name || "Pet sem nome"}</h3>
+                              <Badge variant="outline" className="mt-1">
+                                Perdido
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {new Date(pet.created_at).toLocaleDateString("pt-BR")}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
+                            <div>
+                              <p className="text-sm font-medium">Espécie:</p>
+                              <p className="text-sm">{pet.species}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Raça:</p>
+                              <p className="text-sm">{pet.breed || "Não informada"}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Último local visto:</p>
+                              <p className="text-sm">{pet.last_seen_location}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Data:</p>
+                              <p className="text-sm">
+                                {new Date(pet.last_seen_date || "").toLocaleDateString("pt-BR")}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Contato:</p>
+                              <p className="text-sm">{pet.contact}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4">
+                            <p className="text-sm font-medium">Descrição:</p>
+                            <p className="text-sm">{pet.description || "Sem descrição"}</p>
+                          </div>
+
+                          <div className="flex justify-end gap-2 mt-4">
+                            <ModerationActions id={pet.id} type="lost" onModerated={fetchPendingItems} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-10">
+                    <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">Nenhum pet perdido pendente</h3>
+                    <p className="text-muted-foreground">Não há pets perdidos aguardando aprovação no momento.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="found">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pets Encontrados Pendentes</CardTitle>
+                <CardDescription>Aprove ou rejeite os pets encontrados cadastrados pelos usuários.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {pendingItems.foundPets.length > 0 ? (
+                  <div className="space-y-6">
+                    {pendingItems.foundPets.map((pet) => (
+                      <div key={pet.id} className="flex flex-col md:flex-row gap-4 p-4 border rounded-lg">
+                        <div className="w-full md:w-1/4 aspect-square relative rounded-md overflow-hidden">
+                          <Image
+                            src={pet.image_url || "/placeholder.svg?height=200&width=200&query=pet"}
+                            alt={pet.name || "Pet encontrado"}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-semibold text-lg">{pet.name || "Pet sem nome"}</h3>
+                              <Badge variant="outline" className="mt-1">
+                                Encontrado
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {new Date(pet.created_at).toLocaleDateString("pt-BR")}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
+                            <div>
+                              <p className="text-sm font-medium">Espécie:</p>
+                              <p className="text-sm">{pet.species}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Raça:</p>
+                              <p className="text-sm">{pet.breed || "Não informada"}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Local encontrado:</p>
+                              <p className="text-sm">{pet.found_location}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Data:</p>
+                              <p className="text-sm">{new Date(pet.found_date || "").toLocaleDateString("pt-BR")}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Contato:</p>
+                              <p className="text-sm">{pet.contact}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4">
+                            <p className="text-sm font-medium">Descrição:</p>
+                            <p className="text-sm">{pet.description || "Sem descrição"}</p>
+                          </div>
+
+                          <div className="flex justify-end gap-2 mt-4">
+                            <ModerationActions id={pet.id} type="found" onModerated={fetchPendingItems} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-10">
+                    <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">Nenhum pet encontrado pendente</h3>
+                    <p className="text-muted-foreground">Não há pets encontrados aguardando aprovação no momento.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="adoption">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pets para Adoção Pendentes</CardTitle>
+                <CardDescription>Aprove ou rejeite os pets para adoção cadastrados pelos usuários.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {pendingItems.pets.length > 0 ? (
+                  <div className="space-y-6">
+                    {pendingItems.pets.map((pet) => (
+                      <div key={pet.id} className="flex flex-col md:flex-row gap-4 p-4 border rounded-lg">
+                        <div className="w-full md:w-1/4 aspect-square relative rounded-md overflow-hidden">
+                          <Image
+                            src={pet.image_url || "/placeholder.svg?height=200&width=200&query=pet"}
+                            alt={pet.name}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-semibold text-lg">{pet.name}</h3>
+                              <Badge variant="outline" className="mt-1">
+                                Adoção
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {new Date(pet.created_at).toLocaleDateString("pt-BR")}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
+                            <div>
+                              <p className="text-sm font-medium">Espécie:</p>
+                              <p className="text-sm">{pet.species}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Raça:</p>
+                              <p className="text-sm">{pet.breed || "Não informada"}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Idade:</p>
+                              <p className="text-sm">{pet.age}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Porte:</p>
+                              <p className="text-sm">{pet.size}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Castrado:</p>
+                              <p className="text-sm">{pet.is_castrated ? "Sim" : "Não"}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Vacinado:</p>
+                              <p className="text-sm">{pet.is_vaccinated ? "Sim" : "Não"}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4">
+                            <p className="text-sm font-medium">Descrição:</p>
+                            <p className="text-sm">{pet.description}</p>
+                          </div>
+
+                          <div className="flex justify-end gap-2 mt-4">
+                            <ModerationActions id={pet.id} type="adoption" onModerated={fetchPendingItems} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-10">
+                    <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">Nenhum pet para adoção pendente</h3>
+                    <p className="text-muted-foreground">Não há pets para adoção aguardando aprovação no momento.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="events">
+            <Card>
+              <CardHeader>
+                <CardTitle>Eventos Pendentes</CardTitle>
+                <CardDescription>Aprove ou rejeite os eventos cadastrados pelos usuários.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {pendingItems.events.length > 0 ? (
+                  <div className="space-y-6">
+                    {pendingItems.events.map((event) => (
+                      <div key={event.id} className="flex flex-col md:flex-row gap-4 p-4 border rounded-lg">
+                        <div className="w-full md:w-1/4 aspect-square relative rounded-md overflow-hidden">
+                          <Image
+                            src={event.image_url || "/placeholder.svg?height=200&width=200&query=event"}
+                            alt={event.name}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-semibold text-lg">{event.name}</h3>
+                              <Badge variant="outline" className="mt-1">
+                                Evento
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {new Date(event.created_at).toLocaleDateString("pt-BR")}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
+                            <div>
+                              <p className="text-sm font-medium">Data:</p>
+                              <p className="text-sm">{new Date(event.date).toLocaleDateString("pt-BR")}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Local:</p>
+                              <p className="text-sm">{event.location}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">ONG:</p>
+                              <p className="text-sm">{event.users?.name || "Não informada"}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4">
+                            <p className="text-sm font-medium">Descrição:</p>
+                            <p className="text-sm">{event.description}</p>
+                          </div>
+
+                          <div className="flex justify-end gap-2 mt-4">
+                            <ModerationActions id={event.id} type="event" onModerated={fetchPendingItems} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-10">
+                    <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">Nenhum evento pendente</h3>
+                    <p className="text-muted-foreground">Não há eventos aguardando aprovação no momento.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </AdminAltAuthCheck>
+  )
+}

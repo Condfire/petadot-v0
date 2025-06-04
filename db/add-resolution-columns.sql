@@ -1,0 +1,14 @@
+-- Adicionar coluna para pets perdidos
+ALTER TABLE pets_lost ADD COLUMN IF NOT EXISTS resolved BOOLEAN DEFAULT FALSE;
+ALTER TABLE pets_lost ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE pets_lost ADD COLUMN IF NOT EXISTS resolution_notes TEXT;
+
+-- Adicionar coluna para pets encontrados
+ALTER TABLE pets_found ADD COLUMN IF NOT EXISTS reunited BOOLEAN DEFAULT FALSE;
+ALTER TABLE pets_found ADD COLUMN IF NOT EXISTS reunited_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE pets_found ADD COLUMN IF NOT EXISTS reunion_notes TEXT;
+
+-- Adicionar coluna para pets para adoção
+ALTER TABLE pets ADD COLUMN IF NOT EXISTS adopted BOOLEAN DEFAULT FALSE;
+ALTER TABLE pets ADD COLUMN IF NOT EXISTS adopted_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE pets ADD COLUMN IF NOT EXISTS adoption_notes TEXT;
