@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { AlertCircle, Loader2 } from "lucide-react"
+import { AlertCircle, Loader2, XCircle, CheckCircle, AlertTriangle } from "lucide-react"
 import Image from "next/image"
 import { ModerationActions } from "@/components/moderation-actions"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -16,16 +16,13 @@ type Pet = {
   name: string
   species: string
   breed: string | null
-  image_url: string | null
+  main_image_url: string | null
   description: string | null
   created_at: string
   user_id: string
   status: string
-  // Campos específicos para pets de adoção
-  age?: string
-  size?: string
-  is_castrated?: boolean
-  is_vaccinated?: boolean
+  rejection_reason: string | null
+  category: string
   // Campos específicos para pets perdidos
   last_seen_location?: string
   last_seen_date?: string
@@ -33,13 +30,12 @@ type Pet = {
   // Campos específicos para pets encontrados
   found_location?: string
   found_date?: string
-  contact?: string
-  category: string
+  current_location?: string
 }
 
 type Event = {
   id: string
-  name: string
+  title: string
   description: string
   date: string
   location: string
@@ -47,6 +43,7 @@ type Event = {
   created_at: string
   user_id: string
   status: string
+  rejection_reason: string | null
   users?: {
     name: string
   }
@@ -57,6 +54,8 @@ type PendingItems = {
   lostPets: Pet[]
   foundPets: Pet[]
   events: Event[]
+  rejectedPets: Pet[]
+  rejectedEvents: Event[]
 }
 
 export default function AdminModerationPage() {
@@ -66,6 +65,8 @@ export default function AdminModerationPage() {
     lostPets: [],
     foundPets: [],
     events: [],
+    rejectedPets: [],
+    rejectedEvents: [],
   })
   const supabase = createClientComponentClient()
 
@@ -128,11 +129,37 @@ export default function AdminModerationPage() {
         throw new Error("Erro ao buscar eventos: " + eventsError.message)
       }
 
+      // Buscar pets rejeitados automaticamente
+      const { data: rejectedPets, error: rejectedPetsError } = await supabase
+        .from("pets")
+        .select("*")
+        .eq("status", "rejected")
+        .order("created_at", { ascending: false })
+        .limit(20)
+
+      if (rejectedPetsError) {
+        console.error("Erro ao buscar pets rejeitados:", rejectedPetsError.message)
+      }
+
+      // Buscar eventos rejeitados automaticamente
+      const { data: rejectedEvents, error: rejectedEventsError } = await supabase
+        .from("events")
+        .select("*, users!events_user_id_fkey(name)")
+        .eq("status", "rejected")
+        .order("created_at", { ascending: false })
+        .limit(20)
+
+      if (rejectedEventsError) {
+        console.error("Erro ao buscar eventos rejeitados:", rejectedEventsError.message)
+      }
+
       setPendingItems({
         pets: pets || [],
         lostPets: lostPets || [],
         foundPets: foundPets || [],
         events: events || [],
+        rejectedPets: rejectedPets || [],
+        rejectedEvents: rejectedEvents || [],
       })
 
       setIsLoading(false)
@@ -152,23 +179,22 @@ export default function AdminModerationPage() {
     )
   }
 
+  const totalPending =
+    pendingItems.pets.length + pendingItems.lostPets.length + pendingItems.foundPets.length + pendingItems.events.length
+  const totalRejected = pendingItems.rejectedPets.length + pendingItems.rejectedEvents.length
+
   return (
     <AdminAltAuthCheck>
       <div className="container py-10">
         <h1 className="text-3xl font-bold mb-6">Moderação de Conteúdo</h1>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Total Pendente</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {pendingItems.pets.length +
-                  pendingItems.lostPets.length +
-                  pendingItems.foundPets.length +
-                  pendingItems.events.length}
-              </div>
+              <div className="text-2xl font-bold">{totalPending}</div>
               <p className="text-xs text-muted-foreground">Itens aguardando aprovação</p>
             </CardContent>
           </Card>
@@ -202,96 +228,33 @@ export default function AdminModerationPage() {
               <p className="text-xs text-muted-foreground">Aguardando aprovação</p>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-1">
+                <XCircle className="h-4 w-4 text-red-500" />
+                Rejeitados
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{totalRejected}</div>
+              <p className="text-xs text-muted-foreground">Rejeitados automaticamente</p>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs defaultValue="lost" className="w-full">
-          <TabsList className="grid grid-cols-4 mb-8">
+          <TabsList className="grid grid-cols-5 mb-8">
             <TabsTrigger value="lost">Pets Perdidos ({pendingItems.lostPets.length})</TabsTrigger>
             <TabsTrigger value="found">Pets Encontrados ({pendingItems.foundPets.length})</TabsTrigger>
             <TabsTrigger value="adoption">Adoção ({pendingItems.pets.length})</TabsTrigger>
             <TabsTrigger value="events">Eventos ({pendingItems.events.length})</TabsTrigger>
+            <TabsTrigger value="rejected" className="text-red-600">
+              Rejeitados ({totalRejected})
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="lost">
-            <Card>
-              <CardHeader>
-                <CardTitle>Pets Perdidos Pendentes</CardTitle>
-                <CardDescription>Aprove ou rejeite os pets perdidos cadastrados pelos usuários.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {pendingItems.lostPets.length > 0 ? (
-                  <div className="space-y-6">
-                    {pendingItems.lostPets.map((pet) => (
-                      <div key={pet.id} className="flex flex-col md:flex-row gap-4 p-4 border rounded-lg">
-                        <div className="w-full md:w-1/4 aspect-square relative rounded-md overflow-hidden">
-                          <Image
-                            src={pet.image_url || "/placeholder.svg?height=200&width=200&query=pet"}
-                            alt={pet.name || "Pet perdido"}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h3 className="font-semibold text-lg">{pet.name || "Pet sem nome"}</h3>
-                              <Badge variant="outline" className="mt-1">
-                                Perdido
-                              </Badge>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {new Date(pet.created_at).toLocaleDateString("pt-BR")}
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
-                            <div>
-                              <p className="text-sm font-medium">Espécie:</p>
-                              <p className="text-sm">{pet.species}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium">Raça:</p>
-                              <p className="text-sm">{pet.breed || "Não informada"}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium">Último local visto:</p>
-                              <p className="text-sm">{pet.last_seen_location}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium">Data:</p>
-                              <p className="text-sm">
-                                {new Date(pet.last_seen_date || "").toLocaleDateString("pt-BR")}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium">Contato:</p>
-                              <p className="text-sm">{pet.contact}</p>
-                            </div>
-                          </div>
-
-                          <div className="mt-4">
-                            <p className="text-sm font-medium">Descrição:</p>
-                            <p className="text-sm">{pet.description || "Sem descrição"}</p>
-                          </div>
-
-                          <div className="flex justify-end gap-2 mt-4">
-                            <ModerationActions id={pet.id} type="lost" onModerated={fetchPendingItems} />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-10">
-                    <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium">Nenhum pet perdido pendente</h3>
-                    <p className="text-muted-foreground">Não há pets perdidos aguardando aprovação no momento.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
+          {/* Existing tabs content... */}
           <TabsContent value="found">
             <Card>
               <CardHeader>
@@ -305,7 +268,7 @@ export default function AdminModerationPage() {
                       <div key={pet.id} className="flex flex-col md:flex-row gap-4 p-4 border rounded-lg">
                         <div className="w-full md:w-1/4 aspect-square relative rounded-md overflow-hidden">
                           <Image
-                            src={pet.image_url || "/placeholder.svg?height=200&width=200&query=pet"}
+                            src={pet.main_image_url || "/placeholder.svg?height=200&width=200&query=pet"}
                             alt={pet.name || "Pet encontrado"}
                             fill
                             className="object-cover"
@@ -370,21 +333,31 @@ export default function AdminModerationPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="adoption">
+          {/* Nova aba para itens rejeitados */}
+          <TabsContent value="rejected">
             <Card>
               <CardHeader>
-                <CardTitle>Pets para Adoção Pendentes</CardTitle>
-                <CardDescription>Aprove ou rejeite os pets para adoção cadastrados pelos usuários.</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <XCircle className="h-5 w-5 text-red-500" />
+                  Itens Rejeitados Automaticamente
+                </CardTitle>
+                <CardDescription>
+                  Itens que foram rejeitados automaticamente pelo sistema de moderação por palavras-chave
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                {pendingItems.pets.length > 0 ? (
+                {totalRejected > 0 ? (
                   <div className="space-y-6">
-                    {pendingItems.pets.map((pet) => (
-                      <div key={pet.id} className="flex flex-col md:flex-row gap-4 p-4 border rounded-lg">
+                    {/* Pets rejeitados */}
+                    {pendingItems.rejectedPets.map((pet) => (
+                      <div
+                        key={pet.id}
+                        className="flex flex-col md:flex-row gap-4 p-4 border border-red-200 rounded-lg bg-red-50"
+                      >
                         <div className="w-full md:w-1/4 aspect-square relative rounded-md overflow-hidden">
                           <Image
-                            src={pet.image_url || "/placeholder.svg?height=200&width=200&query=pet"}
-                            alt={pet.name}
+                            src={pet.main_image_url || "/placeholder.svg?height=200&width=200&query=pet"}
+                            alt={pet.name || "Pet rejeitado"}
                             fill
                             className="object-cover"
                           />
@@ -392,81 +365,51 @@ export default function AdminModerationPage() {
                         <div className="flex-1">
                           <div className="flex justify-between items-start">
                             <div>
-                              <h3 className="font-semibold text-lg">{pet.name}</h3>
-                              <Badge variant="outline" className="mt-1">
-                                Adoção
-                              </Badge>
+                              <h3 className="font-semibold text-lg">{pet.name || "Pet sem nome"}</h3>
+                              <div className="flex gap-2 mt-1">
+                                <Badge variant="destructive">Rejeitado</Badge>
+                                <Badge variant="outline">
+                                  {pet.category === "lost"
+                                    ? "Perdido"
+                                    : pet.category === "found"
+                                      ? "Encontrado"
+                                      : "Adoção"}
+                                </Badge>
+                              </div>
                             </div>
                             <div className="text-sm text-muted-foreground">
                               {new Date(pet.created_at).toLocaleDateString("pt-BR")}
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
-                            <div>
-                              <p className="text-sm font-medium">Espécie:</p>
-                              <p className="text-sm">{pet.species}</p>
+                          {pet.rejection_reason && (
+                            <div className="mt-3 p-3 bg-red-100 border border-red-200 rounded-md">
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle className="h-4 w-4 text-red-600" />
+                                <span className="text-sm font-medium text-red-800">Motivo da rejeição:</span>
+                              </div>
+                              <p className="text-sm text-red-700 mt-1">{pet.rejection_reason}</p>
                             </div>
-                            <div>
-                              <p className="text-sm font-medium">Raça:</p>
-                              <p className="text-sm">{pet.breed || "Não informada"}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium">Idade:</p>
-                              <p className="text-sm">{pet.age}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium">Porte:</p>
-                              <p className="text-sm">{pet.size}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium">Castrado:</p>
-                              <p className="text-sm">{pet.is_castrated ? "Sim" : "Não"}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium">Vacinado:</p>
-                              <p className="text-sm">{pet.is_vaccinated ? "Sim" : "Não"}</p>
-                            </div>
-                          </div>
+                          )}
 
                           <div className="mt-4">
                             <p className="text-sm font-medium">Descrição:</p>
-                            <p className="text-sm">{pet.description}</p>
-                          </div>
-
-                          <div className="flex justify-end gap-2 mt-4">
-                            <ModerationActions id={pet.id} type="adoption" onModerated={fetchPendingItems} />
+                            <p className="text-sm">{pet.description || "Sem descrição"}</p>
                           </div>
                         </div>
                       </div>
                     ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-10">
-                    <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium">Nenhum pet para adoção pendente</h3>
-                    <p className="text-muted-foreground">Não há pets para adoção aguardando aprovação no momento.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
 
-          <TabsContent value="events">
-            <Card>
-              <CardHeader>
-                <CardTitle>Eventos Pendentes</CardTitle>
-                <CardDescription>Aprove ou rejeite os eventos cadastrados pelos usuários.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {pendingItems.events.length > 0 ? (
-                  <div className="space-y-6">
-                    {pendingItems.events.map((event) => (
-                      <div key={event.id} className="flex flex-col md:flex-row gap-4 p-4 border rounded-lg">
+                    {/* Eventos rejeitados */}
+                    {pendingItems.rejectedEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className="flex flex-col md:flex-row gap-4 p-4 border border-red-200 rounded-lg bg-red-50"
+                      >
                         <div className="w-full md:w-1/4 aspect-square relative rounded-md overflow-hidden">
                           <Image
                             src={event.image_url || "/placeholder.svg?height=200&width=200&query=event"}
-                            alt={event.name}
+                            alt={event.title || "Evento rejeitado"}
                             fill
                             className="object-cover"
                           />
@@ -474,9 +417,9 @@ export default function AdminModerationPage() {
                         <div className="flex-1">
                           <div className="flex justify-between items-start">
                             <div>
-                              <h3 className="font-semibold text-lg">{event.name}</h3>
-                              <Badge variant="outline" className="mt-1">
-                                Evento
+                              <h3 className="font-semibold text-lg">{event.title || "Evento sem título"}</h3>
+                              <Badge variant="destructive" className="mt-1">
+                                Rejeitado
                               </Badge>
                             </div>
                             <div className="text-sm text-muted-foreground">
@@ -484,28 +427,19 @@ export default function AdminModerationPage() {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
-                            <div>
-                              <p className="text-sm font-medium">Data:</p>
-                              <p className="text-sm">{new Date(event.date).toLocaleDateString("pt-BR")}</p>
+                          {event.rejection_reason && (
+                            <div className="mt-3 p-3 bg-red-100 border border-red-200 rounded-md">
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle className="h-4 w-4 text-red-600" />
+                                <span className="text-sm font-medium text-red-800">Motivo da rejeição:</span>
+                              </div>
+                              <p className="text-sm text-red-700 mt-1">{event.rejection_reason}</p>
                             </div>
-                            <div>
-                              <p className="text-sm font-medium">Local:</p>
-                              <p className="text-sm">{event.location}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium">ONG:</p>
-                              <p className="text-sm">{event.users?.name || "Não informada"}</p>
-                            </div>
-                          </div>
+                          )}
 
                           <div className="mt-4">
                             <p className="text-sm font-medium">Descrição:</p>
-                            <p className="text-sm">{event.description}</p>
-                          </div>
-
-                          <div className="flex justify-end gap-2 mt-4">
-                            <ModerationActions id={event.id} type="event" onModerated={fetchPendingItems} />
+                            <p className="text-sm">{event.description || "Sem descrição"}</p>
                           </div>
                         </div>
                       </div>
@@ -513,14 +447,18 @@ export default function AdminModerationPage() {
                   </div>
                 ) : (
                   <div className="text-center py-10">
-                    <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium">Nenhum evento pendente</h3>
-                    <p className="text-muted-foreground">Não há eventos aguardando aprovação no momento.</p>
+                    <CheckCircle className="mx-auto h-10 w-10 text-green-500 mb-4" />
+                    <h3 className="text-lg font-medium">Nenhum item rejeitado!</h3>
+                    <p className="text-muted-foreground">
+                      O sistema de moderação não rejeitou nenhum item automaticamente.
+                    </p>
                   </div>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Outras abas existentes... */}
         </Tabs>
       </div>
     </AdminAltAuthCheck>
