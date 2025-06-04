@@ -267,7 +267,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
         setRejectionReason(finalRejectionReason)
       }
 
-      // Preparar dados para inserção
+      // Preparar dados básicos para inserção
       const newPetData = {
         name: petData.name,
         species: petData.species === "other" ? petData.species_other : petData.species,
@@ -289,11 +289,15 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
         is_vaccinated: petData.is_vaccinated,
         is_neutered: petData.is_neutered,
         status: finalStatus,
-        rejection_reason: finalRejectionReason,
         user_id: user.id,
         state: petData.state,
         city: petData.city,
         category: "found",
+      }
+
+      // Adicionar rejection_reason apenas se o pet foi rejeitado
+      if (finalStatus === "rejected" && finalRejectionReason) {
+        newPetData.rejection_reason = finalRejectionReason
       }
 
       const response = await supabase.from("pets").insert([newPetData])
