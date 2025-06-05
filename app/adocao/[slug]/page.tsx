@@ -2,251 +2,143 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PetCharacteristics } from "@/components/pet-characteristics"
-import { PetInfoCard } from "@/components/pet-info-card"
-import { PetImageGallery } from "@/components/pet-image-gallery"
-import { PetResolvedAlert } from "@/components/pet-resolved-alert"
-import { AdoptionInterestModal } from "@/components/adoption-interest-modal"
-import { ShareButton } from "@/components/share-button"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle } from "lucide-react"
-import { formatDate } from "@/lib/utils"
-import { isUuid } from "@/lib/slug-utils"
-import JsonLd from "@/components/json-ld"
-import { generateAdoptionPetSchema } from "@/lib/structured-data"
+import { getPetByIdOrSlug } from "@/lib/supabase" // Using the new unified function
+import { Link } from "@/components/ui/link"
 
 export const dynamic = "force-dynamic"
 
 // Lista de slugs reservados que não devem ser tratados como slugs de pet
 const RESERVED_SLUGS = ["cadastrar", "editar", "excluir", "novo"]
 
-interface PetAdoptionDetailPageProps {
-  params: {
-    slug: string
-  }
+// Define a more specific Pet type if available
+type PetPageProps = {
+  params: { slug: string }
 }
 
-export async function generateMetadata({ params }: PetAdoptionDetailPageProps): Promise<Metadata> {
-  // Verificar se o slug é um slug reservado
-  if (RESERVED_SLUGS.includes(params.slug)) {
+// Define your Pet type, perhaps in lib/types.ts
+interface Pet {
+  id: string
+  name: string
+  status: string
+  description: string
+  // ... other pet fields
+  user_id?: string // ID of the user who listed the pet
+  users?: {
+    // From the join in getPetByIdOrSlug
+    id: string
+    name: string
+    email: string
+    type: string
+    avatar_url?: string
+  } | null
+  // ... include all fields returned by getPetByIdOrSlug
+}
+
+export async function generateMetadata({ params }: PetPageProps): Promise<Metadata> {
+  const pet = (await getPetByIdOrSlug(params.slug, "adoption")) as Pet | null
+
+  if (!pet || (pet.status && pet.status.toLowerCase() !== "approved")) {
     return {
       title: "Pet não encontrado | PetAdot",
-      description: "O pet que você está procurando não foi encontrado.",
+      description: "Este pet não está disponível ou não foi encontrado.",
     }
   }
-
-  try {
-    const supabase = createServerComponentClient({ cookies })
-    const slugOrId = params.slug
-    const isUuidValue = isUuid(slugOrId)
-
-    // Query based on whether it's a UUID or slug
-    const { data: pet, error } = await supabase
-      .from("pets")
-      .select("*")
-      .eq(isUuidValue ? "id" : "slug", slugOrId)
-      .maybeSingle()
-
-    if (error || !pet) {
-      console.error("Erro ao buscar pet para metadata:", error)
-      return {
-        title: "Pet não encontrado | PetAdot",
-        description: "O pet que você está procurando não foi encontrado.",
-      }
-    }
-
-    const location = pet.city && pet.state ? `${pet.city}, ${pet.state}` : null
-
-    return {
-      title: `${pet.name || "Pet para adoção"} | Adoção | PetAdot`,
-      description: pet.description
-        ? `${pet.name} - ${pet.species} para adoção ${location ? `em ${location}` : ""}. ${pet.description.substring(
-            0,
-            150,
-          )}${pet.description.length > 150 ? "..." : ""}`
-        : `${pet.name} - ${pet.species} para adoção ${location ? `em ${location}` : ""}`,
-      openGraph: {
-        title: `${pet.name || "Pet para adoção"} | Adoção | PetAdot`,
-        description: pet.description
-          ? `${pet.name} - ${pet.species} para adoção ${location ? `em ${location}` : ""}. ${pet.description.substring(
-              0,
-              150,
-            )}${pet.description.length > 150 ? "..." : ""}`
-          : `${pet.name} - ${pet.species} para adoção ${location ? `em ${location}` : ""}`,
-        images: [
-          {
-            url: pet.main_image_url || "/placeholder.svg?key=p34o7",
-            width: 1200,
-            height: 630,
-            alt: pet.name || "Pet para adoção",
-          },
-        ],
-        type: "website",
-      },
-    }
-  } catch (error) {
-    console.error("Erro ao gerar metadata:", error)
-    return {
-      title: "Pet para adoção | PetAdot",
-      description: "Encontre o pet ideal para adoção na plataforma PetAdot",
-    }
+  return {
+    title: `${pet.name || "Pet para Adoção"} | PetAdot`,
+    description: `Detalhes sobre ${pet.name || "este pet"}. ${pet.description?.substring(0, 150) || ""}`,
+    openGraph: {
+      title: `${pet.name || "Pet para Adoção"} | PetAdot`,
+      description: pet.description || "Um amigo esperando por um lar.",
+      // images: [{ url: pet.main_image_url || pet.image_url || '/default-pet-image.png' }],
+    },
   }
 }
 
-export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetailPageProps) {
-  try {
-    // Verificar se o slug é um slug reservado
-    if (RESERVED_SLUGS.includes(params.slug)) {
-      // Em vez de redirecionar, mostrar uma página de "não encontrado"
-      notFound()
+export default async function AdocaoDetailPage({ params }: PetPageProps) {
+  const supabaseAuth = createServerComponentClient({ cookies })
+  const {
+    data: { session },
+  } = await supabaseAuth.auth.getSession()
+
+  const pet = (await getPetByIdOrSlug(params.slug, "adoption")) as Pet | null
+
+  if (!pet) {
+    notFound()
+  }
+
+  const petStatus = pet.status ? pet.status.toLowerCase() : ""
+  const isPubliclyViewable = petStatus === "approved"
+
+  let canView = isPubliclyViewable
+
+  // Allow owner or admin to view regardless of public status
+  if (!canView && session?.user) {
+    // Ensure you have a way to identify admins, e.g., a custom claim or a separate table
+    // This is a simplified example for admin check. Adjust to your actual role management.
+    // const { data: userProfile } = await supabaseAuth.from('profiles').select('role').eq('id', session.user.id).single();
+    // const isAdmin = userProfile?.role === 'admin';
+    const isAdmin = session.user.email === process.env.ADMIN_EMAIL // Example: admin identified by specific email
+
+    const isOwner = pet.user_id === session.user.id || (pet.users && pet.users.id === session.user.id)
+
+    if (isAdmin || isOwner) {
+      canView = true
     }
+  }
 
-    const supabase = createServerComponentClient({ cookies })
-    const slugOrId = params.slug
-    const isUuidValue = isUuid(slugOrId)
-
-    // Verificar se o usuário está autenticado
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    const userId = session?.user?.id
-
-    // Get pet details using slug or UUID
-    const { data: pet, error } = await supabase
-      .from("pets")
-      .select("*")
-      .eq(isUuidValue ? "id" : "slug", slugOrId)
-      .maybeSingle()
-
-    if (error) {
-      console.error("Erro ao buscar pet:", error)
-      notFound()
-    }
-
-    if (!pet) {
-      console.error("Pet não encontrado")
-      notFound()
-    }
-
-    // Verificar se o pet está aprovado ou pertence ao usuário atual
-    const isApproved = pet.status === "approved" || pet.status === "aprovado" || pet.status === null
-    const isOwner = userId && pet.user_id === userId
-
-    // Se o pet não estiver aprovado e não pertencer ao usuário atual, retornar 404
-    if (!isApproved && !isOwner) {
-      notFound()
-    }
-
-    // Formatar a data
-    const formattedDate = formatDate(pet.created_at)
-
-    // Preparar as imagens
-    const images = []
-    if (pet.main_image_url) images.push(pet.main_image_url)
-    if (pet.additional_images && Array.isArray(pet.additional_images)) {
-      images.push(...pet.additional_images)
-    }
-
-    // Informações de contato da ONG
-    const location = pet.city && pet.state ? `${pet.city}, ${pet.state}` : null
-
-    // Obter o número de telefone para contato (pode estar em phone ou contact)
-    const contactPhone = pet.contact || null
-
-    // Gerar dados estruturados
-    const structuredData = generateAdoptionPetSchema(pet, {
-      baseUrl: process.env.NEXT_PUBLIC_APP_URL || "https://www.petadot.com.br",
-    })
-
+  if (!canView) {
+    // For non-approved pets and non-privileged users, show a specific message or 404
+    // notFound();
     return (
-      <main className="container mx-auto px-4 py-8">
-        {/* JSON-LD para dados estruturados */}
-        <JsonLd data={structuredData} />
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <div>
-            <PetImageGallery images={images} alt={pet.name || "Pet para adoção"} className="mb-4" />
-
-            <div className="flex flex-wrap gap-2 mb-4">
-              <ShareButton
-                url={`${process.env.NEXT_PUBLIC_APP_URL}/adocao/${pet.slug || pet.id}`}
-                title={`Adote ${pet.name || "este pet"}!`}
-                description={`${pet.name} está disponível para adoção. Conheça mais sobre este pet.`}
-                className="w-full sm:w-auto"
-              />
-
-              <AdoptionInterestModal
-                petId={pet.id}
-                petName={pet.name}
-                ongId={pet.ong_id}
-                contactPhone={contactPhone}
-                ongName={pet.ong_name}
-                className="w-full sm:w-auto sm:flex-1"
-              />
-            </div>
-
-            {pet.is_resolved && <PetResolvedAlert type="adoption" resolvedAt={pet.resolved_at} className="mb-4" />}
-          </div>
-
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">{pet.name || "Pet para Adoção"}</h1>
-              <p className="text-muted-foreground">Disponível desde {formattedDate}</p>
-              {location && <p className="text-muted-foreground">Localização: {location}</p>}
-            </div>
-
-            <Tabs defaultValue="info" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="info">Informações</TabsTrigger>
-                <TabsTrigger value="characteristics">Características</TabsTrigger>
-                <TabsTrigger value="description">Descrição</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="info" className="space-y-4 pt-4">
-                <PetInfoCard
-                  species={pet.species}
-                  breed={pet.breed}
-                  age={pet.age}
-                  gender={pet.gender}
-                  size={pet.size}
-                  color={pet.color}
-                  location={location}
-                />
-              </TabsContent>
-
-              <TabsContent value="characteristics" className="space-y-4 pt-4">
-                <PetCharacteristics
-                  temperament={pet.temperament}
-                  energy_level={pet.energy_level}
-                  isVaccinated={pet.is_vaccinated}
-                  isNeutered={pet.is_neutered}
-                  isSpecialNeeds={pet.is_special_needs}
-                  specialNeedsDescription={pet.special_needs_description}
-                  goodWithKids={pet.good_with_kids}
-                  goodWithCats={pet.good_with_cats}
-                  goodWithDogs={pet.good_with_dogs}
-                />
-              </TabsContent>
-
-              <TabsContent value="description" className="space-y-4 pt-4">
-                <p>{pet.description || "Nenhuma descrição fornecida."}</p>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
-      </main>
-    )
-  } catch (error) {
-    console.error("Erro ao buscar ou exibir detalhes do pet:", error)
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Erro!</AlertTitle>
-        <AlertDescription>
-          Ocorreu um erro ao carregar os detalhes deste pet. Por favor, tente novamente mais tarde.
-        </AlertDescription>
-      </Alert>
+      <div className="container mx-auto py-12 px-4 text-center">
+        <h1 className="text-2xl font-bold mb-4">Pet Não Disponível</h1>
+        <p>Este pet não está atualmente disponível para visualização pública.</p>
+        {session?.user && (pet.user_id === session.user.id || (pet.users && pet.users.id === session.user.id)) && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Você pode gerenciar este pet no seu{" "}
+            <Link href="/dashboard/pets" className="underline">
+              painel
+            </Link>
+            .
+          </p>
+        )}
+      </div>
     )
   }
+
+  // If viewable, render pet details.
+  // You should create a dedicated component for displaying pet details.
+  // e.g., return <PetDetailsClient pet={pet} currentUser={session?.user} />;
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <h1 className="text-4xl font-bold mb-2">{pet.name || "Detalhes do Pet"}</h1>
+      <p className="text-lg text-muted-foreground mb-6">
+        Status:{" "}
+        <span className={`font-semibold ${isPubliclyViewable ? "text-green-600" : "text-orange-500"}`}>
+          {pet.status}
+        </span>
+      </p>
+
+      {/* Placeholder for actual PetDetailsClient component */}
+      <div className="bg-card p-6 rounded-lg shadow">
+        <p className="mb-4 whitespace-pre-wrap">{pet.description || "Nenhuma descrição fornecida."}</p>
+        {/* Add more pet details here: species, breed, age, images, contact, etc. */}
+        {pet.users && (
+          <div className="mt-4 pt-4 border-t">
+            <h3 className="text-md font-semibold">Listado por:</h3>
+            <p>
+              {pet.users.name} ({pet.users.type})
+            </p>
+          </div>
+        )}
+      </div>
+      {/* Add image gallery, contact forms, etc. */}
+    </div>
+  )
 }
+
+// Remember to create similar detail pages for 'lost' and 'found' categories:
+// app/perdidos/[slug]/page.tsx
+// app/encontrados/[slug]/page.tsx
+// They will use getPetByIdOrSlug(params.slug, "lost") or getPetByIdOrSlug(params.slug, "found") respectively,
+// and apply the same status and ownership/admin checking logic.
