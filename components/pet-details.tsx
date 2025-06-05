@@ -21,7 +21,8 @@ interface PetDetailsProps {
   type: "adoption" | "lost" | "found"
 }
 
-export default function PetDetails({ pet, type }: PetDetailsProps) {
+// Change from default export to named export
+export function PetDetails({ pet, type }: PetDetailsProps) {
   const [activeTab, setActiveTab] = useState("info")
 
   // Verificar se o pet está pendente de aprovação
@@ -225,3 +226,6 @@ export default function PetDetails({ pet, type }: PetDetailsProps) {
     </main>
   )
 }
+
+// Add this for backward compatibility with default imports
+export default PetDetails
