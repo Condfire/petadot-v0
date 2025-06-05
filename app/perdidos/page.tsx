@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server"
 import PerdidosClientPage from "./PerdidosClientPage"
 
+// Adicionar esta configuração para indicar que a página é dinâmica
+export const dynamic = "force-dynamic"
+
 async function fetchLostPets() {
   const supabase = createClient()
 
@@ -15,7 +18,7 @@ async function fetchLostPets() {
         )
       `)
       .eq("category", "lost")
-      .in("status", ["approved", "aprovado"]) // Apenas pets aprovados para visitantes
+      .in("status", ["approved", "aprovado"]) // Apenas pets aprovados
       .order("created_at", { ascending: false })
 
     if (error) {
