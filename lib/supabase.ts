@@ -1,3 +1,15 @@
+// ✅ VERSÃO ATUALIZADA - Importa as funções simplificadas
+export {
+  getPetsForAdoption,
+  getLostPets,
+  getFoundPets,
+  getPetByIdOrSlug,
+  debugPetStatuses,
+  supabase,
+  type PaginationResult,
+} from "./supabase-simple"
+
+// Manter outras funções existentes que não são relacionadas a pets
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { validate as isUuid } from "uuid"
 
@@ -5,6 +17,8 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey)
+
+export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
 
 // Define types for your data - replace 'any' with actual types if you have them
 // For example, in a lib/types.ts file
@@ -69,196 +83,6 @@ async function checkTableExists(tableName: string): Promise<boolean> {
       console.error(`Fallback checkTableExists failed for ${tableName}:`, fallbackErr)
       return false
     }
-  }
-}
-
-// --- Functions for Public Pet Listings ---
-export async function getPetsForAdoption(
-  page = 1,
-  pageSize = 12,
-  filters: Record<string, any> = {},
-): Promise<PaginationResult<Pet>> {
-  try {
-    const from = (page - 1) * pageSize
-    const to = from + pageSize - 1
-
-    if (!(await checkTableExists("pets"))) {
-      console.error("Tabela pets não existe")
-      return { data: [], total: 0, page, pageSize, totalPages: 0 }
-    }
-
-    let query = supabase
-      .from("pets")
-      .select(`*, ongs(id, name, logo_url, city)`, { count: "exact" })
-      .eq("category", "adoption")
-      .in("status", ["approved", "Aprovado"])
-      .order("created_at", { ascending: false })
-      .range(from, to)
-
-    Object.keys(filters).forEach((key) => {
-      if (filters[key] && filters[key] !== "all") {
-        if (key === "search") {
-          query = query.or(
-            `name.ilike.%${filters[key]}%,breed.ilike.%${filters[key]}%,description.ilike.%${filters[key]}%`,
-          )
-        } else {
-          query = query.eq(key, filters[key])
-        }
-      }
-    })
-
-    const { data, error, count } = await query
-
-    if (error) {
-      console.error("Erro ao buscar pets para adoção:", error)
-      return { data: [], total: 0, page, pageSize, totalPages: 0 }
-    }
-
-    const safeData = data || []
-    const approvedPets = safeData.filter((pet) => {
-      if (!pet || typeof pet.status !== "string") return false
-      return pet.status.toLowerCase() === "approved"
-    })
-
-    const totalFilteredPets = approvedPets.length
-    const totalPages = Math.ceil(totalFilteredPets / pageSize)
-
-    return {
-      data: approvedPets,
-      total: totalFilteredPets,
-      page,
-      pageSize,
-      totalPages: totalPages > 0 ? totalPages : 1,
-    }
-  } catch (err) {
-    console.error("Erro inesperado ao buscar pets para adoção:", err)
-    return { data: [], total: 0, page, pageSize, totalPages: 1 }
-  }
-}
-
-export async function getLostPets(
-  page = 1,
-  pageSize = 12,
-  filters: Record<string, any> = {},
-): Promise<PaginationResult<Pet>> {
-  try {
-    const from = (page - 1) * pageSize
-    const to = from + pageSize - 1
-
-    if (!(await checkTableExists("pets"))) {
-      console.error("Tabela pets não existe")
-      return { data: [], total: 0, page, pageSize, totalPages: 1 }
-    }
-
-    let query = supabase
-      .from("pets")
-      .select("*", { count: "exact" })
-      .eq("category", "lost")
-      .in("status", ["approved", "Aprovado"])
-      .order("created_at", { ascending: false })
-      .range(from, to)
-
-    Object.keys(filters).forEach((key) => {
-      if (filters[key] && filters[key] !== "all") {
-        if (key === "search") {
-          query = query.or(
-            `name.ilike.%${filters[key]}%,location_details.ilike.%${filters[key]}%,description.ilike.%${filters[key]}%`,
-          )
-        } else {
-          query = query.eq(key, filters[key])
-        }
-      }
-    })
-
-    const { data, error, count } = await query
-
-    if (error) {
-      console.error("Error fetching lost pets:", error)
-      return { data: [], total: 0, page, pageSize, totalPages: 1 }
-    }
-
-    const safeData = data || []
-    const approvedPets = safeData.filter((pet) => {
-      if (!pet || typeof pet.status !== "string") return false
-      return pet.status.toLowerCase() === "approved"
-    })
-
-    const totalFilteredPets = approvedPets.length
-    const totalPages = Math.ceil(totalFilteredPets / pageSize)
-
-    return {
-      data: approvedPets,
-      total: totalFilteredPets,
-      page,
-      pageSize,
-      totalPages: totalPages > 0 ? totalPages : 1,
-    }
-  } catch (err) {
-    console.error("Erro inesperado ao buscar pets perdidos:", err)
-    return { data: [], total: 0, page, pageSize, totalPages: 1 }
-  }
-}
-
-export async function getFoundPets(
-  page = 1,
-  pageSize = 12,
-  filters: Record<string, any> = {},
-): Promise<PaginationResult<Pet>> {
-  try {
-    const from = (page - 1) * pageSize
-    const to = from + pageSize - 1
-
-    if (!(await checkTableExists("pets"))) {
-      console.error("Tabela pets não existe")
-      return { data: [], total: 0, page, pageSize, totalPages: 1 }
-    }
-
-    let query = supabase
-      .from("pets")
-      .select("*", { count: "exact" })
-      .eq("category", "found")
-      .in("status", ["approved", "Aprovado"])
-      .order("created_at", { ascending: false })
-      .range(from, to)
-
-    Object.keys(filters).forEach((key) => {
-      if (filters[key] && filters[key] !== "all") {
-        if (key === "search") {
-          query = query.or(
-            `name.ilike.%${filters[key]}%,location_details.ilike.%${filters[key]}%,description.ilike.%${filters[key]}%`,
-          )
-        } else {
-          query = query.eq(key, filters[key])
-        }
-      }
-    })
-
-    const { data, error, count } = await query
-
-    if (error) {
-      console.error("Error fetching found pets:", error)
-      return { data: [], total: 0, page, pageSize, totalPages: 1 }
-    }
-
-    const safeData = data || []
-    const approvedPets = safeData.filter((pet) => {
-      if (!pet || typeof pet.status !== "string") return false
-      return pet.status.toLowerCase() === "approved"
-    })
-
-    const totalFilteredPets = approvedPets.length
-    const totalPages = Math.ceil(totalFilteredPets / pageSize)
-
-    return {
-      data: approvedPets,
-      total: totalFilteredPets,
-      page,
-      pageSize,
-      totalPages: totalPages > 0 ? totalPages : 1,
-    }
-  } catch (err) {
-    console.error("Erro inesperado ao buscar pets encontrados:", err)
-    return { data: [], total: 0, page, pageSize, totalPages: 1 }
   }
 }
 
@@ -400,24 +224,17 @@ export async function getEvents(
   page = 1,
   pageSize = 12,
   filters: Record<string, any> = {},
-): Promise<{ data: Event[]; count: number }> {
+): Promise<{ data: any[]; count: number }> {
   try {
-    if (!(await checkTableExists("events"))) {
-      console.error("Tabela events não existe")
-      return { data: [], count: 0 }
-    }
-    // Assuming 'users' table for organizer info, aliased as 'organizer'
-    let query = supabase
+    let query = supabaseClient
       .from("events")
       .select("*, organizer:users!events_user_id_fkey(id, name, logo_url, city, type)", { count: "exact" })
-
-    query = query.in("status", ["approved", "Aprovado"]) // Public events should be approved
+      .in("status", ["approved", "Aprovado"])
 
     if (filters.title) query = query.ilike("title", `%${filters.title}%`)
-    if (filters.city) query = query.eq("city", filters.city) // Assuming events have city/state directly
+    if (filters.city) query = query.eq("city", filters.city)
     if (filters.state) query = query.eq("state", filters.state)
     if (filters.date) query = query.gte("start_date", filters.date)
-    // Add more filters as needed (e.g., organizer_id, type)
 
     const from = (page - 1) * pageSize
     const to = from + pageSize - 1
