@@ -67,7 +67,7 @@ export async function getPetsForAdoption(page = 1, pageSize = 12, filters = {}):
       .from("pets")
       .select(`*, ongs(id, name, logo_url, city)`, { count: "exact" })
       .eq("category", "adoption") // Filter for adoption pets
-      .in("status", ["approved", "pending"]) // Include both approved and pending
+      .in("status", ["approved", "aprovado"]) // Only show approved pets
       .order("created_at", { ascending: false })
       .range(from, to)
 
@@ -177,7 +177,7 @@ export async function getLostPets(page = 1, pageSize = 12, filters = {}): Promis
       .from("pets")
       .select("*", { count: "exact" })
       .eq("category", "lost") // Filtrar apenas pets perdidos
-      .in("status", ["approved", "pending"]) // Include both approved and pending
+      .in("status", ["approved", "aprovado"]) // Only show approved pets
       .order("created_at", { ascending: false })
       .range(from, to)
 
@@ -286,7 +286,7 @@ export async function getFoundPets(page = 1, pageSize = 12, filters = {}): Promi
       .from("pets")
       .select("*", { count: "exact" })
       .eq("category", "found") // Filtrar apenas pets encontrados
-      .in("status", ["approved", "pending"]) // Include both approved and pending
+      .in("status", ["approved", "aprovado"]) // Only show approved pets
       .order("created_at", { ascending: false })
       .range(from, to)
 
@@ -378,7 +378,7 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
     let query = supabase.from("events").select("*, ongs(id, name, logo_url, city)", { count: "exact" })
 
     // Mostrar apenas eventos aprovados ou sem status (legados)
-    query = query.in("status", ["approved", "pending"]) // Include both approved and pending
+    query = query.in("status", ["approved", "aprovado"]) // Only show approved events
 
     // Aplicar filtros se existirem
     if (filters.title) {
