@@ -91,17 +91,32 @@ async function getEvents(limit = 3) {
 }
 
 export default async function Home() {
-  try {
-    // Buscar dados com tratamento de erro individual
-    const [adoptionPets, lostPets, events] = await Promise.allSettled([
-      getPetsForAdoption(4),
-      getLostPets(4),
-      getEvents(3),
-    ])
+  // Adicionar no início da função:
+  console.log("Renderizando página inicial...")
 
-    const adoptionPetsData = adoptionPets.status === "fulfilled" ? adoptionPets.value : []
-    const lostPetsData = lostPets.status === "fulfilled" ? lostPets.value : []
-    const eventsData = events.status === "fulfilled" ? events.value : []
+  try {
+    // Substituir o bloco Promise.allSettled por:
+    let adoptionPetsData: any[] = []
+    let lostPetsData: any[] = []
+    let eventsData: any[] = []
+
+    try {
+      adoptionPetsData = await getPetsForAdoption(4)
+    } catch (error) {
+      console.error("Erro ao buscar pets para adoção:", error)
+    }
+
+    try {
+      lostPetsData = await getLostPets(4)
+    } catch (error) {
+      console.error("Erro ao buscar pets perdidos:", error)
+    }
+
+    try {
+      eventsData = await getEvents(3)
+    } catch (error) {
+      console.error("Erro ao buscar eventos:", error)
+    }
 
     console.log("Página inicial - Pets para adoção aprovados:", adoptionPetsData.length)
     console.log("Página inicial - Pets perdidos aprovados:", lostPetsData.length)

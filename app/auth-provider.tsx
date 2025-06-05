@@ -39,15 +39,8 @@ type AuthContextType = {
 // Criando o contexto de autenticação
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Singleton para o cliente Supabase
-let supabaseInstance: ReturnType<typeof createClientComponentClient> | null = null
-
-function getSupabaseClient() {
-  if (!supabaseInstance) {
-    supabaseInstance = createClientComponentClient()
-  }
-  return supabaseInstance
-}
+// Criar cliente Supabase uma única vez
+const supabase = createClientComponentClient()
 
 // Provider de autenticação
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -56,7 +49,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const supabase = getSupabaseClient()
   const initCalled = useRef(false)
   const authListenerSetup = useRef(false)
 
@@ -354,6 +346,3 @@ export function useAuth() {
   }
   return context
 }
-
-// Exportar cliente Supabase para acesso direto
-export const supabaseClient = getSupabaseClient()
