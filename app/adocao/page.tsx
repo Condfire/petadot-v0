@@ -2,6 +2,8 @@ import type { Metadata } from "next"
 import { Suspense } from "react"
 import AdocaoClientPage from "./AdocaoClientPage"
 import { getPetsForAdoption } from "@/lib/supabase"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export const metadata: Metadata = {
   title: "Adoção | PetAdot",
@@ -26,6 +28,13 @@ interface AdocaoPageProps {
 }
 
 export default async function AdocaoPage({ searchParams }: AdocaoPageProps) {
+  // Obter sessão do usuário
+  const supabase = createServerComponentClient({ cookies })
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const currentUserId = session?.user?.id
+
   // Extrair parâmetros de paginação e filtros da URL
   const page = searchParams.page ? Number.parseInt(searchParams.page, 10) : 1
   const pageSize = searchParams.pageSize ? Number.parseInt(searchParams.pageSize, 10) : 12
@@ -47,19 +56,34 @@ export default async function AdocaoPage({ searchParams }: AdocaoPageProps) {
   try {
     // Buscar pets para adoção com paginação e filtros
     const petsResult = await getPetsForAdoption(validPage, validPageSize, filters)
+    const allPets = petsResult?.data || []
 
-    // A função getPetsForAdoption já retorna apenas pets aprovados e com a estrutura correta.
-    // petsResult.data já contém os pets filtrados.
-    const initialPetsData = petsResult?.data || []
+    // Aplicar regras de visibilidade
+    const visiblePets = allPets.filter((pet) => {
+      const status = pet.status?.toLowerCase() || ""
+
+      // Pets aprovados são visíveis para todos
+      if (status === "approved" || status === "aprovado") {
+        return true
+      }
+
+      // Pets pendentes/rejeitados só são visíveis para o dono
+      if (currentUserId && pet.user_id === currentUserId) {
+        return true
+      }
+
+      return false
+    })
 
     return (
       <Suspense fallback={<div className="container py-12 text-center">Carregando...</div>}>
         <AdocaoClientPage
-          initialPets={initialPetsData}
+          initialPets={visiblePets}
+          currentUserId={currentUserId}
           pagination={{
             currentPage: petsResult?.page || 1,
             totalPages: petsResult?.totalPages || 1,
-            totalItems: petsResult?.total || 0,
+            totalItems: visiblePets.length,
           }}
           initialFilters={filters}
         />
@@ -72,9 +96,10 @@ export default async function AdocaoPage({ searchParams }: AdocaoPageProps) {
       <Suspense fallback={<div className="container py-12 text-center">Carregando...</div>}>
         <AdocaoClientPage
           initialPets={[]}
+          currentUserId={currentUserId}
           pagination={{
             currentPage: 1,
-            totalPages: 1, // Evitar totalPages: 0 se possível
+            totalPages: 1,
             totalItems: 0,
           }}
           initialFilters={filters}
