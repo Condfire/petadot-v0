@@ -43,6 +43,11 @@ export default function PetCard({
   isSpecialNeeds,
   slug,
 }: PetCardProps) {
+  // Não exibir pets rejeitados ou pendentes em páginas públicas
+  if (status === "rejected" || status === "pending" || status === "rejeitado" || status === "pendente") {
+    return null
+  }
+
   // Determinar a URL de destino com base no tipo de pet
   const getDetailUrl = () => {
     const baseUrl = {
@@ -57,6 +62,7 @@ export default function PetCard({
 
   // Função para obter a imagem com fallback
   const getImageSrc = () => {
+    // Priorizar main_image_url, depois image_url, depois image
     if (main_image_url && main_image_url.trim() !== "") {
       return main_image_url
     }

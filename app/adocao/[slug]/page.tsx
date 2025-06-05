@@ -130,7 +130,7 @@ export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetai
     }
 
     // Verificar se o pet está aprovado ou pertence ao usuário atual
-    const isApproved = pet.status === "approved" || pet.status === "aprovado" || pet.status === null
+    const isApproved = pet.status === "approved" || pet.status === "aprovado"
     const isOwner = userId && pet.user_id === userId
 
     // Se o pet não estiver aprovado e não pertencer ao usuário atual, retornar 404
