@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { debugPetStatuses } from "@/lib/supabase-simple"
+import { debugPetStatuses, supabase } from "@/lib/supabase-simple"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -16,7 +16,7 @@ export default function DebugPage() {
       await debugPetStatuses()
 
       // Busca dados para exibir na tela
-      const { supabase } = await import("@/lib/supabase-simple")
+      // const { supabase } = await import("@/lib/supabase-simple")
 
       const { data: pets, error } = await supabase
         .from("pets")

@@ -1,9 +1,9 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey)
 
 // Interface para paginação
 export interface PaginationResult<T> {
@@ -14,208 +14,279 @@ export interface PaginationResult<T> {
   totalPages: number
 }
 
-// ✅ SOLUÇÃO SIMPLES: Função que normaliza status
+// Função para verificar se um status é considerado "aprovado"
 function isApprovedStatus(status: string | null | undefined): boolean {
   if (!status) return false
-  const normalizedStatus = status.toLowerCase().trim()
-  return normalizedStatus === "approved" || normalizedStatus === "aprovado"
+  const statusLower = status.toLowerCase().trim()
+
+  // Lista de status considerados aprovados (case-insensitive)
+  const approvedStatuses = ["approved", "aprovado", "ativo", "active", "publicado", "published"]
+
+  return approvedStatuses.includes(statusLower)
 }
 
-// ✅ PETS PARA ADOÇÃO - VERSÃO SIMPLIFICADA
+// Função de debug para verificar status no banco
+export async function debugPetStatuses() {
+  console.log("🔍 DEBUG: Verificando status dos pets no banco...")
+
+  try {
+    const { data: allPets, error } = await supabase.from("pets").select("id, name, status, category").limit(50)
+
+    if (error) {
+      console.error("❌ Erro ao buscar pets:", error)
+      return
+    }
+
+    console.log(`📊 Total de pets encontrados: ${allPets?.length || 0}`)
+
+    // Agrupar por status
+    const statusGroups: Record<string, any[]> = {}
+    allPets?.forEach((pet) => {
+      const status = pet.status || "null"
+      if (!statusGroups[status]) {
+        statusGroups[status] = []
+      }
+      statusGroups[status].push(pet)
+    })
+
+    console.log("📋 Status encontrados no banco:")
+    Object.entries(statusGroups).forEach(([status, pets]) => {
+      const isApproved = isApprovedStatus(status)
+      console.log(
+        `  ${isApproved ? "✅" : "❌"} "${status}": ${pets.length} pets ${isApproved ? "(SERÁ EXIBIDO)" : "(NÃO SERÁ EXIBIDO)"}`,
+      )
+    })
+
+    // Mostrar pets aprovados por categoria
+    const approvedPets = allPets?.filter((pet) => isApprovedStatus(pet.status)) || []
+    console.log(`\n🎯 Pets aprovados que SERÃO exibidos: ${approvedPets.length}`)
+
+    const categories = ["adoption", "lost", "found"]
+    categories.forEach((category) => {
+      const categoryPets = approvedPets.filter((pet) => pet.category === category)
+      console.log(`  📂 ${category}: ${categoryPets.length} pets`)
+    })
+  } catch (error) {
+    console.error("❌ Erro no debug:", error)
+  }
+}
+
+// ✅ FUNÇÃO SIMPLIFICADA PARA PETS DE ADOÇÃO
 export async function getPetsForAdoption(
   page = 1,
   pageSize = 12,
   filters: Record<string, any> = {},
 ): Promise<PaginationResult<any>> {
-  try {
-    console.log("🔍 Buscando pets para adoção...")
+  console.log(`🏠 Buscando pets para adoção - Página ${page}`)
 
-    // 1. BUSCAR TODOS os pets de adoção (sem filtro de status no SQL)
+  try {
+    // Buscar TODOS os pets de adoção primeiro
     let query = supabase
       .from("pets")
       .select(`*, ongs(id, name, logo_url, city)`)
       .eq("category", "adoption")
       .order("created_at", { ascending: false })
 
-    // 2. Aplicar outros filtros
+    // Aplicar filtros de busca
     Object.keys(filters).forEach((key) => {
-      if (filters[key] && filters[key] !== "all" && key !== "search") {
-        query = query.eq(key, filters[key])
+      if (filters[key] && filters[key] !== "all") {
+        if (key === "search") {
+          query = query.or(
+            `name.ilike.%${filters[key]}%,breed.ilike.%${filters[key]}%,description.ilike.%${filters[key]}%`,
+          )
+        } else {
+          query = query.eq(key, filters[key])
+        }
       }
     })
 
-    // 3. Aplicar filtro de busca
-    if (filters.search) {
-      query = query.or(
-        `name.ilike.%${filters.search}%,breed.ilike.%${filters.search}%,description.ilike.%${filters.search}%`,
-      )
-    }
-
-    const { data, error } = await query
+    const { data: allPets, error } = await query
 
     if (error) {
-      console.error("❌ Erro ao buscar pets:", error)
-      return { data: [], total: 0, page, pageSize, totalPages: 1 }
+      console.error("❌ Erro ao buscar pets para adoção:", error)
+      return { data: [], total: 0, page, pageSize, totalPages: 0 }
     }
 
-    console.log(`📊 Total de pets encontrados: ${data?.length || 0}`)
+    console.log(`📊 Total de pets de adoção encontrados no banco: ${allPets?.length || 0}`)
 
-    // 4. FILTRAR APENAS APROVADOS no JavaScript
-    const approvedPets = (data || []).filter((pet) => {
-      const approved = isApprovedStatus(pet.status)
-      if (!approved) {
-        console.log(`🚫 Pet rejeitado: ${pet.name} (status: ${pet.status})`)
+    // ✅ FILTRAR APENAS PETS APROVADOS (JavaScript)
+    const approvedPets = (allPets || []).filter((pet) => {
+      const isApproved = isApprovedStatus(pet.status)
+      if (!isApproved) {
+        console.log(`❌ Pet "${pet.name}" com status "${pet.status}" foi FILTRADO`)
       }
-      return approved
+      return isApproved
     })
 
-    console.log(`✅ Pets aprovados: ${approvedPets.length}`)
+    console.log(`✅ Pets aprovados para adoção: ${approvedPets.length}`)
 
-    // 5. APLICAR PAGINAÇÃO nos dados já filtrados
-    const total = approvedPets.length
-    const totalPages = Math.ceil(total / pageSize)
+    // ✅ APLICAR PAGINAÇÃO NOS PETS APROVADOS
+    const totalApproved = approvedPets.length
+    const totalPages = Math.ceil(totalApproved / pageSize)
     const from = (page - 1) * pageSize
     const to = from + pageSize
     const paginatedPets = approvedPets.slice(from, to)
 
-    console.log(`📄 Página ${page}/${totalPages} - Mostrando ${paginatedPets.length} pets`)
+    console.log(`📄 Página ${page}/${totalPages} - Exibindo ${paginatedPets.length} pets`)
 
     return {
       data: paginatedPets,
-      total,
+      total: totalApproved,
       page,
       pageSize,
       totalPages: totalPages > 0 ? totalPages : 1,
     }
   } catch (err) {
-    console.error("💥 Erro inesperado:", err)
+    console.error("❌ Erro inesperado ao buscar pets para adoção:", err)
     return { data: [], total: 0, page, pageSize, totalPages: 1 }
   }
 }
 
-// ✅ PETS PERDIDOS - VERSÃO SIMPLIFICADA
+// ✅ FUNÇÃO SIMPLIFICADA PARA PETS PERDIDOS
 export async function getLostPets(
   page = 1,
   pageSize = 12,
   filters: Record<string, any> = {},
 ): Promise<PaginationResult<any>> {
-  try {
-    console.log("🔍 Buscando pets perdidos...")
+  console.log(`😢 Buscando pets perdidos - Página ${page}`)
 
+  try {
+    // Buscar TODOS os pets perdidos primeiro
     let query = supabase.from("pets").select("*").eq("category", "lost").order("created_at", { ascending: false })
 
-    // Aplicar filtros
+    // Aplicar filtros de busca
     Object.keys(filters).forEach((key) => {
-      if (filters[key] && filters[key] !== "all" && key !== "search") {
-        query = query.eq(key, filters[key])
+      if (filters[key] && filters[key] !== "all") {
+        if (key === "search") {
+          query = query.or(
+            `name.ilike.%${filters[key]}%,location_details.ilike.%${filters[key]}%,description.ilike.%${filters[key]}%`,
+          )
+        } else {
+          query = query.eq(key, filters[key])
+        }
       }
     })
 
-    if (filters.search) {
-      query = query.or(
-        `name.ilike.%${filters.search}%,location_details.ilike.%${filters.search}%,description.ilike.%${filters.search}%`,
-      )
-    }
-
-    const { data, error } = await query
+    const { data: allPets, error } = await query
 
     if (error) {
       console.error("❌ Erro ao buscar pets perdidos:", error)
       return { data: [], total: 0, page, pageSize, totalPages: 1 }
     }
 
-    // Filtrar apenas aprovados
-    const approvedPets = (data || []).filter((pet) => isApprovedStatus(pet.status))
+    console.log(`📊 Total de pets perdidos encontrados no banco: ${allPets?.length || 0}`)
 
-    // Aplicar paginação
-    const total = approvedPets.length
-    const totalPages = Math.ceil(total / pageSize)
+    // ✅ FILTRAR APENAS PETS APROVADOS (JavaScript)
+    const approvedPets = (allPets || []).filter((pet) => {
+      const isApproved = isApprovedStatus(pet.status)
+      if (!isApproved) {
+        console.log(`❌ Pet perdido "${pet.name}" com status "${pet.status}" foi FILTRADO`)
+      }
+      return isApproved
+    })
+
+    console.log(`✅ Pets perdidos aprovados: ${approvedPets.length}`)
+
+    // ✅ APLICAR PAGINAÇÃO NOS PETS APROVADOS
+    const totalApproved = approvedPets.length
+    const totalPages = Math.ceil(totalApproved / pageSize)
     const from = (page - 1) * pageSize
     const to = from + pageSize
     const paginatedPets = approvedPets.slice(from, to)
 
-    console.log(`✅ Pets perdidos aprovados: ${approvedPets.length} (página ${page}/${totalPages})`)
+    console.log(`📄 Página ${page}/${totalPages} - Exibindo ${paginatedPets.length} pets`)
 
     return {
       data: paginatedPets,
-      total,
+      total: totalApproved,
       page,
       pageSize,
       totalPages: totalPages > 0 ? totalPages : 1,
     }
   } catch (err) {
-    console.error("💥 Erro inesperado:", err)
+    console.error("❌ Erro inesperado ao buscar pets perdidos:", err)
     return { data: [], total: 0, page, pageSize, totalPages: 1 }
   }
 }
 
-// ✅ PETS ENCONTRADOS - VERSÃO SIMPLIFICADA
+// ✅ FUNÇÃO SIMPLIFICADA PARA PETS ENCONTRADOS
 export async function getFoundPets(
   page = 1,
   pageSize = 12,
   filters: Record<string, any> = {},
 ): Promise<PaginationResult<any>> {
-  try {
-    console.log("🔍 Buscando pets encontrados...")
+  console.log(`😊 Buscando pets encontrados - Página ${page}`)
 
+  try {
+    // Buscar TODOS os pets encontrados primeiro
     let query = supabase.from("pets").select("*").eq("category", "found").order("created_at", { ascending: false })
 
-    // Aplicar filtros
+    // Aplicar filtros de busca
     Object.keys(filters).forEach((key) => {
-      if (filters[key] && filters[key] !== "all" && key !== "search") {
-        query = query.eq(key, filters[key])
+      if (filters[key] && filters[key] !== "all") {
+        if (key === "search") {
+          query = query.or(
+            `name.ilike.%${filters[key]}%,location_details.ilike.%${filters[key]}%,description.ilike.%${filters[key]}%`,
+          )
+        } else {
+          query = query.eq(key, filters[key])
+        }
       }
     })
 
-    if (filters.search) {
-      query = query.or(
-        `name.ilike.%${filters.search}%,location_details.ilike.%${filters.search}%,description.ilike.%${filters.search}%`,
-      )
-    }
-
-    const { data, error } = await query
+    const { data: allPets, error } = await query
 
     if (error) {
       console.error("❌ Erro ao buscar pets encontrados:", error)
       return { data: [], total: 0, page, pageSize, totalPages: 1 }
     }
 
-    // Filtrar apenas aprovados
-    const approvedPets = (data || []).filter((pet) => isApprovedStatus(pet.status))
+    console.log(`📊 Total de pets encontrados no banco: ${allPets?.length || 0}`)
 
-    // Aplicar paginação
-    const total = approvedPets.length
-    const totalPages = Math.ceil(total / pageSize)
+    // ✅ FILTRAR APENAS PETS APROVADOS (JavaScript)
+    const approvedPets = (allPets || []).filter((pet) => {
+      const isApproved = isApprovedStatus(pet.status)
+      if (!isApproved) {
+        console.log(`❌ Pet encontrado "${pet.name}" com status "${pet.status}" foi FILTRADO`)
+      }
+      return isApproved
+    })
+
+    console.log(`✅ Pets encontrados aprovados: ${approvedPets.length}`)
+
+    // ✅ APLICAR PAGINAÇÃO NOS PETS APROVADOS
+    const totalApproved = approvedPets.length
+    const totalPages = Math.ceil(totalApproved / pageSize)
     const from = (page - 1) * pageSize
     const to = from + pageSize
     const paginatedPets = approvedPets.slice(from, to)
 
-    console.log(`✅ Pets encontrados aprovados: ${approvedPets.length} (página ${page}/${totalPages})`)
+    console.log(`📄 Página ${page}/${totalPages} - Exibindo ${paginatedPets.length} pets`)
 
     return {
       data: paginatedPets,
-      total,
+      total: totalApproved,
       page,
       pageSize,
       totalPages: totalPages > 0 ? totalPages : 1,
     }
   } catch (err) {
-    console.error("💥 Erro inesperado:", err)
+    console.error("❌ Erro inesperado ao buscar pets encontrados:", err)
     return { data: [], total: 0, page, pageSize, totalPages: 1 }
   }
 }
 
-// ✅ BUSCAR PET POR ID/SLUG - VERSÃO SIMPLIFICADA
+// ✅ FUNÇÃO PARA BUSCAR PET POR ID/SLUG (para páginas de detalhes)
 export async function getPetByIdOrSlug(
   idOrSlug: string,
   category?: "adoption" | "lost" | "found",
 ): Promise<any | null> {
+  console.log(`🔍 Buscando pet por ${idOrSlug}`)
+
   try {
-    console.log(`🔍 Buscando pet: ${idOrSlug}`)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug)
 
-    const isUuid = idOrSlug.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
-
-    let query = supabase.from("pets").select(`*, users!pets_user_id_fkey(id, name, email, type, avatar_url)`)
+    let query = supabase.from("pets").select(`*, user:users!pets_user_id_fkey(id, name, email, type, avatar_url)`)
 
     if (category) {
       query = query.eq("category", category)
@@ -223,7 +294,7 @@ export async function getPetByIdOrSlug(
 
     query = query.eq(isUuid ? "id" : "slug", idOrSlug).single()
 
-    const { data, error } = await query
+    const { data: pet, error } = await query
 
     if (error) {
       if (error.code !== "PGRST116") {
@@ -232,39 +303,15 @@ export async function getPetByIdOrSlug(
       return null
     }
 
-    console.log(`📋 Pet encontrado: ${data?.name} (status: ${data?.status})`)
-    return data || null
-  } catch (err) {
-    console.error(`💥 Erro inesperado ao buscar pet:`, err)
-    return null
-  }
-}
-
-// ✅ FUNÇÃO PARA DEBUG - Ver todos os status
-export async function debugPetStatuses() {
-  try {
-    const { data, error } = await supabase
-      .from("pets")
-      .select("id, name, status, category")
-      .order("created_at", { ascending: false })
-      .limit(50)
-
-    if (error) {
-      console.error("❌ Erro ao buscar pets para debug:", error)
-      return
+    if (!pet) {
+      console.log(`❌ Pet não encontrado: ${idOrSlug}`)
+      return null
     }
 
-    console.log("🔍 DEBUG - Status dos pets:")
-    const statusCount: Record<string, number> = {}
-
-    data?.forEach((pet) => {
-      const status = pet.status || "null"
-      statusCount[status] = (statusCount[status] || 0) + 1
-      console.log(`${pet.name}: "${pet.status}" (${pet.category})`)
-    })
-
-    console.log("📊 Contagem por status:", statusCount)
+    console.log(`✅ Pet encontrado: "${pet.name}" com status "${pet.status}"`)
+    return pet
   } catch (err) {
-    console.error("💥 Erro no debug:", err)
+    console.error(`❌ Erro inesperado ao buscar pet:`, err)
+    return null
   }
 }

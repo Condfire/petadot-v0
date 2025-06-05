@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getPetsForAdoption, getLostPets, getFoundPets } from "@/lib/supabase-simple"
+import { getPetsForAdoption, getLostPets, getFoundPets } from "@/lib/supabase"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 

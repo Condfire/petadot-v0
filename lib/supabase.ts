@@ -1,12 +1,9 @@
-// ✅ VERSÃO ATUALIZADA - Importa as funções simplificadas
-export {
-  getPetsForAdoption,
-  getLostPets,
-  getFoundPets,
-  getPetByIdOrSlug,
-  debugPetStatuses,
-  supabase,
-  type PaginationResult,
+// ✅ ADICIONAR estas importações no topo do arquivo:
+import {
+  getPetsForAdoption as getAdoptionPets,
+  getLostPets as getLostPetsSimple,
+  getFoundPets as getFoundPetsSimple,
+  getPetByIdOrSlug as getPetBySlug,
 } from "./supabase-simple"
 
 // Manter outras funções existentes que não são relacionadas a pets
@@ -86,42 +83,11 @@ async function checkTableExists(tableName: string): Promise<boolean> {
   }
 }
 
-// --- Functions for Single Item Details ---
-export async function getPetByIdOrSlug(
-  idOrSlug: string,
-  category?: "adoption" | "lost" | "found",
-): Promise<Pet | null> {
-  try {
-    if (!(await checkTableExists("pets"))) {
-      console.error("Tabela pets não existe")
-      return null
-    }
-    const isUuidValue = isUuid(idOrSlug)
-    // Assuming 'users' table stores user info and 'pets.user_id' is the foreign key.
-    // Adjust 'users!pets_user_id_fkey' if your foreign key relationship has a different name or if ONGs are in a different table.
-    let query = supabase.from("pets").select(`*, user:users!pets_user_id_fkey(id, name, email, type, avatar_url)`)
-
-    if (category) {
-      query = query.eq("category", category)
-    }
-
-    query = query.eq(isUuidValue ? "id" : "slug", idOrSlug).single()
-
-    const { data, error } = await query
-
-    if (error) {
-      if (error.code !== "PGRST116") {
-        // PGRST116: "Searched for a single row, but found no rows"
-        console.error(`Error fetching pet by ${isUuidValue ? "ID" : "slug"} (${idOrSlug}):`, error)
-      }
-      return null
-    }
-    return data || null
-  } catch (err) {
-    console.error(`Unexpected error fetching pet by ${idOrSlug}:`, err)
-    return null
-  }
-}
+// ✅ SUBSTITUIR as funções existentes por:
+export const getPetsForAdoption = getAdoptionPets
+export const getLostPets = getLostPetsSimple
+export const getFoundPets = getFoundPetsSimple
+export const getPetByIdOrSlug = getPetBySlug
 
 export async function getEventBySlugOrId(slugOrId: string): Promise<Event | null> {
   try {
