@@ -7,14 +7,14 @@ async function fetchLostPets() {
   const { data: pets, error } = await supabase
     .from("pets")
     .select(`
-      *,
-      pet_images (
-        url,
-        position
-      )
-    `)
+    *,
+    pet_images (
+      url,
+      position
+    )
+  `)
     .eq("category", "lost")
-    .eq("status", "approved")
+    .in("status", ["approved", "aprovado"]) // Apenas pets aprovados
     .order("created_at", { ascending: false })
 
   if (error) {
@@ -28,5 +28,6 @@ async function fetchLostPets() {
 export default async function PerdidosPage() {
   const pets = await fetchLostPets()
 
-  return <PerdidosClientPage initialPets={pets} />
+  // A função fetchLostPets já retorna apenas pets aprovados.
+  return <PerdidosClientPage initialPets={pets || []} />
 }

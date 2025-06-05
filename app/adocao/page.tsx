@@ -44,20 +44,42 @@ export default async function AdocaoPage({ searchParams }: AdocaoPageProps) {
     search: searchParams.search || "",
   }
 
-  // Buscar pets para adoção com paginação e filtros
-  const petsResult = await getPetsForAdoption(validPage, validPageSize, filters)
+  try {
+    // Buscar pets para adoção com paginação e filtros
+    const petsResult = await getPetsForAdoption(validPage, validPageSize, filters)
 
-  return (
-    <Suspense fallback={<div className="container py-12 text-center">Carregando...</div>}>
-      <AdocaoClientPage
-        initialPets={petsResult.data}
-        pagination={{
-          currentPage: petsResult.page,
-          totalPages: petsResult.totalPages,
-          totalItems: petsResult.total,
-        }}
-        initialFilters={filters}
-      />
-    </Suspense>
-  )
+    // A função getPetsForAdoption já retorna apenas pets aprovados e com a estrutura correta.
+    // petsResult.data já contém os pets filtrados.
+    const initialPetsData = petsResult?.data || []
+
+    return (
+      <Suspense fallback={<div className="container py-12 text-center">Carregando...</div>}>
+        <AdocaoClientPage
+          initialPets={initialPetsData}
+          pagination={{
+            currentPage: petsResult?.page || 1,
+            totalPages: petsResult?.totalPages || 1,
+            totalItems: petsResult?.total || 0,
+          }}
+          initialFilters={filters}
+        />
+      </Suspense>
+    )
+  } catch (error) {
+    console.error("Erro ao carregar pets para adoção:", error)
+    // Em caso de erro, retornar uma página com dados vazios
+    return (
+      <Suspense fallback={<div className="container py-12 text-center">Carregando...</div>}>
+        <AdocaoClientPage
+          initialPets={[]}
+          pagination={{
+            currentPage: 1,
+            totalPages: 1, // Evitar totalPages: 0 se possível
+            totalItems: 0,
+          }}
+          initialFilters={filters}
+        />
+      </Suspense>
+    )
+  }
 }

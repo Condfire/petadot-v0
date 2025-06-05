@@ -17,7 +17,9 @@ export const revalidate = 0
 export default async function FoundPetsPage() {
   // Usar a função existente para buscar pets encontrados
   const foundPetsResult = await getFoundPets()
-  const foundPets = foundPetsResult.data || []
+
+  // A função getFoundPets já retorna apenas pets aprovados e com a estrutura correta.
+  const foundPets = foundPetsResult?.data || []
 
   console.log(`Renderizando página de pets encontrados com ${foundPets.length} pets`)
 

@@ -67,7 +67,7 @@ export async function getPetsForAdoption(page = 1, pageSize = 12, filters = {}):
       .from("pets")
       .select(`*, ongs(id, name, logo_url, city)`, { count: "exact" })
       .eq("category", "adoption") // Filter for adoption pets
-      .in("status", ["approved", "pending"]) // Include both approved and pending
+      .in("status", ["approved"]) // Only show approved pets (removido "aprovado" para padronização)
       .order("created_at", { ascending: false })
       .range(from, to)
 
@@ -120,19 +120,25 @@ export async function getPetsForAdoption(page = 1, pageSize = 12, filters = {}):
       }
     }
 
+    // Garantir que data seja sempre um array
+    const safeData = data || []
+
+    // Filtrar novamente para garantir que apenas pets aprovados sejam retornados
+    const approvedPets = safeData.filter((pet) => pet && pet.status === "approved")
+
     // Calcular o total de páginas
-    const totalPages = Math.ceil((count || 0) / pageSize)
+    const totalItems = approvedPets.length
+    const totalPages = Math.ceil(totalItems / pageSize)
 
     // Log detalhado dos resultados
-    console.log(`Encontrados ${data?.length || 0} pets para adoção (página ${page} de ${totalPages})`)
-    console.log(`Total de pets: ${count}`)
+    console.log(`Encontrados ${approvedPets.length || 0} pets para adoção (página ${page} de ${totalPages})`)
 
     return {
-      data: data || [],
-      total: count || 0,
+      data: approvedPets,
+      total: totalItems,
       page,
       pageSize,
-      totalPages,
+      totalPages: totalPages > 0 ? totalPages : 1,
     }
   } catch (error) {
     console.error("Erro inesperado ao buscar pets para adoção:", error)
@@ -141,7 +147,7 @@ export async function getPetsForAdoption(page = 1, pageSize = 12, filters = {}):
       total: 0,
       page,
       pageSize,
-      totalPages: 0,
+      totalPages: 1,
     }
   }
 }
@@ -168,7 +174,7 @@ export async function getLostPets(page = 1, pageSize = 12, filters = {}): Promis
         total: 0,
         page,
         pageSize,
-        totalPages: 0,
+        totalPages: 1,
       }
     }
 
@@ -177,7 +183,7 @@ export async function getLostPets(page = 1, pageSize = 12, filters = {}): Promis
       .from("pets")
       .select("*", { count: "exact" })
       .eq("category", "lost") // Filtrar apenas pets perdidos
-      .in("status", ["approved", "pending"]) // Include both approved and pending
+      .in("status", ["approved"]) // Apenas pets aprovados (removido "aprovado" para padronização)
       .order("created_at", { ascending: false })
       .range(from, to)
 
@@ -226,22 +232,28 @@ export async function getLostPets(page = 1, pageSize = 12, filters = {}): Promis
         total: 0,
         page,
         pageSize,
-        totalPages: 0,
+        totalPages: 1,
       }
     }
 
-    // Calcular o total de páginas
-    const totalPages = Math.ceil((count || 0) / pageSize)
+    // Garantir que data seja sempre um array
+    const safeData = data || []
 
-    console.log(`Pets perdidos encontrados: ${data?.length || 0} (página ${page} de ${totalPages})`)
-    console.log(`Total de pets perdidos: ${count}`)
+    // Filtrar novamente para garantir que apenas pets aprovados sejam retornados
+    const approvedPets = safeData.filter((pet) => pet && pet.status === "approved")
+
+    // Calcular o total de páginas
+    const totalItems = approvedPets.length
+    const totalPages = Math.ceil(totalItems / pageSize)
+
+    console.log(`Pets perdidos encontrados: ${approvedPets.length || 0} (página ${page} de ${totalPages})`)
 
     return {
-      data: data || [],
-      total: count || 0,
+      data: approvedPets,
+      total: totalItems,
       page,
       pageSize,
-      totalPages,
+      totalPages: totalPages > 0 ? totalPages : 1,
     }
   } catch (error) {
     console.error("Erro inesperado ao buscar pets perdidos:", error)
@@ -250,7 +262,7 @@ export async function getLostPets(page = 1, pageSize = 12, filters = {}): Promis
       total: 0,
       page,
       pageSize,
-      totalPages: 0,
+      totalPages: 1,
     }
   }
 }
@@ -277,7 +289,7 @@ export async function getFoundPets(page = 1, pageSize = 12, filters = {}): Promi
         total: 0,
         page,
         pageSize,
-        totalPages: 0,
+        totalPages: 1,
       }
     }
 
@@ -286,7 +298,7 @@ export async function getFoundPets(page = 1, pageSize = 12, filters = {}): Promi
       .from("pets")
       .select("*", { count: "exact" })
       .eq("category", "found") // Filtrar apenas pets encontrados
-      .in("status", ["approved", "pending"]) // Include both approved and pending
+      .in("status", ["approved"]) // Apenas pets aprovados (removido "aprovado" para padronização)
       .order("created_at", { ascending: false })
       .range(from, to)
 
@@ -335,22 +347,28 @@ export async function getFoundPets(page = 1, pageSize = 12, filters = {}): Promi
         total: 0,
         page,
         pageSize,
-        totalPages: 0,
+        totalPages: 1,
       }
     }
 
-    // Calcular o total de páginas
-    const totalPages = Math.ceil((count || 0) / pageSize)
+    // Garantir que data seja sempre um array
+    const safeData = data || []
 
-    console.log(`Pets encontrados: ${data?.length || 0} (página ${page} de ${totalPages})`)
-    console.log(`Total de pets encontrados: ${count}`)
+    // Filtrar novamente para garantir que apenas pets aprovados sejam retornados
+    const approvedPets = safeData.filter((pet) => pet && pet.status === "approved")
+
+    // Calcular o total de páginas
+    const totalItems = approvedPets.length
+    const totalPages = Math.ceil(totalItems / pageSize)
+
+    console.log(`Pets encontrados: ${approvedPets.length || 0} (página ${page} de ${totalPages})`)
 
     return {
-      data: data || [],
-      total: count || 0,
+      data: approvedPets,
+      total: totalItems,
       page,
       pageSize,
-      totalPages,
+      totalPages: totalPages > 0 ? totalPages : 1,
     }
   } catch (error) {
     console.error("Erro inesperado ao buscar pets encontrados:", error)
@@ -359,7 +377,7 @@ export async function getFoundPets(page = 1, pageSize = 12, filters = {}): Promi
       total: 0,
       page,
       pageSize,
-      totalPages: 0,
+      totalPages: 1,
     }
   }
 }
@@ -378,7 +396,7 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
     let query = supabase.from("events").select("*, ongs(id, name, logo_url, city)", { count: "exact" })
 
     // Mostrar apenas eventos aprovados ou sem status (legados)
-    query = query.in("status", ["approved", "pending"]) // Include both approved and pending
+    query = query.in("status", ["approved"]) // Only show approved events
 
     // Aplicar filtros se existirem
     if (filters.title) {
