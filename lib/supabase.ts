@@ -608,3 +608,58 @@ export async function createTestPet(userId: string) {
     return { success: false, error: "Erro ao criar pet de teste" }
   }
 }
+
+// Funções específicas para pets perdidos e encontrados por ID/slug
+export async function getLostPetById(idOrSlug: string): Promise<Pet | null> {
+  try {
+    if (!(await checkTableExists("pets"))) {
+      console.error("Tabela pets não existe")
+      return null
+    }
+    const isUuidValue = isUuid(idOrSlug)
+    const { data, error } = await supabase
+      .from("pets")
+      .select(`*, user:users!pets_user_id_fkey(id, name, email, type, avatar_url)`)
+      .eq("category", "lost")
+      .eq(isUuidValue ? "id" : "slug", idOrSlug)
+      .single()
+
+    if (error) {
+      if (error.code !== "PGRST116") {
+        console.error("Error fetching lost pet by ID:", error)
+      }
+      return null
+    }
+    return data || null
+  } catch (error) {
+    console.error("Error fetching lost pet by ID:", error)
+    return null
+  }
+}
+
+export async function getFoundPetById(idOrSlug: string): Promise<Pet | null> {
+  try {
+    if (!(await checkTableExists("pets"))) {
+      console.error("Tabela pets não existe")
+      return null
+    }
+    const isUuidValue = isUuid(idOrSlug)
+    const { data, error } = await supabase
+      .from("pets")
+      .select(`*, user:users!pets_user_id_fkey(id, name, email, type, avatar_url)`)
+      .eq("category", "found")
+      .eq(isUuidValue ? "id" : "slug", idOrSlug)
+      .single()
+
+    if (error) {
+      if (error.code !== "PGRST116") {
+        console.error("Error fetching found pet by ID:", error)
+      }
+      return null
+    }
+    return data || null
+  } catch (error) {
+    console.error("Error fetching found pet by ID:", error)
+    return null
+  }
+}
