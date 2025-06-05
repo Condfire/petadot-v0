@@ -15,35 +15,34 @@ interface PetCardProps {
 }
 
 const PetCard: React.FC<PetCardProps> = ({ pet }) => {
-  // Add a guard clause to check if pet is defined
+  // Guard clause: if pet prop is undefined or null, don't render.
   if (!pet) {
-    return null // Or some placeholder, or an error message component
+    return null
   }
 
-  const { status } = pet
+  const { status, name, description, age, species, breed, image_url, main_image_url } = pet
 
-  // Normalizar o status para minúsculas para comparação e tratar undefined/null
+  // Normalize the status to lowercase for consistent comparison.
+  // Handles cases where status might be null or undefined on the pet object.
   const currentStatusNormalized = typeof status === "string" ? status.toLowerCase() : ""
 
-  // Status que não devem ser exibidos publicamente pelo PetCard
+  // Define statuses that should not be displayed by this card.
   const hiddenStatuses = ["pending", "pendente", "rejected", "rejeitado"]
 
   if (hiddenStatuses.includes(currentStatusNormalized)) {
-    return null // Não renderizar o card para pets com status 'pending' ou 'rejected'
+    return null // Do not render the card for pets with these statuses.
   }
 
-  const imageUrl = pet.image_url || pet.main_image_url
+  const imageUrl = image_url || main_image_url
 
   return (
     <div style={{ border: "1px solid #ccc", padding: "10px", margin: "10px", width: "300px" }}>
-      {imageUrl && (
-        <img src={imageUrl || "/placeholder.svg"} alt={pet.name} style={{ maxWidth: "100%", height: "auto" }} />
-      )}
-      <h3>{pet.name}</h3>
-      <p>{pet.description}</p>
-      <p>Age: {pet.age}</p>
-      <p>Species: {pet.species}</p>
-      <p>Breed: {pet.breed}</p>
+      {imageUrl && <img src={imageUrl || "/placeholder.svg"} alt={name} style={{ maxWidth: "100%", height: "auto" }} />}
+      <h3>{name}</h3>
+      <p>{description}</p>
+      <p>Age: {age}</p>
+      <p>Species: {species}</p>
+      <p>Breed: {breed}</p>
     </div>
   )
 }
