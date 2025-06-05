@@ -1,53 +1,122 @@
-import { PetVisibilityGuard } from "@/components/pet-visibility-guard"
+import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
+import { PetImageGallery } from "@/components/pet-image-gallery"
+import { PetDetails } from "@/components/pet-details"
+import { PetContactInfo } from "@/components/pet-contact-info"
+import { ShareButtons } from "@/components/share-buttons"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { AlertCircle, User } from "lucide-react"
 
-// Define a placeholder Pet type. Replace with your actual Pet type definition.
-type Pet = {
-  id: string
-  name: string
-  // ... other pet properties
-  visible: boolean
+// Helper function to check if status is approved
+function isApprovedStatus(status: string): boolean {
+  const approvedStatuses = ["approved", "aprovado", "ativo", "active"]
+  return approvedStatuses.includes(status?.toLowerCase() || "")
 }
 
-// Define a placeholder function to fetch the pet data.
-// Replace with your actual data fetching logic.
-async function getPet(slug: string): Promise<Pet | null> {
-  // Simulate fetching pet data based on the slug.
-  // In a real application, you would fetch this data from a database or API.
-  if (slug === "example-pet") {
-    return {
-      id: "123",
-      name: "Example Pet",
-      visible: true,
-      // ... other pet properties
-    }
-  } else if (slug === "hidden-pet") {
-    return {
-      id: "456",
-      name: "Hidden Pet",
-      visible: false,
-      // ... other pet properties
-    }
+export default async function PetDetailPage({ params }: { params: { slug: string } }) {
+  const supabase = createClient()
+
+  // Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // Get pet by slug
+  const { data: pet, error } = await supabase
+    .from("pets")
+    .select("*")
+    .eq("slug", params.slug)
+    .eq("category", "found")
+    .single()
+
+  if (error || !pet) {
+    notFound()
   }
-  return null
-}
 
-export default async function EncontradosSlugPage({ params }: { params: { slug: string } }) {
-  const { slug } = params
-  const pet = await getPet(slug)
+  // Check if pet should be visible to current user
+  const isApproved = isApprovedStatus(pet.status)
+  const isOwner = user?.id === pet.user_id
 
-  if (!pet) {
+  if (!isApproved && !isOwner) {
     notFound()
   }
 
   return (
-    <>
-      <PetVisibilityGuard pet={pet} fallback={notFound()}>
-        {/* Keep the existing content here */}
-        <h1>{pet.name}</h1>
-        <p>This is the page for {pet.name}.</p>
-        {/* ... */}
-      </PetVisibilityGuard>
-    </>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        {/* Status Alert for Owner */}
+        {isOwner && !isApproved && (
+          <Alert variant="warning" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Seu Pet:</strong> Este pet está com status "{pet.status}" e não está visível publicamente.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          {/* Header with badges */}
+          <div className="p-6 border-b">
+            <div className="flex flex-wrap gap-2 mb-4">
+              {/* Status Badge */}
+              <Badge
+                variant={isApproved ? "default" : pet.status === "pending" ? "secondary" : "destructive"}
+                className={
+                  isApproved
+                    ? "bg-green-100 text-green-800 hover:bg-green-200"
+                    : pet.status === "pending"
+                      ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                      : "bg-red-100 text-red-800 hover:bg-red-200"
+                }
+              >
+                {isApproved ? "Aprovado" : pet.status === "pending" ? "Pendente" : "Rejeitado"}
+              </Badge>
+
+              {/* Owner Badge */}
+              {isOwner && (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  <User className="w-3 h-3 mr-1" />
+                  Seu Pet
+                </Badge>
+              )}
+            </div>
+
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">{pet.name}</h1>
+            <p className="text-gray-600">
+              Pet Encontrado em {pet.city}, {pet.state}
+            </p>
+          </div>
+
+          {/* Pet Images */}
+          <PetImageGallery images={pet.images || []} petName={pet.name} />
+
+          <div className="p-6">
+            <div className="grid md:grid-cols-2 gap-8">
+              {/* Pet Details */}
+              <div>
+                <PetDetails pet={pet} />
+              </div>
+
+              {/* Contact Info */}
+              <div>
+                <PetContactInfo pet={pet} />
+              </div>
+            </div>
+
+            {/* Share Buttons */}
+            {isApproved && (
+              <div className="mt-8 pt-6 border-t">
+                <ShareButtons
+                  url={`${process.env.NEXT_PUBLIC_APP_URL}/encontrados/${pet.slug}`}
+                  title={`Pet encontrado: ${pet.name}`}
+                  description={`${pet.name} foi encontrado em ${pet.city}, ${pet.state}. Pode ser seu?`}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
