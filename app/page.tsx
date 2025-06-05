@@ -6,13 +6,84 @@ import AnimateOnScroll from "@/components/animate-on-scroll"
 import { PawPrint, Heart } from "lucide-react"
 import TestimonialsSection from "@/components/testimonials-section"
 import CTASection from "@/components/cta-section"
-import { getPetsForAdoption, getLostPets, getEvents } from "@/lib/supabase"
 import StatsSection from "@/components/stats-section"
 import PetCard from "@/components/PetCard"
 import { OptimizedImage } from "@/components/optimized-image"
+import { createClient } from "@/lib/supabase/server"
 
 // Desativar completamente o cache para a página inicial durante o desenvolvimento
 export const revalidate = 0 // Revalidate on every request
+
+// Função para buscar pets para adoção aprovados
+async function getPetsForAdoption(limit = 4) {
+  const supabase = createClient()
+
+  const { data: pets, error } = await supabase
+    .from("pets")
+    .select(`
+      *,
+      pet_images (
+        url,
+        position
+      )
+    `)
+    .eq("category", "adoption")
+    .in("status", ["approved", "aprovado"]) // Apenas pets aprovados
+    .order("created_at", { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error("Erro ao buscar pets para adoção:", error)
+    return []
+  }
+
+  return pets || []
+}
+
+// Função para buscar pets perdidos aprovados
+async function getLostPets(limit = 4) {
+  const supabase = createClient()
+
+  const { data: pets, error } = await supabase
+    .from("pets")
+    .select(`
+      *,
+      pet_images (
+        url,
+        position
+      )
+    `)
+    .eq("category", "lost")
+    .in("status", ["approved", "aprovado"]) // Apenas pets aprovados
+    .order("created_at", { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error("Erro ao buscar pets perdidos:", error)
+    return []
+  }
+
+  return pets || []
+}
+
+// Função para buscar eventos
+async function getEvents(limit = 3) {
+  const supabase = createClient()
+
+  const { data: events, error } = await supabase
+    .from("events")
+    .select("*")
+    .gte("start_date", new Date().toISOString()) // Apenas eventos futuros
+    .order("start_date", { ascending: true })
+    .limit(limit)
+
+  if (error) {
+    console.error("Erro ao buscar eventos:", error)
+    return []
+  }
+
+  return events || []
+}
 
 export default async function Home() {
   // Buscar dados reais do Supabase
@@ -20,25 +91,14 @@ export default async function Home() {
   console.log(`Renderizando página inicial: ${timestamp}`)
 
   try {
-    // Buscar apenas os primeiros 4 pets para cada categoria (sem paginação completa)
-    const adoptionPetsResult = await getPetsForAdoption(1, 4)
-    const lostPetsResult = await getLostPets(1, 4)
-    const eventsResult = await getEvents(1, 4)
+    // Buscar apenas pets aprovados para cada categoria
+    const adoptionPets = await getPetsForAdoption(4)
+    const lostPets = await getLostPets(4)
+    const events = await getEvents(3)
 
-    // Extrair os arrays de dados dos resultados paginados
-    const adoptionPets = adoptionPetsResult.data || []
-    const lostPets = lostPetsResult.data || []
-    const events = eventsResult.data || []
-
-    console.log("Página inicial - Pets para adoção:", adoptionPets.length)
-    console.log("Página inicial - Pets perdidos:", lostPets.length)
+    console.log("Página inicial - Pets para adoção aprovados:", adoptionPets.length)
+    console.log("Página inicial - Pets perdidos aprovados:", lostPets.length)
     console.log("Página inicial - Eventos:", events.length)
-
-    // Não precisamos mais fazer slice, pois já limitamos a 4 na consulta
-    const recentAdoptionPets = adoptionPets
-    const recentLostPets = lostPets
-    // Filtramos apenas eventos futuros
-    const upcomingEvents = events.filter((event) => new Date(event.start_date) >= new Date()).slice(0, 3)
 
     return (
       <div className="flex flex-col min-h-screen">
@@ -53,33 +113,18 @@ export default async function Home() {
             />
           </AnimateOnScroll>
 
-          {recentAdoptionPets.length > 0 ? (
+          {adoptionPets.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
-              {recentAdoptionPets.map((pet, index) => (
+              {adoptionPets.map((pet, index) => (
                 <AnimateOnScroll key={pet.id} delay={index * 100}>
-                  <PetCard
-                    id={pet.id}
-                    name={pet.name}
-                    image={pet.image_url || "/a-cute-pet.png"}
-                    species={pet.species}
-                    species_other={pet.species_other}
-                    age={pet.age}
-                    size={pet.size}
-                    size_other={pet.size_other}
-                    gender={pet.gender}
-                    gender_other={pet.gender_other}
-                    status={pet.status}
-                    type="adoption"
-                    isSpecialNeeds={pet.is_special_needs}
-                    slug={pet.slug}
-                  />
+                  <PetCard pet={pet} />
                 </AnimateOnScroll>
               ))}
             </div>
           ) : (
             <div className="text-center py-12 bg-muted/30 rounded-lg mt-8">
               <p className="text-muted-foreground">
-                Ainda não há pets para adoção. Seja o primeiro a cadastrar um pet!
+                Ainda não há pets para adoção aprovados. Seja o primeiro a cadastrar um pet!
               </p>
               <Button className="mt-4" asChild>
                 <Link href="/adocao/cadastrar">Cadastrar Pet para Adoção</Link>
@@ -97,33 +142,18 @@ export default async function Home() {
             />
           </AnimateOnScroll>
 
-          {recentLostPets.length > 0 ? (
+          {lostPets.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
-              {recentLostPets.map((pet, index) => (
+              {lostPets.map((pet, index) => (
                 <AnimateOnScroll key={pet.id} delay={index * 100}>
-                  <PetCard
-                    id={pet.id}
-                    name={pet.name}
-                    image={pet.image_url || "/a-cute-pet.png"}
-                    species={pet.species}
-                    species_other={pet.species_other}
-                    age={pet.age}
-                    size={pet.size}
-                    size_other={pet.size_other}
-                    gender={pet.gender}
-                    gender_other={pet.gender_other}
-                    status={pet.status}
-                    type="lost"
-                    isSpecialNeeds={pet.is_special_needs}
-                    slug={pet.slug}
-                  />
+                  <PetCard pet={pet} />
                 </AnimateOnScroll>
               ))}
             </div>
           ) : (
             <div className="text-center py-12 bg-muted/30 rounded-lg mt-8">
               <p className="text-muted-foreground">
-                Não há pets perdidos registrados no momento. Isso é uma boa notícia!
+                Não há pets perdidos aprovados registrados no momento. Isso é uma boa notícia!
               </p>
             </div>
           )}
@@ -140,9 +170,9 @@ export default async function Home() {
             />
           </AnimateOnScroll>
 
-          {upcomingEvents.length > 0 ? (
+          {events.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-              {upcomingEvents.map((event, index) => (
+              {events.map((event, index) => (
                 <AnimateOnScroll key={event.id} delay={index * 100}>
                   <div className="bg-white rounded-lg shadow-md overflow-hidden">
                     <div className="h-48 relative">
