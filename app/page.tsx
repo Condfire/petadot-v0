@@ -11,94 +11,99 @@ import PetCard from "@/components/PetCard"
 import { OptimizedImage } from "@/components/optimized-image"
 import { createClient } from "@/lib/supabase/server"
 
-// Desativar completamente o cache para a página inicial durante o desenvolvimento
-export const revalidate = 0 // Revalidate on every request
+// Desativar completamente o cache para a página inicial
+export const revalidate = 0
 
 // Função para buscar pets para adoção aprovados
 async function getPetsForAdoption(limit = 4) {
-  const supabase = createClient()
+  try {
+    const supabase = createClient()
 
-  const { data: pets, error } = await supabase
-    .from("pets")
-    .select(`
-      *,
-      pet_images (
-        url,
-        position
-      )
-    `)
-    .eq("category", "adoption")
-    .in("status", ["approved", "aprovado"]) // Apenas pets aprovados
-    .order("created_at", { ascending: false })
-    .limit(limit)
+    const { data: pets, error } = await supabase
+      .from("pets")
+      .select("*")
+      .eq("category", "adoption")
+      .in("status", ["approved", "aprovado"])
+      .order("created_at", { ascending: false })
+      .limit(limit)
 
-  if (error) {
-    console.error("Erro ao buscar pets para adoção:", error)
+    if (error) {
+      console.error("Erro ao buscar pets para adoção:", error)
+      return []
+    }
+
+    return pets || []
+  } catch (error) {
+    console.error("Erro inesperado ao buscar pets para adoção:", error)
     return []
   }
-
-  return pets || []
 }
 
 // Função para buscar pets perdidos aprovados
 async function getLostPets(limit = 4) {
-  const supabase = createClient()
+  try {
+    const supabase = createClient()
 
-  const { data: pets, error } = await supabase
-    .from("pets")
-    .select(`
-      *,
-      pet_images (
-        url,
-        position
-      )
-    `)
-    .eq("category", "lost")
-    .in("status", ["approved", "aprovado"]) // Apenas pets aprovados
-    .order("created_at", { ascending: false })
-    .limit(limit)
+    const { data: pets, error } = await supabase
+      .from("pets")
+      .select("*")
+      .eq("category", "lost")
+      .in("status", ["approved", "aprovado"])
+      .order("created_at", { ascending: false })
+      .limit(limit)
 
-  if (error) {
-    console.error("Erro ao buscar pets perdidos:", error)
+    if (error) {
+      console.error("Erro ao buscar pets perdidos:", error)
+      return []
+    }
+
+    return pets || []
+  } catch (error) {
+    console.error("Erro inesperado ao buscar pets perdidos:", error)
     return []
   }
-
-  return pets || []
 }
 
 // Função para buscar eventos
 async function getEvents(limit = 3) {
-  const supabase = createClient()
+  try {
+    const supabase = createClient()
 
-  const { data: events, error } = await supabase
-    .from("events")
-    .select("*")
-    .gte("start_date", new Date().toISOString()) // Apenas eventos futuros
-    .order("start_date", { ascending: true })
-    .limit(limit)
+    const { data: events, error } = await supabase
+      .from("events")
+      .select("*")
+      .gte("start_date", new Date().toISOString())
+      .order("start_date", { ascending: true })
+      .limit(limit)
 
-  if (error) {
-    console.error("Erro ao buscar eventos:", error)
+    if (error) {
+      console.error("Erro ao buscar eventos:", error)
+      return []
+    }
+
+    return events || []
+  } catch (error) {
+    console.error("Erro inesperado ao buscar eventos:", error)
     return []
   }
-
-  return events || []
 }
 
 export default async function Home() {
-  // Buscar dados reais do Supabase
-  const timestamp = Date.now()
-  console.log(`Renderizando página inicial: ${timestamp}`)
-
   try {
-    // Buscar apenas pets aprovados para cada categoria
-    const adoptionPets = await getPetsForAdoption(4)
-    const lostPets = await getLostPets(4)
-    const events = await getEvents(3)
+    // Buscar dados com tratamento de erro individual
+    const [adoptionPets, lostPets, events] = await Promise.allSettled([
+      getPetsForAdoption(4),
+      getLostPets(4),
+      getEvents(3),
+    ])
 
-    console.log("Página inicial - Pets para adoção aprovados:", adoptionPets.length)
-    console.log("Página inicial - Pets perdidos aprovados:", lostPets.length)
-    console.log("Página inicial - Eventos:", events.length)
+    const adoptionPetsData = adoptionPets.status === "fulfilled" ? adoptionPets.value : []
+    const lostPetsData = lostPets.status === "fulfilled" ? lostPets.value : []
+    const eventsData = events.status === "fulfilled" ? events.value : []
+
+    console.log("Página inicial - Pets para adoção aprovados:", adoptionPetsData.length)
+    console.log("Página inicial - Pets perdidos aprovados:", lostPetsData.length)
+    console.log("Página inicial - Eventos:", eventsData.length)
 
     return (
       <div className="flex flex-col min-h-screen">
@@ -113,13 +118,17 @@ export default async function Home() {
             />
           </AnimateOnScroll>
 
-          {adoptionPets.length > 0 ? (
+          {Array.isArray(adoptionPetsData) && adoptionPetsData.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
-              {adoptionPets.map((pet, index) => (
-                <AnimateOnScroll key={pet.id} delay={index * 100}>
-                  <PetCard pet={pet} />
-                </AnimateOnScroll>
-              ))}
+              {adoptionPetsData.map((pet, index) => {
+                if (!pet || !pet.id) return null
+
+                return (
+                  <AnimateOnScroll key={pet.id} delay={index * 100}>
+                    <PetCard pet={pet} />
+                  </AnimateOnScroll>
+                )
+              })}
             </div>
           ) : (
             <div className="text-center py-12 bg-muted/30 rounded-lg mt-8">
@@ -142,13 +151,17 @@ export default async function Home() {
             />
           </AnimateOnScroll>
 
-          {lostPets.length > 0 ? (
+          {Array.isArray(lostPetsData) && lostPetsData.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
-              {lostPets.map((pet, index) => (
-                <AnimateOnScroll key={pet.id} delay={index * 100}>
-                  <PetCard pet={pet} />
-                </AnimateOnScroll>
-              ))}
+              {lostPetsData.map((pet, index) => {
+                if (!pet || !pet.id) return null
+
+                return (
+                  <AnimateOnScroll key={pet.id} delay={index * 100}>
+                    <PetCard pet={pet} />
+                  </AnimateOnScroll>
+                )
+              })}
             </div>
           ) : (
             <div className="text-center py-12 bg-muted/30 rounded-lg mt-8">
@@ -170,35 +183,39 @@ export default async function Home() {
             />
           </AnimateOnScroll>
 
-          {events.length > 0 ? (
+          {Array.isArray(eventsData) && eventsData.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-              {events.map((event, index) => (
-                <AnimateOnScroll key={event.id} delay={index * 100}>
-                  <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div className="h-48 relative">
-                      <OptimizedImage
-                        src={event.image_url || "/placeholder.svg?height=192&width=384&query=pet+event"}
-                        alt={event.title}
-                        width={384}
-                        height={192}
-                        className="w-full h-full"
-                        objectFit="cover"
-                      />
+              {eventsData.map((event, index) => {
+                if (!event || !event.id) return null
+
+                return (
+                  <AnimateOnScroll key={event.id} delay={index * 100}>
+                    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                      <div className="h-48 relative">
+                        <OptimizedImage
+                          src={event.image_url || "/placeholder.svg?height=192&width=384&query=pet+event"}
+                          alt={event.title || "Evento"}
+                          width={384}
+                          height={192}
+                          className="w-full h-full"
+                          objectFit="cover"
+                        />
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-bold text-lg">{event.title || "Evento sem título"}</h3>
+                        <p className="text-sm text-gray-600">
+                          Data: {new Date(event.start_date).toLocaleDateString("pt-BR")}
+                        </p>
+                        <p className="text-sm text-gray-600">Local: {event.location || "Local não informado"}</p>
+                        <p className="mt-2 text-sm line-clamp-2">{event.description || "Sem descrição"}</p>
+                        <Button className="mt-3 w-full" asChild>
+                          <Link href={`/eventos/${event.slug || event.id}`}>Ver detalhes</Link>
+                        </Button>
+                      </div>
                     </div>
-                    <div className="p-4">
-                      <h3 className="font-bold text-lg">{event.title}</h3>
-                      <p className="text-sm text-gray-600">
-                        Data: {new Date(event.start_date).toLocaleDateString("pt-BR")}
-                      </p>
-                      <p className="text-sm text-gray-600">Local: {event.location}</p>
-                      <p className="mt-2 text-sm line-clamp-2">{event.description}</p>
-                      <Button className="mt-3 w-full" asChild>
-                        <Link href={`/eventos/${event.slug || event.id}`}>Ver detalhes</Link>
-                      </Button>
-                    </div>
-                  </div>
-                </AnimateOnScroll>
-              ))}
+                  </AnimateOnScroll>
+                )
+              })}
             </div>
           ) : (
             <div className="text-center py-12 bg-muted/30 rounded-lg mt-8">
@@ -250,8 +267,8 @@ export default async function Home() {
       </div>
     )
   } catch (error) {
-    console.error("Erro ao renderizar a página inicial:", error)
-    // Fallback em caso de erro
+    console.error("Erro crítico ao renderizar a página inicial:", error)
+    // Fallback em caso de erro crítico
     return (
       <div className="flex flex-col min-h-screen">
         <HeroSection />

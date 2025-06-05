@@ -1,51 +1,46 @@
 import { createClient } from "@/lib/supabase/server"
 import PerdidosClientPage from "./PerdidosClientPage"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
 
-async function fetchLostPets(currentUserId?: string) {
+async function fetchLostPets() {
   const supabase = createClient()
 
-  let query = supabase
-    .from("pets")
-    .select(`
-      *,
-      pet_images (
-        url,
-        position
-      )
-    `)
-    .eq("category", "lost")
-    .order("created_at", { ascending: false })
+  try {
+    const { data: pets, error } = await supabase
+      .from("pets")
+      .select(`
+        *,
+        pet_images (
+          url,
+          position
+        )
+      `)
+      .eq("category", "lost")
+      .in("status", ["approved", "aprovado"]) // Apenas pets aprovados para visitantes
+      .order("created_at", { ascending: false })
 
-  // Se não há usuário logado, mostrar apenas pets aprovados
-  if (!currentUserId) {
-    query = query.in("status", ["approved", "aprovado"])
-  } else {
-    // Se há usuário logado, mostrar pets aprovados + seus próprios pets
-    query = query.or(`status.in.(approved,aprovado),user_id.eq.${currentUserId}`)
-  }
+    if (error) {
+      console.error("Erro ao buscar pets perdidos:", error)
+      return []
+    }
 
-  const { data: pets, error } = await query
-
-  if (error) {
-    console.error("Erro ao buscar pets perdidos:", error)
+    return pets || []
+  } catch (error) {
+    console.error("Erro inesperado ao buscar pets perdidos:", error)
     return []
   }
-
-  return pets || []
 }
 
 export default async function PerdidosPage() {
-  // Verificar se há usuário logado
-  const supabaseAuth = createServerComponentClient({ cookies })
-  const {
-    data: { session },
-  } = await supabaseAuth.auth.getSession()
-
-  const currentUserId = session?.user?.id
-
-  const pets = await fetchLostPets(currentUserId)
-
-  return <PerdidosClientPage initialPets={pets || []} currentUserId={currentUserId} />
+  try {
+    const pets = await fetchLostPets()
+    return <PerdidosClientPage initialPets={pets || []} />
+  } catch (error) {
+    console.error("Erro na página de perdidos:", error)
+    return (
+      <div className="container py-12 text-center">
+        <h1 className="text-2xl font-bold mb-4">Erro ao carregar pets perdidos</h1>
+        <p className="text-muted-foreground">Ocorreu um erro ao carregar os dados. Tente novamente mais tarde.</p>
+      </div>
+    )
+  }
 }
