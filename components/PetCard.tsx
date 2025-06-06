@@ -49,6 +49,11 @@ const PetCard: React.FC<PetCardProps> = ({ pet }) => {
     if (category === "adoption") detailPageLink = `/adocao/${slug}`
     else if (category === "lost") detailPageLink = `/perdidos/${slug}`
     else if (category === "found") detailPageLink = `/encontrados/${slug}`
+  } else if (pet.id) {
+    // Fallback to ID if slug is not available
+    if (category === "adoption") detailPageLink = `/adocao/${pet.id}`
+    else if (category === "lost") detailPageLink = `/perdidos/${pet.id}`
+    else if (category === "found") detailPageLink = `/encontrados/${pet.id}`
   }
 
   return (
@@ -61,7 +66,10 @@ const PetCard: React.FC<PetCardProps> = ({ pet }) => {
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover group-hover:scale-105 transition-transform duration-300"
-            onError={(e) => (e.currentTarget.src = `/placeholder.svg?width=300&height=200&query=fallback+pet`)}
+            onError={(e) => {
+              // @ts-ignore - Typescript doesn't know about currentTarget.src
+              e.currentTarget.src = `/placeholder.svg?width=300&height=200&query=fallback+pet`
+            }}
           />
           {currentStatusNormalized === "approved" && (
             <Badge variant="default" className="absolute top-2 right-2 bg-green-500 text-white">
