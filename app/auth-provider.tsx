@@ -15,6 +15,7 @@ export type User = {
   type?: string
   state?: string
   city?: string
+  is_admin?: boolean
 }
 
 type AuthContextType = {
@@ -47,6 +48,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
+  // Função para verificar se o usuário é admin
+  const checkAdminStatus = async (userId: string) => {
+    try {
+      const { data, error } = await supabase.from("users").select("is_admin, type").eq("id", userId).single()
+
+      if (error) {
+        console.warn("Erro ao verificar status de admin:", error.message)
+        return false
+      }
+
+      // Verificar se é admin através do campo is_admin ou type
+      return data?.is_admin === true || data?.type === "admin" || data?.type === "ngo_admin"
+    } catch (error) {
+      console.warn("Erro ao verificar status de admin:", error)
+      return false
+    }
+  }
+
+  // Função para atualizar dados do usuário
+  const updateUserFromSession = async (currentSession: Session | null) => {
+    if (currentSession?.user) {
+      const supabaseUser = currentSession.user
+
+      // Verificar status de admin
+      const isAdmin = await checkAdminStatus(supabaseUser.id)
+
+      setUser({
+        id: supabaseUser.id,
+        email: supabaseUser.email || "",
+        name: supabaseUser.user_metadata?.name || supabaseUser.email?.split("@")[0],
+        avatar_url: supabaseUser.user_metadata?.avatar_url,
+        type: supabaseUser.user_metadata?.type || "regular",
+        state: supabaseUser.user_metadata?.state,
+        city: supabaseUser.user_metadata?.city,
+        is_admin: isAdmin,
+      })
+    } else {
+      setUser(null)
+    }
+  }
+
   useEffect(() => {
     let mounted = true
 
@@ -58,17 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (mounted) {
           setSession(currentSession)
-          if (currentSession?.user) {
-            setUser({
-              id: currentSession.user.id,
-              email: currentSession.user.email || "",
-              name: currentSession.user.user_metadata?.name || currentSession.user.email?.split("@")[0],
-              avatar_url: currentSession.user.user_metadata?.avatar_url,
-              type: currentSession.user.user_metadata?.type || "regular",
-              state: currentSession.user.user_metadata?.state,
-              city: currentSession.user.user_metadata?.city,
-            })
-          }
+          await updateUserFromSession(currentSession)
           setIsLoading(false)
         }
       } catch (err) {
@@ -87,19 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (mounted) {
         setSession(newSession)
-        if (newSession?.user) {
-          setUser({
-            id: newSession.user.id,
-            email: newSession.user.email || "",
-            name: newSession.user.user_metadata?.name || newSession.user.email?.split("@")[0],
-            avatar_url: newSession.user.user_metadata?.avatar_url,
-            type: newSession.user.user_metadata?.type || "regular",
-            state: newSession.user.user_metadata?.state,
-            city: newSession.user.user_metadata?.city,
-          })
-        } else {
-          setUser(null)
-        }
+        await updateUserFromSession(newSession)
       }
     })
 

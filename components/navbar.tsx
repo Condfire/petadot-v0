@@ -42,7 +42,7 @@ export default function Navbar() {
   // Derivar estados do contexto:
   const isAuthenticated = !!user
   const userEmail = user?.email || ""
-  const isAdmin = user?.type === "admin" || user?.type === "ngo_admin"
+  const isAdmin = user?.is_admin === true || user?.type === "admin" || user?.type === "ngo_admin"
 
   // Construir a URL do logo do bucket do Supabase
   const logoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sppetadot/logo/logo.png`
@@ -82,6 +82,19 @@ export default function Navbar() {
       window.removeEventListener("scroll", handleScroll)
     }
   }, [])
+
+  // Debug: log do status de admin
+  useEffect(() => {
+    if (user) {
+      console.log("Navbar - User data:", {
+        id: user.id,
+        email: user.email,
+        type: user.type,
+        is_admin: user.is_admin,
+        isAdmin: isAdmin,
+      })
+    }
+  }, [user, isAdmin])
 
   return (
     <header
