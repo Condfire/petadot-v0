@@ -11,34 +11,38 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, AlertCircle, User, Building2 } from "lucide-react"
+import { Loader2, AlertCircle } from "lucide-react"
 import LocationSelectorSimple from "@/components/location-selector-simple"
 import { registerUserAndNgoAction, type RegisterUserAndNgoInput } from "@/app/actions/auth-actions"
 import { useAuth } from "@/app/auth-provider"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { User, Building2 } from "lucide-react"
 
 export default function RegisterPage() {
-  const [activeTab, setActiveTab] = useState("user")
-  const [error, setError] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  // Dados comuns
   const [personalName, setPersonalName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [userState, setUserState] = useState("") // For regular user's location
+  const [userCity, setUserCity] = useState("") // For regular user's location
 
-  // Dados do usuário comum
-  const [userState, setUserState] = useState("")
-  const [userCity, setUserCity] = useState("")
-
-  // Dados da ONG (apenas campos essenciais)
+  const [isNgo, setIsNgo] = useState(false)
   const [ngoName, setNgoName] = useState("")
+  const [cnpj, setCnpj] = useState("")
+  const [mission, setMission] = useState("")
+  const [ngoContactPhone, setNgoContactPhone] = useState("")
+  const [ngoContactEmail, setNgoContactEmail] = useState("")
+  const [ngoWebsite, setNgoWebsite] = useState("")
+  const [ngoAddress, setNgoAddress] = useState("")
   const [ngoState, setNgoState] = useState("")
   const [ngoCity, setNgoCity] = useState("")
-  const [ngoContactPhone, setNgoContactPhone] = useState("")
-  const [mission, setMission] = useState("")
+  const [ngoPostalCode, setNgoPostalCode] = useState("")
+  const [verificationDocumentUrl, setVerificationDocumentUrl] = useState("")
+
+  const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [activeTab, setActiveTab] = useState("user")
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -50,6 +54,24 @@ export default function RegisterPage() {
       router.push(redirectTo)
     }
   }, [session, isAuthLoading, router, redirectTo])
+
+  const handleUserLocationStateChange = (selectedState: string) => {
+    setUserState(selectedState)
+    setUserCity("") // Reset city when state changes
+  }
+
+  const handleUserLocationCityChange = (selectedCity: string) => {
+    setUserCity(selectedCity)
+  }
+
+  const handleNgoLocationStateChange = (selectedState: string) => {
+    setNgoState(selectedState)
+    setNgoCity("") // Reset city when state changes
+  }
+
+  const handleNgoLocationCityChange = (selectedCity: string) => {
+    setNgoCity(selectedCity)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -80,11 +102,16 @@ export default function RegisterPage() {
       userCity: userCity || undefined,
       ...(isNgo && {
         ngoName,
-        ngoCity,
-        ngoState,
-        ngoContactPhone: ngoContactPhone || undefined,
+        cnpj: cnpj || undefined,
         mission: mission || undefined,
-        ngoContactEmail: email, // Usar o email principal como contato
+        ngoContactEmail: ngoContactEmail || email, // Default to user email
+        ngoContactPhone: ngoContactPhone || undefined,
+        ngoWebsite: ngoWebsite || undefined,
+        ngoAddress: ngoAddress || undefined,
+        ngoCity, // Required for NGO
+        ngoState, // Required for NGO
+        ngoPostalCode: ngoPostalCode || undefined,
+        verificationDocumentUrl: verificationDocumentUrl || undefined,
       }),
     }
 
@@ -100,14 +127,6 @@ export default function RegisterPage() {
     }
 
     setIsSubmitting(false)
-  }
-
-  if (isAuthLoading) {
-    return (
-      <div className="container flex items-center justify-center min-h-[calc(100vh-4rem)] py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
   }
 
   return (
@@ -189,8 +208,8 @@ export default function RegisterPage() {
               <TabsContent value="user" className="space-y-4">
                 <h3 className="text-lg font-semibold">Localização (Opcional)</h3>
                 <LocationSelectorSimple
-                  onStateChange={setUserState}
-                  onCityChange={setUserCity}
+                  onStateChange={handleUserLocationStateChange}
+                  onCityChange={handleUserLocationCityChange}
                   initialState={userState}
                   initialCity={userCity}
                   required={false}
@@ -210,10 +229,20 @@ export default function RegisterPage() {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="cnpj">CNPJ (XX.XXX.XXX/XXXX-XX)</Label>
+                    <Input
+                      id="cnpj"
+                      value={cnpj}
+                      onChange={(e) => setCnpj(e.target.value)}
+                      placeholder="XX.XXX.XXX/XXXX-XX"
+                      required={activeTab === "ong"}
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label>Localização da ONG</Label>
                     <LocationSelectorSimple
-                      onStateChange={setNgoState}
-                      onCityChange={setNgoCity}
+                      onStateChange={handleNgoLocationStateChange}
+                      onCityChange={handleNgoLocationCityChange}
                       initialState={ngoState}
                       initialCity={ngoCity}
                       required={activeTab === "ong"}
@@ -243,7 +272,7 @@ export default function RegisterPage() {
 
               <Button type="submit" className="w-full mt-6" disabled={isSubmitting || isAuthLoading}>
                 {(isSubmitting || isAuthLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isSubmitting ? "Criando conta..." : `Criar conta ${activeTab === "ong" ? "de ONG" : "pessoal"}`}
+                {isSubmitting ? "Cadastrando..." : `Criar conta ${activeTab === "ong" ? "de ONG" : "pessoal"}`}
               </Button>
             </form>
           </Tabs>

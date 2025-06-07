@@ -15,14 +15,18 @@ const commonUserSchema = z.object({
 
 const ngoSchema = z.object({
   ngoName: z.string().min(2, "Nome da ONG é obrigatório."),
-  cnpj: z.string().regex(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/, "CNPJ inválido. Formato esperado: XX.XXX.XXX/XXXX-XX"),
+  cnpj: z
+    .string()
+    .regex(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/, "CNPJ inválido. Formato esperado: XX.XXX.XXX/XXXX-XX")
+    .optional()
+    .or(z.literal("")), // Optional for now, but good to have format
   mission: z.string().optional(),
   ngoContactEmail: z.string().email("Email de contato da ONG inválido.").optional().or(z.literal("")),
   ngoContactPhone: z.string().optional(),
   ngoWebsite: z.string().url("Website inválido.").optional().or(z.literal("")),
   ngoAddress: z.string().optional(),
   ngoCity: z.string().min(1, "Cidade da ONG é obrigatória."),
-  ngoState: z.string().min(2, "Estado (UF) da ONG é obrigatório."),
+  ngoState: z.string().min(2, "Estado (UF) da ONG é obrigatória."),
   ngoPostalCode: z.string().optional(),
   verificationDocumentUrl: z.string().url("URL do documento inválida.").optional().or(z.literal("")),
 })
