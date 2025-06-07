@@ -18,6 +18,7 @@ import LocationSelectorSimple from "@/components/location-selector-simple"
 export default function OngRegisterPage() {
   const [formData, setFormData] = useState({
     name: "",
+    cnpj: "",
     email: "",
     city: "",
     state: "",
@@ -37,12 +38,40 @@ export default function OngRegisterPage() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  // Função para formatar o CNPJ enquanto o usuário digita
+  const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, "") // Remove caracteres não numéricos
+
+    if (value.length > 14) {
+      value = value.slice(0, 14) // Limita a 14 dígitos
+    }
+
+    // Formata o CNPJ: XX.XXX.XXX/XXXX-XX
+    if (value.length > 12) {
+      value = value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
+    } else if (value.length > 8) {
+      value = value.replace(/^(\d{2})(\d{3})(\d{3})(\d+)$/, "$1.$2.$3/$4")
+    } else if (value.length > 5) {
+      value = value.replace(/^(\d{2})(\d{3})(\d+)$/, "$1.$2.$3")
+    } else if (value.length > 2) {
+      value = value.replace(/^(\d{2})(\d+)$/, "$1.$2")
+    }
+
+    setFormData((prev) => ({ ...prev, cnpj: value }))
+  }
+
   const handleStateChange = (state: string) => {
     setFormData((prev) => ({ ...prev, state }))
   }
 
   const handleCityChange = (city: string) => {
     setFormData((prev) => ({ ...prev, city }))
+  }
+
+  // Função para validar CNPJ (validação básica de formato)
+  const validateCnpj = (cnpj: string): boolean => {
+    const cnpjRegex = /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/
+    return cnpjRegex.test(cnpj)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,6 +87,12 @@ export default function OngRegisterPage() {
       return
     }
 
+    if (!validateCnpj(formData.cnpj)) {
+      setError("CNPJ inválido. Use o formato: XX.XXX.XXX/XXXX-XX")
+      setIsSubmitting(false)
+      return
+    }
+
     if (!formData.state.trim() || !formData.city.trim()) {
       setError("Estado e cidade são obrigatórios")
       setIsSubmitting(false)
@@ -65,7 +100,10 @@ export default function OngRegisterPage() {
     }
 
     try {
+      console.log("Iniciando processo de registro de ONG...")
+
       // Criar usuário no Supabase Auth
+      console.log("Criando usuário na autenticação...")
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -80,20 +118,52 @@ export default function OngRegisterPage() {
       })
 
       if (authError) {
+        console.error("Erro ao criar usuário na autenticação:", authError)
         setError(authError.message || "Falha ao criar conta")
         setIsSubmitting(false)
         return
       }
 
       if (!authData.user) {
+        console.error("Usuário não criado na autenticação")
         setError("Erro ao criar usuário")
         setIsSubmitting(false)
         return
       }
 
-      // Criar registro de ONG no banco de dados
+      console.log("Usuário criado com sucesso na autenticação, ID:", authData.user.id)
+
+      // Primeiro, criar o registro na tabela users
+      console.log("Criando registro na tabela users...")
+      const { error: userError } = await supabase.from("users").insert({
+        id: authData.user.id,
+        email: formData.email,
+        name: formData.name,
+        type: "ong",
+        state: formData.state,
+        city: formData.city,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      if (userError) {
+        console.error("Erro ao criar usuário na tabela users:", userError)
+        // Se o usuário já existir, não é um erro crítico
+        if (userError.code !== "23505") {
+          // 23505 é o código para violação de unique constraint
+          setError(`Erro ao criar perfil de usuário: ${userError.message}`)
+          setIsSubmitting(false)
+          return
+        }
+      }
+
+      console.log("Usuário criado na tabela users com sucesso")
+
+      // Agora criar o registro de ONG no banco de dados
+      console.log("Criando registro de ONG...")
       const ongData = {
         name: formData.name,
+        cnpj: formData.cnpj,
         email: formData.email,
         user_id: authData.user.id,
         state: formData.state,
@@ -106,13 +176,18 @@ export default function OngRegisterPage() {
         is_verified: false,
       }
 
-      const { error: ongError } = await supabase.from("ongs").insert(ongData)
+      console.log("Dados da ONG a serem inseridos:", ongData)
+
+      const { data: ongResult, error: ongError } = await supabase.from("ongs").insert(ongData).select()
 
       if (ongError) {
+        console.error("Erro ao criar ONG:", ongError)
         setError(`Erro ao criar perfil de ONG: ${ongError.message}`)
         setIsSubmitting(false)
         return
       }
+
+      console.log("ONG criada com sucesso:", ongResult)
 
       // Registro bem-sucedido
       setSuccess("Registro realizado com sucesso! Redirecionando para o login...")
@@ -166,7 +241,7 @@ export default function OngRegisterPage() {
               <h3 className="text-lg font-semibold">Dados Básicos</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Nome da ONG</Label>
+                  <Label htmlFor="name">Nome da ONG *</Label>
                   <Input
                     id="name"
                     name="name"
@@ -177,23 +252,34 @@ export default function OngRegisterPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="cnpj">CNPJ *</Label>
                   <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    placeholder="ong@exemplo.com"
+                    id="cnpj"
+                    name="cnpj"
+                    value={formData.cnpj}
+                    onChange={handleCnpjChange}
+                    placeholder="XX.XXX.XXX/XXXX-XX"
                     required
                   />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="ong@exemplo.com"
+                  required
+                />
               </div>
             </div>
 
             {/* Localização */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Localização</h3>
+              <h3 className="text-lg font-semibold">Localização *</h3>
               <LocationSelectorSimple
                 onStateChange={handleStateChange}
                 onCityChange={handleCityChange}
@@ -206,7 +292,7 @@ export default function OngRegisterPage() {
               <h3 className="text-lg font-semibold">Contato</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="contact">Contato Principal</Label>
+                  <Label htmlFor="contact">Contato Principal *</Label>
                   <Input
                     id="contact"
                     name="contact"
@@ -231,7 +317,7 @@ export default function OngRegisterPage() {
 
             {/* Missão */}
             <div className="space-y-2">
-              <Label htmlFor="mission">Missão da ONG (Opcional)</Label>
+              <Label htmlFor="mission">Missão da ONG</Label>
               <Textarea
                 id="mission"
                 name="mission"
@@ -244,7 +330,7 @@ export default function OngRegisterPage() {
 
             {/* Senha */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Senha</h3>
+              <h3 className="text-lg font-semibold">Senha *</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="password">Senha</Label>
@@ -269,6 +355,10 @@ export default function OngRegisterPage() {
                   />
                 </div>
               </div>
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              <p>* Campos obrigatórios</p>
             </div>
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>
