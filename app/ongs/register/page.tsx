@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Building2, Loader2 } from "lucide-react"
@@ -17,11 +18,12 @@ import LocationSelectorSimple from "@/components/location-selector-simple"
 export default function OngRegisterPage() {
   const [formData, setFormData] = useState({
     name: "",
-    cnpj: "",
     email: "",
     city: "",
     state: "",
     contact: "",
+    phone: "",
+    mission: "",
     password: "",
     confirmPassword: "",
   })
@@ -30,31 +32,9 @@ export default function OngRegisterPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const router = useRouter()
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  // Função para formatar o CNPJ enquanto o usuário digita
-  const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, "") // Remove caracteres não numéricos
-
-    if (value.length > 14) {
-      value = value.slice(0, 14) // Limita a 14 dígitos
-    }
-
-    // Formata o CNPJ: XX.XXX.XXX/XXXX-XX
-    if (value.length > 12) {
-      value = value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")
-    } else if (value.length > 8) {
-      value = value.replace(/^(\d{2})(\d{3})(\d{3})(\d+)$/, "$1.$2.$3/$4")
-    } else if (value.length > 5) {
-      value = value.replace(/^(\d{2})(\d{3})(\d+)$/, "$1.$2.$3")
-    } else if (value.length > 2) {
-      value = value.replace(/^(\d{2})(\d+)$/, "$1.$2")
-    }
-
-    setFormData((prev) => ({ ...prev, cnpj: value }))
   }
 
   const handleStateChange = (state: string) => {
@@ -71,45 +51,21 @@ export default function OngRegisterPage() {
     setError(null)
     setSuccess(null)
 
-    // Validar senha
+    // Validações básicas
     if (formData.password !== formData.confirmPassword) {
       setError("As senhas não coincidem")
       setIsSubmitting(false)
       return
     }
 
-    // Validar CNPJ (formato básico)
-    const cnpjRegex = /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/
-    if (!cnpjRegex.test(formData.cnpj)) {
-      setError("CNPJ inválido. Use o formato: XX.XXX.XXX/XXXX-XX")
-      setIsSubmitting(false)
-      return
-    }
-
-    // Validar campos obrigatórios
-    if (!formData.state.trim()) {
-      setError("O estado é obrigatório")
-      setIsSubmitting(false)
-      return
-    }
-
-    if (!formData.city.trim()) {
-      setError("A cidade é obrigatória")
-      setIsSubmitting(false)
-      return
-    }
-
-    if (!formData.contact.trim()) {
-      setError("O contato é obrigatório")
+    if (!formData.state.trim() || !formData.city.trim()) {
+      setError("Estado e cidade são obrigatórios")
       setIsSubmitting(false)
       return
     }
 
     try {
-      console.log("Iniciando processo de registro de ONG...")
-
       // Criar usuário no Supabase Auth
-      console.log("Criando usuário na autenticação...")
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -124,67 +80,38 @@ export default function OngRegisterPage() {
       })
 
       if (authError) {
-        console.error("Erro ao criar usuário na autenticação:", authError)
         setError(authError.message || "Falha ao criar conta")
         setIsSubmitting(false)
         return
       }
 
       if (!authData.user) {
-        console.error("Usuário não criado na autenticação")
         setError("Erro ao criar usuário")
         setIsSubmitting(false)
         return
       }
 
-      console.log("Usuário criado com sucesso na autenticação, ID:", authData.user.id)
-
       // Criar registro de ONG no banco de dados
-      console.log("Criando registro de ONG...")
-
-      // Preparar dados da ONG
       const ongData = {
         name: formData.name,
         email: formData.email,
-        cnpj: formData.cnpj,
         user_id: authData.user.id,
         state: formData.state,
         city: formData.city,
         contact: formData.contact,
+        contact_phone: formData.phone,
+        mission: formData.mission,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         is_verified: false,
       }
 
-      console.log("Dados da ONG a serem inseridos:", ongData)
-
-      const { data: ongResult, error: ongError } = await supabase.from("ongs").insert(ongData).select()
+      const { error: ongError } = await supabase.from("ongs").insert(ongData)
 
       if (ongError) {
-        console.error("Erro ao criar ONG:", ongError)
         setError(`Erro ao criar perfil de ONG: ${ongError.message}`)
-
-        // Não fazer logout automaticamente para permitir depuração
         setIsSubmitting(false)
         return
-      }
-
-      console.log("ONG criada com sucesso:", ongResult)
-
-      // Atualizar a tabela users com o nome
-      console.log("Atualizando tabela users com o nome...")
-      const { error: userUpdateError } = await supabase
-        .from("users")
-        .update({
-          name: formData.name,
-          state: formData.state,
-          city: formData.city,
-        })
-        .eq("id", authData.user.id)
-
-      if (userUpdateError) {
-        console.warn("Aviso: Não foi possível atualizar o nome na tabela users:", userUpdateError)
-        // Não vamos interromper o fluxo por causa desse erro
       }
 
       // Registro bem-sucedido
@@ -208,7 +135,7 @@ export default function OngRegisterPage() {
 
   return (
     <div className="container py-12">
-      <Card className="max-w-md mx-auto">
+      <Card className="max-w-2xl mx-auto">
         <CardHeader>
           <div className="flex items-center justify-center mb-4">
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -221,7 +148,7 @@ export default function OngRegisterPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -234,79 +161,114 @@ export default function OngRegisterPage() {
               </Alert>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome da ONG</Label>
-              <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="Nome da sua organização"
-                required
+            {/* Dados Básicos */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Dados Básicos</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome da ONG</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="Nome da sua organização"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="ong@exemplo.com"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Localização */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Localização</h3>
+              <LocationSelectorSimple
+                onStateChange={handleStateChange}
+                onCityChange={handleCityChange}
+                required={true}
               />
             </div>
 
+            {/* Contato */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Contato</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="contact">Contato Principal</Label>
+                  <Input
+                    id="contact"
+                    name="contact"
+                    value={formData.contact}
+                    onChange={handleChange}
+                    placeholder="Nome do responsável"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefone</Label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder="(11) 99999-9999"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Missão */}
             <div className="space-y-2">
-              <Label htmlFor="cnpj">CNPJ</Label>
-              <Input
-                id="cnpj"
-                name="cnpj"
-                value={formData.cnpj}
-                onChange={handleCnpjChange}
-                placeholder="XX.XXX.XXX/XXXX-XX"
-                required
+              <Label htmlFor="mission">Missão da ONG (Opcional)</Label>
+              <Textarea
+                id="mission"
+                name="mission"
+                value={formData.mission}
+                onChange={handleChange}
+                placeholder="Descreva brevemente a missão da sua ONG..."
+                rows={3}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="ong@exemplo.com"
-                required
-              />
-            </div>
-
-            <LocationSelectorSimple onStateChange={handleStateChange} onCityChange={handleCityChange} required={true} />
-
-            <div className="space-y-2">
-              <Label htmlFor="contact">Contato Principal</Label>
-              <Input
-                id="contact"
-                name="contact"
-                value={formData.contact}
-                onChange={handleChange}
-                placeholder="Nome do contato principal"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmar Senha</Label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-              />
+            {/* Senha */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Senha</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+              </div>
             </div>
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>
