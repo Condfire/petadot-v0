@@ -176,3 +176,55 @@ export async function getStoriesByCategoryStats() {
     return {}
   }
 }
+
+// Add the new function getStatsForUser
+export async function getStatsForUser(userId: string) {
+  try {
+    const { count: adoptionCount, error: adoptionError } = await supabase
+      .from("pets")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("status", "approved") // Assuming 'approved' is the status for active pets
+
+    if (adoptionError) {
+      console.error("Error fetching user adoption pets stats:", adoptionError)
+    }
+
+    const { count: lostCount, error: lostError } = await supabase
+      .from("pets_lost")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("status", "approved") // Assuming 'approved' is the status for active pets
+
+    if (lostError) {
+      console.error("Error fetching user lost pets stats:", lostError)
+    }
+
+    const { count: foundCount, error: foundError } = await supabase
+      .from("pets_found")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId) // Assuming found pets are also linked to a user who reported them
+      .eq("status", "approved")
+
+    if (foundError) {
+      console.error("Error fetching user found pets stats:", foundError)
+    }
+
+    const total = (adoptionCount || 0) + (lostCount || 0) + (foundCount || 0)
+
+    return {
+      forAdoption: adoptionCount || 0,
+      lost: lostCount || 0,
+      found: foundCount || 0,
+      total: total,
+    }
+  } catch (error) {
+    console.error(`Error fetching stats for user ${userId}:`, error)
+    return {
+      forAdoption: 0,
+      lost: 0,
+      found: 0,
+      total: 0,
+    }
+  }
+}
