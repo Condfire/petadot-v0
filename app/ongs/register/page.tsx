@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Building2, Loader2 } from "lucide-react"
+import { Building2, Loader2 } from 'lucide-react'
 import { supabase } from "@/lib/supabase"
 import LocationSelectorSimple from "@/components/location-selector-simple"
 
@@ -139,7 +139,7 @@ export default function OngRegisterPage() {
         id: authData.user.id,
         email: formData.email,
         name: formData.name,
-        type: "ong",
+        type: "ngo_admin", // Changed from "ong" to "ngo_admin"
         state: formData.state,
         city: formData.city,
         created_at: new Date().toISOString(),
