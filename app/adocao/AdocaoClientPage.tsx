@@ -6,29 +6,44 @@ import PetCard from "@/components/pet-card"
 import { PetFilters } from "@/components/pet-filters"
 import { PaginationControls } from "@/components/pagination-controls"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle, User } from "lucide-react"
 import Link from "next/link"
 import { Plus } from "lucide-react"
 
 interface AdocaoClientPageProps {
-  initialPets: any[]
-  totalCount: number
+  initialPets?: any[]
+  totalCount?: number
   initialPage?: number
   initialFilters?: any
 }
 
 export default function AdocaoClientPage({
-  initialPets,
-  totalCount,
+  initialPets = [],
+  totalCount = 0,
   initialPage = 1,
   initialFilters = {},
 }: AdocaoClientPageProps) {
-  const [pets, setPets] = useState(initialPets)
+  const [pets, setPets] = useState(initialPets || [])
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(initialPage)
-  const [filters, setFilters] = useState(initialFilters)
-  const [total, setTotal] = useState(totalCount)
+  const [filters, setFilters] = useState(initialFilters || {})
+  const [total, setTotal] = useState(totalCount || 0)
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const supabase = createClientComponentClient()
   const itemsPerPage = 12
+
+  // Get current user
+  useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      setCurrentUser(session?.user || null)
+    }
+    getUser()
+  }, [supabase])
 
   useEffect(() => {
     const fetchPets = async () => {
@@ -36,7 +51,19 @@ export default function AdocaoClientPage({
       try {
         let query = supabase.from("pets").select("*", { count: "exact" })
 
-        // Aplicar filtros
+        // Filtrar apenas pets de adoção
+        query = query.eq("category", "adoption")
+
+        // Aplicar filtros de status baseado no usuário
+        if (currentUser?.id) {
+          // Usuário logado: pets aprovados + seus próprios pets
+          query = query.or(`status.in.(approved,aprovado),and(user_id.eq.${currentUser.id})`)
+        } else {
+          // Visitante: apenas pets aprovados
+          query = query.in("status", ["approved", "aprovado"])
+        }
+
+        // Aplicar outros filtros
         if (filters.species) {
           query = query.eq("species", filters.species)
         }
@@ -73,22 +100,95 @@ export default function AdocaoClientPage({
         }
       } catch (error) {
         console.error("Erro ao buscar pets para adoção:", error)
+        setPets([])
+        setTotal(0)
       } finally {
         setLoading(false)
       }
     }
 
     fetchPets()
-  }, [page, filters, supabase])
+  }, [page, filters, supabase, currentUser?.id])
 
   const handleFilterChange = (newFilters: any) => {
-    setFilters(newFilters)
+    setFilters(newFilters || {})
     setPage(1) // Resetar para a primeira página ao mudar filtros
   }
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage)
     window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  // Função para renderizar pet card com lógica de visibilidade
+  const renderPetCard = (pet: any) => {
+    if (!pet) return null
+
+    const status = pet.status?.toLowerCase() || ""
+    const isApproved = status === "approved" || status === "aprovado"
+    const isOwner = currentUser?.id && pet.user_id === currentUser.id
+
+    // Se não é aprovado e não é o dono, não mostrar
+    if (!isApproved && !isOwner) {
+      return null
+    }
+
+    return (
+      <div key={pet.id} className="space-y-2">
+        {/* Alerta para pets não aprovados (só para o dono) */}
+        {!isApproved && isOwner && (
+          <Alert variant="default" className="bg-yellow-50 border-yellow-200">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              {status === "rejected" || status === "rejeitado"
+                ? "Seu pet foi rejeitado e só é visível para você."
+                : "Seu pet está aguardando aprovação e só é visível para você."}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="relative">
+          <PetCard
+            id={pet.id}
+            name={pet.name || "Pet sem nome"}
+            image={pet.image_url || pet.main_image_url}
+            species={pet.species}
+            species_other={pet.species_other}
+            breed={pet.breed}
+            age={pet.age}
+            size={pet.size}
+            size_other={pet.size_other}
+            gender={pet.gender}
+            gender_other={pet.gender_other}
+            location={pet.city && pet.state ? `${pet.city}, ${pet.state}` : null}
+            status={pet.status}
+            type="adoption"
+            isSpecialNeeds={pet.is_special_needs}
+            slug={pet.slug}
+          />
+
+          {/* Badges sobrepostos */}
+          <div className="absolute top-2 right-2 flex flex-col gap-1">
+            {/* Badge de status */}
+            {status === "approved" || status === "aprovado" ? (
+              <Badge className="bg-green-500 text-white">Aprovado</Badge>
+            ) : status === "rejected" || status === "rejeitado" ? (
+              <Badge className="bg-red-500 text-white">Rejeitado</Badge>
+            ) : status === "pending" || status === "pendente" ? (
+              <Badge className="bg-yellow-500 text-white">Pendente</Badge>
+            ) : null}
+
+            {/* Badge de propriedade */}
+            {isOwner && (
+              <Badge variant="outline" className="bg-blue-500 text-white border-blue-500">
+                <User className="h-3 w-3 mr-1" />
+                Seu Pet
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -113,35 +213,17 @@ export default function AdocaoClientPage({
         </div>
       ) : (
         <>
-          {pets.length > 0 ? (
+          {Array.isArray(pets) && pets.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-              {pets.map((pet) => (
-                <PetCard
-                  key={pet.id}
-                  id={pet.id}
-                  name={pet.name || "Pet sem nome"}
-                  image={pet.image_url}
-                  species={pet.species}
-                  species_other={pet.species_other}
-                  breed={pet.breed}
-                  age={pet.age}
-                  size={pet.size}
-                  size_other={pet.size_other}
-                  gender={pet.gender}
-                  gender_other={pet.gender_other}
-                  location={pet.city && pet.state ? `${pet.city}, ${pet.state}` : null}
-                  status={pet.status}
-                  type="adoption"
-                  isSpecialNeeds={pet.is_special_needs}
-                  slug={pet.slug}
-                />
-              ))}
+              {pets.map((pet) => renderPetCard(pet)).filter(Boolean)}
             </div>
           ) : (
             <div className="text-center py-12">
               <h3 className="text-xl font-semibold mb-2">Nenhum pet para adoção encontrado</h3>
               <p className="text-muted-foreground mb-6">
-                Não encontramos nenhum pet para adoção com os filtros selecionados.
+                {!currentUser
+                  ? "Não encontramos nenhum pet aprovado para adoção. Faça login para ver seus próprios pets."
+                  : "Não encontramos nenhum pet para adoção com os filtros selecionados."}
               </p>
               <Button asChild>
                 <Link href="/adocao/cadastrar">Cadastrar Pet para Adoção</Link>

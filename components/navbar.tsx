@@ -24,7 +24,6 @@ import {
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/app/auth-provider"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,263 +32,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { withRetry, isRateLimitError } from "@/lib/api-helpers"
 
 export default function Navbar() {
+  const { user, signOut, isLoading } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [userEmail, setUserEmail] = useState("")
   const { theme, setTheme } = useTheme()
-  const { user, signOut } = useAuth()
-  const supabase = createClientComponentClient()
+
+  // Derivar estados do contexto:
+  const isAuthenticated = !!user
+  const userEmail = user?.email || ""
+  const isAdmin = user?.is_admin === true || user?.type === "admin" || user?.type === "ngo_admin"
 
   // Construir a URL do logo do bucket do Supabase
   const logoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sppetadot/logo/logo.png`
-
-  // Vamos melhorar a verificação de autenticação no Navbar
-
-  // Substitua o useEffect de verificação de autenticação pelo seguinte:
-  useEffect(() => {
-    // Função para verificar autenticação
-    const checkAuth = async () => {
-      try {
-        console.log("Navbar: Verificando autenticação...")
-
-        // Obter sessão com retry
-        const {
-          data: { session },
-          error: sessionError,
-        } = await withRetry(() => supabase.auth.getSession(), {
-          onRetry: (attempt, error, delay) => {
-            console.warn(
-              `Navbar: Erro de limitação de taxa ao verificar sessão. Tentando novamente em ${delay}ms (tentativa ${attempt})`,
-              error,
-            )
-          },
-        })
-
-        if (sessionError) {
-          console.error("Navbar: Erro ao verificar sessão:", sessionError)
-          setIsAuthenticated(false)
-          setUserEmail("")
-          setIsAdmin(false)
-          return
-        }
-
-        if (session) {
-          console.log("Navbar: Usuário autenticado:", session.user.id)
-          setIsAuthenticated(true)
-          setUserEmail(session.user.email || "")
-
-          // Verificar se o usuário é admin
-          try {
-            // Verificar status de admin com retry
-            const { data, error } = await withRetry(
-              () => supabase.from("users").select("is_admin").eq("id", session.user.id).maybeSingle(),
-              {
-                onRetry: (attempt, error, delay) => {
-                  console.warn(
-                    `Navbar: Erro de limitação de taxa ao verificar status de admin. Tentando novamente em ${delay}ms (tentativa ${attempt})`,
-                    error,
-                  )
-                },
-              },
-            )
-
-            if (error) {
-              // Verificar se é um erro de limitação de taxa
-              if (isRateLimitError(error)) {
-                console.warn(
-                  "Navbar: Erro de limitação de taxa ao verificar status de admin. Tentaremos novamente mais tarde.",
-                )
-              } else {
-                console.error("Navbar: Erro ao verificar status de admin:", error.message)
-              }
-            } else if (data) {
-              // Log do valor bruto e seu tipo
-              console.log("Navbar: Status de admin (raw):", data.is_admin, typeof data.is_admin)
-
-              // Converter para boolean explicitamente e registrar
-              const isAdminBool = data.is_admin === true || data.is_admin === "true" || data.is_admin === 1
-              console.log("Navbar: Status de admin (converted):", isAdminBool)
-
-              setIsAdmin(isAdminBool)
-            }
-          } catch (error) {
-            // Tratar erros de forma mais robusta
-            if (isRateLimitError(error)) {
-              console.warn(
-                "Navbar: Erro de limitação de taxa ao verificar status de admin. Tentaremos novamente mais tarde.",
-                error,
-              )
-            } else {
-              console.error("Navbar: Erro ao verificar status de admin:", error)
-            }
-          }
-        } else {
-          console.log("Navbar: Usuário não autenticado")
-          setIsAuthenticated(false)
-          setUserEmail("")
-          setIsAdmin(false)
-        }
-      } catch (error) {
-        // Tratar erros de forma mais robusta
-        if (isRateLimitError(error)) {
-          console.warn(
-            "Navbar: Erro de limitação de taxa ao verificar autenticação. Tentaremos novamente mais tarde.",
-            error,
-          )
-        } else {
-          console.error("Navbar: Erro ao verificar autenticação:", error)
-        }
-
-        setIsAuthenticated(false)
-        setUserEmail("")
-        setIsAdmin(false)
-      }
-    }
-
-    // Verificar autenticação inicialmente
-    checkAuth()
-
-    // Configurar listener para mudanças de autenticação
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Navbar: Evento de autenticação:", event)
-
-      if (event === "SIGNED_OUT") {
-        console.log("Navbar: Usuário desconectado")
-        setIsAuthenticated(false)
-        setUserEmail("")
-        setIsAdmin(false)
-        return
-      }
-
-      if (session) {
-        console.log("Navbar: Usuário autenticado (listener):", session.user.id)
-        setIsAuthenticated(true)
-        setUserEmail(session.user.email || "")
-
-        // Verificar se o usuário é admin
-        try {
-          // Verificar status de admin com retry
-          const { data, error } = await withRetry(
-            () => supabase.from("users").select("is_admin").eq("id", session.user.id).maybeSingle(),
-            {
-              onRetry: (attempt, error, delay) => {
-                console.warn(
-                  `Navbar: Erro de limitação de taxa ao verificar status de admin (listener). Tentando novamente em ${delay}ms (tentativa ${attempt})`,
-                  error,
-                )
-              },
-            },
-          )
-
-          if (error) {
-            // Verificar se é um erro de limitação de taxa
-            if (isRateLimitError(error)) {
-              console.warn(
-                "Navbar: Erro de limitação de taxa ao verificar status de admin (listener). Tentaremos novamente mais tarde.",
-              )
-            } else {
-              console.error("Navbar: Erro ao verificar status de admin (listener):", error.message)
-            }
-          } else if (data) {
-            // Log do valor bruto e seu tipo
-            console.log("Navbar: Status de admin (listener raw):", data.is_admin, typeof data.is_admin)
-
-            // Converter para boolean explicitamente e registrar
-            const isAdminBool = data.is_admin === true || data.is_admin === "true" || data.is_admin === 1
-            console.log("Navbar: Status de admin (listener converted):", isAdminBool)
-
-            setIsAdmin(isAdminBool)
-          }
-        } catch (error) {
-          // Tratar erros de forma mais robusta
-          if (isRateLimitError(error)) {
-            console.warn(
-              "Navbar: Erro de limitação de taxa ao verificar status de admin (listener). Tentaremos novamente mais tarde.",
-              error,
-            )
-          } else {
-            console.error("Navbar: Erro ao verificar status de admin (listener):", error)
-          }
-        }
-      } else if (event !== "TOKEN_REFRESHED") {
-        console.log("Navbar: Usuário não autenticado (listener)")
-        setIsAuthenticated(false)
-        setUserEmail("")
-        setIsAdmin(false)
-      }
-    })
-
-    // Verificar autenticação quando a visibilidade da página muda
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        console.log("Navbar: Página visível, verificando autenticação...")
-        checkAuth()
-      }
-    }
-
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-
-    // Cleanup function
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-      if (authListener && authListener.subscription) {
-        authListener.subscription.unsubscribe()
-      }
-    }
-  }, [supabase])
-
-  // Usar o estado local em vez de depender apenas do contexto useAuth
-  useEffect(() => {
-    if (user) {
-      setIsAuthenticated(true)
-      setUserEmail(user.email || "")
-
-      // Verificar se o usuário é admin quando o contexto de autenticação muda
-      const checkAdminStatus = async () => {
-        try {
-          // Verificar status de admin com retry
-          const { data, error } = await withRetry(
-            () => supabase.from("users").select("is_admin").eq("id", user.id).single(),
-            {
-              onRetry: (attempt, error, delay) => {
-                console.warn(
-                  `Navbar: Erro de limitação de taxa ao verificar status de admin (useAuth). Tentando novamente em ${delay}ms (tentativa ${attempt})`,
-                  error,
-                )
-              },
-            },
-          )
-
-          if (!error && data) {
-            console.log("Navbar: Status de admin (useAuth raw):", data.is_admin, typeof data.is_admin)
-
-            // Convert to boolean explicitly and log
-            const isAdminBool = data.is_admin === true || data.is_admin === "true" || data.is_admin === 1
-            console.log("Navbar: Status de admin (useAuth converted):", isAdminBool)
-
-            setIsAdmin(isAdminBool)
-          }
-        } catch (error) {
-          // Tratar erros de forma mais robusta
-          if (isRateLimitError(error)) {
-            console.warn(
-              "Navbar: Erro de limitação de taxa ao verificar status de admin (useAuth). Tentaremos novamente mais tarde.",
-              error,
-            )
-          } else {
-            console.error("Navbar: Erro ao verificar status de admin:", error)
-          }
-        }
-      }
-
-      checkAdminStatus()
-    }
-  }, [user, supabase])
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
@@ -299,62 +55,12 @@ export default function Navbar() {
     setTheme(theme === "dark" ? "light" : "dark")
   }
 
-  // Função de logout com tratamento de erro melhorado
   const handleSignOut = async () => {
     try {
-      console.log("Navbar: Iniciando logout...")
-
-      // Atualizar estado local imediatamente para feedback visual
-      setIsAuthenticated(false)
-      setUserEmail("")
-      setIsAdmin(false)
       setIsMenuOpen(false)
-
-      // Limpar cookies e localStorage relacionados à autenticação
-      if (typeof window !== "undefined") {
-        console.log("Navbar: Limpando armazenamento local...")
-
-        // Limpar cookies relacionados ao Supabase
-        document.cookie.split(";").forEach((cookie) => {
-          const [name] = cookie.trim().split("=")
-          if (name.includes("supabase") || name.includes("sb-")) {
-            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
-          }
-        })
-
-        // Limpar localStorage relacionado ao Supabase
-        Object.keys(localStorage).forEach((key) => {
-          if (key.includes("supabase") || key.includes("sb-")) {
-            localStorage.removeItem(key)
-          }
-        })
-
-        // Limpar sessionStorage relacionado ao Supabase
-        Object.keys(sessionStorage).forEach((key) => {
-          if (key.includes("supabase") || key.includes("sb-")) {
-            sessionStorage.removeItem(key)
-          }
-        })
-      }
-
-      // Chamar signOut do contexto de autenticação
       await signOut()
-
-      console.log("Navbar: Logout concluído, redirecionando...")
-
-      // Forçar recarregamento da página para limpar qualquer estado em cache
-      if (typeof window !== "undefined") {
-        window.location.href = "/"
-      }
     } catch (error) {
       console.error("Navbar: Erro durante logout:", error)
-
-      // Mesmo com erro, atualizar estado local
-      setIsAuthenticated(false)
-      setUserEmail("")
-      setIsAdmin(false)
-      setIsMenuOpen(false)
-
       // Forçar redirecionamento para a página inicial
       if (typeof window !== "undefined") {
         window.location.href = "/"
@@ -376,6 +82,19 @@ export default function Navbar() {
       window.removeEventListener("scroll", handleScroll)
     }
   }, [])
+
+  // Debug: log do status de admin
+  useEffect(() => {
+    if (user) {
+      console.log("Navbar - User data:", {
+        id: user.id,
+        email: user.email,
+        type: user.type,
+        is_admin: user.is_admin,
+        isAdmin: isAdmin,
+      })
+    }
+  }, [user, isAdmin])
 
   return (
     <header

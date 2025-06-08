@@ -9,14 +9,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, AlertCircle } from "lucide-react"
 import LocationSelectorSimple from "@/components/location-selector-simple"
-import { ImageUpload } from "@/components/image-upload" // Assuming this is a generic image uploader
 import { registerUserAndNgoAction, type RegisterUserAndNgoInput } from "@/app/actions/auth-actions"
-import { useAuth } from "@/app/auth-provider" // To check existing session
+import { useAuth } from "@/app/auth-provider"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { User, Building2 } from "lucide-react"
 
 export default function RegisterPage() {
   const [personalName, setPersonalName] = useState("")
@@ -30,8 +30,8 @@ export default function RegisterPage() {
   const [ngoName, setNgoName] = useState("")
   const [cnpj, setCnpj] = useState("")
   const [mission, setMission] = useState("")
-  const [ngoContactEmail, setNgoContactEmail] = useState("")
   const [ngoContactPhone, setNgoContactPhone] = useState("")
+  const [ngoContactEmail, setNgoContactEmail] = useState("")
   const [ngoWebsite, setNgoWebsite] = useState("")
   const [ngoAddress, setNgoAddress] = useState("")
   const [ngoState, setNgoState] = useState("")
@@ -42,6 +42,7 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [activeTab, setActiveTab] = useState("user")
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -84,6 +85,14 @@ export default function RegisterPage() {
       return
     }
 
+    const isNgo = activeTab === "ong"
+
+    if (isNgo && (!ngoCity || !ngoState)) {
+      setError("Cidade e Estado são obrigatórios para ONGs.")
+      setIsSubmitting(false)
+      return
+    }
+
     const formData: RegisterUserAndNgoInput = {
       isNgo,
       personalName,
@@ -106,12 +115,6 @@ export default function RegisterPage() {
       }),
     }
 
-    if (isNgo && (!ngoCity || !ngoState)) {
-      setError("Cidade e Estado são obrigatórios para ONGs.")
-      setIsSubmitting(false)
-      return
-    }
-
     const result = await registerUserAndNgoAction(formData)
 
     if (result.success) {
@@ -126,178 +129,153 @@ export default function RegisterPage() {
     setIsSubmitting(false)
   }
 
-  if (isAuthLoading) {
-    return (
-      <div className="container flex items-center justify-center min-h-[calc(100vh-4rem)] py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
   return (
     <div className="container flex items-center justify-center min-h-[calc(100vh-4rem)] py-12">
-      <Card className="w-full max-w-lg">
+      <Card className="w-full max-w-2xl">
         <CardHeader>
-          <CardTitle className="text-2xl">Cadastro</CardTitle>
-          <CardDescription>Crie sua conta para acessar todas as funcionalidades.</CardDescription>
+          <CardTitle className="text-2xl text-center">Criar Conta</CardTitle>
+          <CardDescription className="text-center">Escolha o tipo de conta que você deseja criar</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            {successMessage && (
-              <Alert variant="default" className="bg-green-100 border-green-500 text-green-700">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{successMessage}</AlertDescription>
-              </Alert>
-            )}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="user" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Usuário
+              </TabsTrigger>
+              <TabsTrigger value="ong" className="flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                ONG
+              </TabsTrigger>
+            </TabsList>
 
-            {/* Common User Fields */}
-            <div className="space-y-2">
-              <Label htmlFor="personalName">Seu Nome Completo</Label>
-              <Input
-                id="personalName"
-                value={personalName}
-                onChange={(e) => setPersonalName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Seu Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label>Sua Localização (Opcional para usuários, usado se não for ONG)</Label>
-              <LocationSelectorSimple
-                onStateChange={handleUserLocationStateChange}
-                onCityChange={handleUserLocationCityChange}
-                initialState={userState}
-                initialCity={userCity}
-                required={false}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmar Senha</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-            </div>
+            <form onSubmit={handleSubmit} className="mt-6">
+              {error && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              {successMessage && (
+                <Alert variant="default" className="mb-4 bg-green-100 border-green-500 text-green-700">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{successMessage}</AlertDescription>
+                </Alert>
+              )}
 
-            {/* NGO Toggle */}
-            <div className="flex items-center space-x-2 py-2">
-              <Checkbox id="isNgo" checked={isNgo} onCheckedChange={(checked) => setIsNgo(checked as boolean)} />
-              <Label
-                htmlFor="isNgo"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Quero me cadastrar como uma ONG
-              </Label>
-            </div>
-
-            {/* NGO Specific Fields */}
-            {isNgo && (
-              <div className="space-y-4 pt-4 border-t">
-                <h3 className="text-lg font-semibold">Informações da ONG</h3>
-                <div className="space-y-2">
-                  <Label htmlFor="ngoName">Nome da ONG</Label>
-                  <Input id="ngoName" value={ngoName} onChange={(e) => setNgoName(e.target.value)} required={isNgo} />
+              {/* Dados Pessoais - Comum para ambos */}
+              <div className="space-y-4 mb-6">
+                <h3 className="text-lg font-semibold">Dados Pessoais</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="personalName">Seu Nome Completo</Label>
+                    <Input
+                      id="personalName"
+                      value={personalName}
+                      onChange={(e) => setPersonalName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Seu Email</Label>
+                    <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cnpj">CNPJ (XX.XXX.XXX/XXXX-XX)</Label>
-                  <Input
-                    id="cnpj"
-                    value={cnpj}
-                    onChange={(e) => setCnpj(e.target.value)}
-                    placeholder="XX.XXX.XXX/XXXX-XX"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Localização da ONG (Obrigatório)</Label>
-                  <LocationSelectorSimple
-                    onStateChange={handleNgoLocationStateChange}
-                    onCityChange={handleNgoLocationCityChange}
-                    initialState={ngoState}
-                    initialCity={ngoCity}
-                    required={isNgo}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ngoAddress">Endereço da ONG</Label>
-                  <Input id="ngoAddress" value={ngoAddress} onChange={(e) => setNgoAddress(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ngoPostalCode">CEP da ONG</Label>
-                  <Input id="ngoPostalCode" value={ngoPostalCode} onChange={(e) => setNgoPostalCode(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="mission">Missão da ONG</Label>
-                  <Textarea id="mission" value={mission} onChange={(e) => setMission(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ngoContactEmail">Email de Contato da ONG</Label>
-                  <Input
-                    id="ngoContactEmail"
-                    type="email"
-                    value={ngoContactEmail}
-                    onChange={(e) => setNgoContactEmail(e.target.value)}
-                    placeholder="Default: seu email pessoal"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ngoContactPhone">Telefone de Contato da ONG</Label>
-                  <Input
-                    id="ngoContactPhone"
-                    value={ngoContactPhone}
-                    onChange={(e) => setNgoContactPhone(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ngoWebsite">Website da ONG</Label>
-                  <Input
-                    id="ngoWebsite"
-                    type="url"
-                    value={ngoWebsite}
-                    onChange={(e) => setNgoWebsite(e.target.value)}
-                    placeholder="https://..."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="verificationDocumentUrl">Documento de Verificação (URL)</Label>
-                  <ImageUpload
-                    value={verificationDocumentUrl}
-                    onChange={(url) => setVerificationDocumentUrl(url)}
-                    folder="ngo_verifications"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Faça upload de um documento que comprove a legitimidade da ONG (ex: estatuto, CNPJ).
-                  </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Senha</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
               </div>
-            )}
 
-            <Button type="submit" className="w-full" disabled={isSubmitting || isAuthLoading}>
-              {(isSubmitting || isAuthLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSubmitting ? "Cadastrando..." : "Cadastrar"}
-            </Button>
-          </form>
+              <TabsContent value="user" className="space-y-4">
+                <h3 className="text-lg font-semibold">Localização (Opcional)</h3>
+                <LocationSelectorSimple
+                  onStateChange={handleUserLocationStateChange}
+                  onCityChange={handleUserLocationCityChange}
+                  initialState={userState}
+                  initialCity={userCity}
+                  required={false}
+                />
+              </TabsContent>
+
+              <TabsContent value="ong" className="space-y-4">
+                <h3 className="text-lg font-semibold">Dados da ONG</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ngoName">Nome da ONG</Label>
+                    <Input
+                      id="ngoName"
+                      value={ngoName}
+                      onChange={(e) => setNgoName(e.target.value)}
+                      required={activeTab === "ong"}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cnpj">CNPJ (XX.XXX.XXX/XXXX-XX)</Label>
+                    <Input
+                      id="cnpj"
+                      value={cnpj}
+                      onChange={(e) => setCnpj(e.target.value)}
+                      placeholder="XX.XXX.XXX/XXXX-XX"
+                      required={activeTab === "ong"}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Localização da ONG</Label>
+                    <LocationSelectorSimple
+                      onStateChange={handleNgoLocationStateChange}
+                      onCityChange={handleNgoLocationCityChange}
+                      initialState={ngoState}
+                      initialCity={ngoCity}
+                      required={activeTab === "ong"}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ngoContactPhone">Telefone de Contato</Label>
+                    <Input
+                      id="ngoContactPhone"
+                      value={ngoContactPhone}
+                      onChange={(e) => setNgoContactPhone(e.target.value)}
+                      placeholder="(11) 99999-9999"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mission">Missão da ONG (Opcional)</Label>
+                    <Textarea
+                      id="mission"
+                      value={mission}
+                      onChange={(e) => setMission(e.target.value)}
+                      placeholder="Descreva brevemente a missão da sua ONG..."
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <Button type="submit" className="w-full mt-6" disabled={isSubmitting || isAuthLoading}>
+                {(isSubmitting || isAuthLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isSubmitting ? "Cadastrando..." : `Criar conta ${activeTab === "ong" ? "de ONG" : "pessoal"}`}
+              </Button>
+            </form>
+          </Tabs>
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">

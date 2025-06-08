@@ -1,64 +1,49 @@
-import type { Metadata } from "next"
-import Link from "next/link"
-import SectionHeader from "@/components/section-header"
-import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/server"
 import EncontradosClientPage from "./EncontradosClientPage"
-import { getFoundPets } from "@/lib/supabase"
 
-export const metadata: Metadata = {
-  title: "Pets Encontrados | PetAdot",
-  description: "Pets encontrados aguardando por seus tutores. Ajude a reunir famílias.",
+// Adicionar esta configuração para indicar que a página é dinâmica
+export const dynamic = "force-dynamic"
+
+async function fetchFoundPets() {
+  const supabase = createClient()
+
+  try {
+    const { data: pets, error } = await supabase
+      .from("pets")
+      .select(`
+        *,
+        pet_images (
+          url,
+          position
+        )
+      `)
+      .eq("category", "found")
+      .in("status", ["approved", "aprovado"]) // Apenas pets aprovados
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Erro ao buscar pets encontrados:", error)
+      return []
+    }
+
+    return pets || []
+  } catch (error) {
+    console.error("Erro inesperado ao buscar pets encontrados:", error)
+    return []
+  }
 }
 
-// Desabilitar completamente o cache para esta página
-export const dynamic = "force-dynamic"
-export const revalidate = 0
-
-export default async function FoundPetsPage() {
-  // Usar a função existente para buscar pets encontrados
-  const foundPetsResult = await getFoundPets()
-  const foundPets = foundPetsResult.data || []
-
-  console.log(`Renderizando página de pets encontrados com ${foundPets.length} pets`)
-
-  // Se houver dados, mostrar detalhes do primeiro pet para depuração
-  if (foundPets && foundPets.length > 0) {
-    console.log("Primeiro pet encontrado:", {
-      id: foundPets[0].id,
-      name: foundPets[0].name || "Sem nome",
-      status: foundPets[0].status,
-    })
-  }
-
-  return (
-    <div className="container py-8 md:py-12">
-      <SectionHeader
-        title="Pets Encontrados"
-        description="Estes pets foram encontrados e estão aguardando por seus tutores. Se algum deles for seu, entre em contato."
-      />
-
-      <EncontradosClientPage
-        pets={foundPets}
-        pagination={{
-          total: foundPetsResult.total,
-          page: foundPetsResult.page,
-          pageSize: foundPetsResult.pageSize,
-          totalPages: foundPetsResult.totalPages,
-        }}
-      />
-
-      <div className="mt-12 p-6 bg-muted rounded-lg">
-        <h3 className="text-xl font-bold mb-4">Encontrou um pet?</h3>
-        <p className="mb-4">
-          Se você encontrou um pet perdido, cadastre as informações dele aqui para que possamos ajudar a encontrar o
-          tutor. Forneça o máximo de detalhes possível para facilitar a identificação.
-        </p>
-        <div className="flex justify-center">
-          <Link href="/encontrados/cadastrar">
-            <Button>Cadastrar Pet Encontrado</Button>
-          </Link>
-        </div>
+export default async function EncontradosPage() {
+  try {
+    const pets = await fetchFoundPets()
+    return <EncontradosClientPage initialPets={pets || []} />
+  } catch (error) {
+    console.error("Erro na página de encontrados:", error)
+    return (
+      <div className="container py-12 text-center">
+        <h1 className="text-2xl font-bold mb-4">Erro ao carregar pets encontrados</h1>
+        <p className="text-muted-foreground">Ocorreu um erro ao carregar os dados. Tente novamente mais tarde.</p>
       </div>
-    </div>
-  )
+    )
+  }
 }

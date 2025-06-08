@@ -1,32 +1,49 @@
 import { createClient } from "@/lib/supabase/server"
 import PerdidosClientPage from "./PerdidosClientPage"
 
+// Adicionar esta configuração para indicar que a página é dinâmica
+export const dynamic = "force-dynamic"
+
 async function fetchLostPets() {
   const supabase = createClient()
 
-  const { data: pets, error } = await supabase
-    .from("pets")
-    .select(`
-      *,
-      pet_images (
-        url,
-        position
-      )
-    `)
-    .eq("category", "lost")
-    .eq("status", "approved")
-    .order("created_at", { ascending: false })
+  try {
+    const { data: pets, error } = await supabase
+      .from("pets")
+      .select(`
+        *,
+        pet_images (
+          url,
+          position
+        )
+      `)
+      .eq("category", "lost")
+      .in("status", ["approved", "aprovado"]) // Apenas pets aprovados
+      .order("created_at", { ascending: false })
 
-  if (error) {
-    console.error("Erro ao buscar pets perdidos:", error)
+    if (error) {
+      console.error("Erro ao buscar pets perdidos:", error)
+      return []
+    }
+
+    return pets || []
+  } catch (error) {
+    console.error("Erro inesperado ao buscar pets perdidos:", error)
     return []
   }
-
-  return pets || []
 }
 
 export default async function PerdidosPage() {
-  const pets = await fetchLostPets()
-
-  return <PerdidosClientPage initialPets={pets} />
+  try {
+    const pets = await fetchLostPets()
+    return <PerdidosClientPage initialPets={pets || []} />
+  } catch (error) {
+    console.error("Erro na página de perdidos:", error)
+    return (
+      <div className="container py-12 text-center">
+        <h1 className="text-2xl font-bold mb-4">Erro ao carregar pets perdidos</h1>
+        <p className="text-muted-foreground">Ocorreu um erro ao carregar os dados. Tente novamente mais tarde.</p>
+      </div>
+    )
+  }
 }
