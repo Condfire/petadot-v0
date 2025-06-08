@@ -42,7 +42,7 @@ export default function Navbar() {
   // Derivar estados do contexto:
   const isAuthenticated = !!user
   const userEmail = user?.email || ""
-  const isAdmin = user?.is_admin === true || user?.type === "admin" || user?.type === "ngo_admin"
+  const isAdmin = user?.is_admin === true
 
   // Construir a URL do logo do bucket do Supabase
   const logoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sppetadot/logo/logo.png`

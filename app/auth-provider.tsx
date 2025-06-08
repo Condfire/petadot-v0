@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Função para verificar se o usuário é admin
   const checkAdminStatus = async (userId: string) => {
     try {
-      const { data, error } = await supabase.from("users").select("is_admin, type").eq("id", userId).single()
+      const { data, error } = await supabase.from("users").select("type").eq("id", userId).single()
 
       if (error) {
         console.warn("Erro ao verificar status de admin:", error.message)
@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Verificar se é admin através do campo is_admin ou type
-      return data?.is_admin === true || data?.type === "admin" || data?.type === "ngo_admin"
+      return data?.type === "admin"
     } catch (error) {
       console.warn("Erro ao verificar status de admin:", error)
       return false
