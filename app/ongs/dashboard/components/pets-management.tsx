@@ -27,8 +27,9 @@ interface PetsManagementProps {
 export default function PetsManagement({ pets }: PetsManagementProps) {
   const router = useRouter()
 
+  // Corrigindo os filtros para usar os status corretos
   const pendingPets = pets.filter((pet) => pet.status === "pending")
-  const approvedPets = pets.filter((pet) => pet.status === "approved")
+  const approvedPets = pets.filter((pet) => pet.status === "approved" || pet.status === "available")
   const adoptedPets = pets.filter((pet) => pet.status === "adopted")
 
   const getStatusBadge = (status: string) => {
@@ -36,6 +37,7 @@ export default function PetsManagement({ pets }: PetsManagementProps) {
       case "pending":
         return <Badge variant="outline">Pendente</Badge>
       case "approved":
+      case "available":
         return <Badge variant="default">Aprovado</Badge>
       case "adopted":
         return <Badge variant="secondary">Adotado</Badge>
