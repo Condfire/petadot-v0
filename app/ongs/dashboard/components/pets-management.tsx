@@ -5,8 +5,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Edit, Eye, MoreHorizontal, Plus } from "lucide-react"
+import { Edit, Eye, MoreHorizontal, Plus, Trash2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useState } from "react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useToast } from "@/components/ui/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Pet {
   id: string
@@ -18,19 +31,56 @@ interface Pet {
   main_image_url: string
   created_at: string
   category: string
+  slug?: string
 }
 
 interface PetsManagementProps {
   pets: Pet[]
 }
 
-export default function PetsManagement({ pets }: PetsManagementProps) {
+export default function PetsManagement({ pets: initialPets }: PetsManagementProps) {
   const router = useRouter()
+  const [pets, setPets] = useState(initialPets)
+  const [petToDelete, setPetToDelete] = useState<Pet | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const supabase = createClientComponentClient()
+  const { toast } = useToast()
 
   // Corrigindo os filtros para usar os status corretos
   const pendingPets = pets.filter((pet) => pet.status === "pending")
   const approvedPets = pets.filter((pet) => pet.status === "approved" || pet.status === "available")
   const adoptedPets = pets.filter((pet) => pet.status === "adopted")
+
+  const handleDelete = async () => {
+    if (!petToDelete) return
+
+    setIsDeleting(true)
+    try {
+      const { error } = await supabase.from("pets").delete().eq("id", petToDelete.id)
+
+      if (error) {
+        throw error
+      }
+
+      toast({
+        title: "Pet excluído",
+        description: "O pet foi excluído com sucesso.",
+      })
+
+      // Atualizar a lista local removendo o pet excluído
+      setPets(pets.filter((pet) => pet.id !== petToDelete.id))
+      setPetToDelete(null)
+    } catch (error) {
+      console.error("Erro ao excluir pet:", error)
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao excluir o pet. Tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -77,7 +127,7 @@ export default function PetsManagement({ pets }: PetsManagementProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => router.push(`/adocao/${pet.id}`)}>
+          <DropdownMenuItem onClick={() => router.push(`/adocao/${pet.slug || pet.id}`)}>
             <Eye className="mr-2 h-4 w-4" />
             Ver Perfil
           </DropdownMenuItem>
@@ -85,58 +135,82 @@ export default function PetsManagement({ pets }: PetsManagementProps) {
             <Edit className="mr-2 h-4 w-4" />
             Editar
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setPetToDelete(pet)} className="text-red-600 focus:text-red-600">
+            <Trash2 className="mr-2 h-4 w-4" />
+            Excluir
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
   )
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle>Gerenciar Pets</CardTitle>
-            <CardDescription>Gerencie todos os pets da sua ONG</CardDescription>
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>Gerenciar Pets</CardTitle>
+              <CardDescription>Gerencie todos os pets da sua ONG</CardDescription>
+            </div>
+            <Button onClick={() => router.push("/ongs/dashboard/pets/cadastrar")}>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Pet
+            </Button>
           </div>
-          <Button onClick={() => router.push("/ongs/dashboard/pets/cadastrar")}>
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Pet
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="pending" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="pending">Pendentes ({pendingPets.length})</TabsTrigger>
-            <TabsTrigger value="approved">Aprovados ({approvedPets.length})</TabsTrigger>
-            <TabsTrigger value="adopted">Adotados ({adoptedPets.length})</TabsTrigger>
-          </TabsList>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="pending" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="pending">Pendentes ({pendingPets.length})</TabsTrigger>
+              <TabsTrigger value="approved">Aprovados ({approvedPets.length})</TabsTrigger>
+              <TabsTrigger value="adopted">Adotados ({adoptedPets.length})</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="pending" className="space-y-4">
-            {pendingPets.length > 0 ? (
-              pendingPets.map((pet) => <PetCard key={pet.id} pet={pet} />)
-            ) : (
-              <p className="text-center text-muted-foreground py-8">Nenhum pet pendente de aprovação</p>
-            )}
-          </TabsContent>
+            <TabsContent value="pending" className="space-y-4">
+              {pendingPets.length > 0 ? (
+                pendingPets.map((pet) => <PetCard key={pet.id} pet={pet} />)
+              ) : (
+                <p className="text-center text-muted-foreground py-8">Nenhum pet pendente de aprovação</p>
+              )}
+            </TabsContent>
 
-          <TabsContent value="approved" className="space-y-4">
-            {approvedPets.length > 0 ? (
-              approvedPets.map((pet) => <PetCard key={pet.id} pet={pet} />)
-            ) : (
-              <p className="text-center text-muted-foreground py-8">Nenhum pet aprovado</p>
-            )}
-          </TabsContent>
+            <TabsContent value="approved" className="space-y-4">
+              {approvedPets.length > 0 ? (
+                approvedPets.map((pet) => <PetCard key={pet.id} pet={pet} />)
+              ) : (
+                <p className="text-center text-muted-foreground py-8">Nenhum pet aprovado</p>
+              )}
+            </TabsContent>
 
-          <TabsContent value="adopted" className="space-y-4">
-            {adoptedPets.length > 0 ? (
-              adoptedPets.map((pet) => <PetCard key={pet.id} pet={pet} />)
-            ) : (
-              <p className="text-center text-muted-foreground py-8">Nenhum pet adotado ainda</p>
-            )}
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+            <TabsContent value="adopted" className="space-y-4">
+              {adoptedPets.length > 0 ? (
+                adoptedPets.map((pet) => <PetCard key={pet.id} pet={pet} />)
+              ) : (
+                <p className="text-center text-muted-foreground py-8">Nenhum pet adotado ainda</p>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={!!petToDelete} onOpenChange={(open) => !open && setPetToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente o pet {petToDelete?.name} e removerá os
+              dados do nosso servidor.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600" disabled={isDeleting}>
+              {isDeleting ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
