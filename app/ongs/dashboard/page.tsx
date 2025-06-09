@@ -50,28 +50,28 @@ export default function OngDashboardPage() {
 
         setOng(ongData)
 
-        // Buscar pets da ONG
+        // Buscar pets da ONG - usando ong_id se existir na tabela pets
         const { data: petsData, error: petsError } = await supabase
           .from("pets")
           .select("*")
-          .eq("ong_id", ongData.id)
+          .eq("user_id", userId) // Usar user_id em vez de ong_id por enquanto
           .order("created_at", { ascending: false })
 
         if (petsError) {
-          console.error("Erro ao buscar pets:", petsError.message, petsError) // Log full error
+          console.error("Erro ao buscar pets:", petsError.message, petsError)
         } else {
           setPets(petsData || [])
         }
 
-        // Buscar eventos da ONG
+        // Buscar eventos do usuário - usando user_id já que não há ong_id na tabela events
         const { data: eventsData, error: eventsError } = await supabase
           .from("events")
           .select("*")
-          .eq("ong_id", ongData.id)
-          .order("date", { ascending: true }) // Consider 'start_date' if that's your column
+          .eq("user_id", userId) // Usar user_id em vez de ong_id
+          .order("start_date", { ascending: true }) // Usar start_date em vez de date
 
         if (eventsError) {
-          console.error("Erro ao buscar eventos:", eventsError.message, eventsError) // Log full error
+          console.error("Erro ao buscar eventos:", eventsError.message, eventsError)
         } else {
           setEvents(eventsData || [])
         }
@@ -82,7 +82,7 @@ export default function OngDashboardPage() {
 
         const adoptedPets = petsData?.filter((pet) => pet.status === "adopted") || []
         const adoptedThisMonth = adoptedPets.filter((pet) => new Date(pet.updated_at || pet.created_at) >= thisMonth)
-        const upcomingEvents = eventsData?.filter((event) => new Date(event.date) > now) || []
+        const upcomingEvents = eventsData?.filter((event) => new Date(event.start_date) > now) || []
 
         const approvedPets = petsData?.filter((pet) => pet.status === "approved") || []
         const totalPets = petsData?.length || 0
