@@ -17,12 +17,13 @@ import OngLogoUpload from "@/components/ong-logo-upload"
 
 const profileFormSchema = z.object({
   name: z.string().min(3, { message: "O nome deve ter pelo menos 3 caracteres" }),
-  description: z.string().min(10, { message: "A descrição deve ter pelo menos 10 caracteres" }),
+  mission: z.string().min(10, { message: "A missão deve ter pelo menos 10 caracteres" }),
   cnpj: z.string().min(14, { message: "CNPJ inválido" }).max(18),
   address: z.string().min(5, { message: "Endereço muito curto" }),
   city: z.string().min(2, { message: "Cidade inválida" }),
   state: z.string().length(2, { message: "Estado deve ter 2 caracteres (ex: SP)" }),
-  contact: z.string().min(8, { message: "Contato inválido" }),
+  contact_email: z.string().email({ message: "Email inválido" }),
+  contact_phone: z.string().min(8, { message: "Telefone inválido" }),
   website: z.string().url({ message: "URL inválida" }).optional().or(z.literal("")),
   logo_url: z.string().optional(),
 })
@@ -42,12 +43,13 @@ export default function OngProfilePage() {
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
       name: "",
-      description: "",
+      mission: "",
       cnpj: "",
       address: "",
       city: "",
       state: "",
-      contact: "",
+      contact_email: "",
+      contact_phone: "",
       website: "",
       logo_url: "",
     },
@@ -86,12 +88,13 @@ export default function OngProfilePage() {
         // Preencher o formulário com os dados da ONG
         form.reset({
           name: ongData.name || "",
-          description: ongData.description || "",
+          mission: ongData.mission || "",
           cnpj: ongData.cnpj || "",
           address: ongData.address || "",
           city: ongData.city || "",
           state: ongData.state || "",
-          contact: ongData.contact || "",
+          contact_email: ongData.contact_email || "",
+          contact_phone: ongData.contact_phone || "",
           website: ongData.website || "",
           logo_url: ongData.logo_url || "",
         })
@@ -290,12 +293,26 @@ export default function OngProfilePage() {
 
                 <FormField
                   control={form.control}
-                  name="contact"
+                  name="contact_email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Contato</FormLabel>
+                      <FormLabel>Email de Contato</FormLabel>
                       <FormControl>
-                        <Input placeholder="Telefone ou email" {...field} />
+                        <Input placeholder="contato@ong.com.br" type="email" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="contact_phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telefone de Contato</FormLabel>
+                      <FormControl>
+                        <Input placeholder="(11) 99999-9999" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -319,10 +336,10 @@ export default function OngProfilePage() {
 
                 <FormField
                   control={form.control}
-                  name="description"
+                  name="mission"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Descrição</FormLabel>
+                      <FormLabel>Missão da ONG</FormLabel>
                       <FormControl>
                         <Textarea
                           placeholder="Descreva a missão e o trabalho da sua organização"
