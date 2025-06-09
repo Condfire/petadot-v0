@@ -58,7 +58,7 @@ export default function OngDashboardPage() {
           .order("created_at", { ascending: false })
 
         if (petsError) {
-          console.error("Erro ao buscar pets:", petsError)
+          console.error("Erro ao buscar pets:", petsError.message, petsError) // Log full error
         } else {
           setPets(petsData || [])
         }
@@ -68,10 +68,10 @@ export default function OngDashboardPage() {
           .from("events")
           .select("*")
           .eq("ong_id", ongData.id)
-          .order("date", { ascending: true })
+          .order("date", { ascending: true }) // Consider 'start_date' if that's your column
 
         if (eventsError) {
-          console.error("Erro ao buscar eventos:", eventsError)
+          console.error("Erro ao buscar eventos:", eventsError.message, eventsError) // Log full error
         } else {
           setEvents(eventsData || [])
         }

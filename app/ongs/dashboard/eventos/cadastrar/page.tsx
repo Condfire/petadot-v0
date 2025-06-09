@@ -51,49 +51,45 @@ export default function CadastrarEventoPage() {
     setError(null)
 
     try {
-      // Verificar se o usuário está autenticado
+      // ... existing try block logic ...
       const { data: session } = await supabase.auth.getSession()
 
       if (!session.session) {
         router.push("/ongs/login?message=Faça login para cadastrar eventos")
-        return
+        return // Ensure setIsLoading(false) is called in finally
       }
 
       const userId = session.session.user.id
 
-      // Buscar a ONG do usuário
       const { data: ongData, error: ongError } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
 
       if (ongError || !ongData) {
-        throw new Error("ONG não encontrada")
+        throw new Error("ONG não encontrada ou você não tem permissão.")
       }
 
-      // Adicionar a URL da imagem se foi enviada
       if (imageUrl) {
         data.image_url = imageUrl
       }
 
-      // Usar o mapper para converter dados da UI para o formato do banco de dados
-      const eventData = mapEventUIToDB(data, ongData.id, userId)
+      const eventDataForDB = mapEventUIToDB(data, ongData.id, userId)
 
-      // Inserir o evento
       const { error: eventError } = await supabase.from("events").insert({
-        ...eventData,
-        status: "pending",
-        created_at: new Date().toISOString(),
+        ...eventDataForDB,
+        status: "pending", // Default status
+        // created_at is handled by default by Supabase or db trigger
       })
 
       if (eventError) {
         throw new Error(eventError.message)
       }
 
-      // Redirecionar para o dashboard
-      router.push("/ongs/dashboard?success=Evento cadastrado com sucesso")
-    } catch (err) {
+      router.push("/ongs/dashboard?success=Evento cadastrado com sucesso e aguardando aprovação.")
+    } catch (err: any) {
+      // Explicitly type err
       console.error("Erro ao cadastrar evento:", err)
-      setError("Ocorreu um erro ao cadastrar o evento")
+      setError(err.message || "Ocorreu um erro ao cadastrar o evento. Verifique os campos e tente novamente.")
     } finally {
-      setIsLoading(false)
+      setIsLoading(false) // This will now always be called
     }
   }
 
