@@ -1,61 +1,85 @@
 "use client"
 
 import type React from "react"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useDropzone } from "react-dropzone"
-import { uploadFile } from "@/lib/storage-manager" // Assuming you have this utility
-import { toast } from "@/components/ui/use-toast" // Or your preferred toast library
+import { uploadFile, type ImageCategory } from "@/lib/storage-manager" // Ensure ImageCategory is imported if used for typing folder
+import { toast } from "@/components/ui/use-toast"
+import { Button } from "@/components/ui/button"
+import { Trash2, UploadCloud } from "lucide-react"
 
 interface ImageUploadProps {
-  onImageUploaded: (url: string) => void
+  onImageUploaded: (url: string, path?: string) => void // path is optional but good to have
+  onImageRemoved?: (url: string) => void // Optional: callback when image is removed
   className?: string
-  folder?: string // Optional: to specify upload folder/category
+  folder?: ImageCategory // Use the exported type
   label?: string
   description?: string
   required?: boolean
-  value?: string // To show existing image
+  value?: string // To show existing image URL
+  userId?: string // Optional: if uploads are user-specific
 }
 
-export const ImageUpload: React.FC<ImageUploadProps> = ({
+const ImageUploadComponent: React.FC<ImageUploadProps> = ({
   onImageUploaded,
+  onImageRemoved,
   className,
-  folder = "temp", // Default folder
+  folder = "temp",
   label = "Upload Image",
   description,
   required = false,
   value,
+  userId,
 }) => {
   const [uploading, setUploading] = useState(false)
-  const [preview, setPreview] = useState<string | null>(value || null)
+  const [preview, setPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (value) {
+      setPreview(value)
+    } else {
+      setPreview(null) // Clear preview if value is removed externally
+    }
+  }, [value])
+
+  const handleRemoveImage = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    e?.stopPropagation() // Prevent triggering dropzone if button is inside
+    const oldPreview = preview
+    setPreview(null)
+    setError(null)
+    if (typeof onImageUploaded === "function") {
+      onImageUploaded("") // Notify parent that image is removed by passing empty string or undefined
+    }
+    if (oldPreview && typeof onImageRemoved === "function") {
+      onImageRemoved(oldPreview) // Specific callback for removal
+    }
+  }
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       const file = acceptedFiles[0]
-
-      if (!file) {
-        return
-      }
+      if (!file) return
 
       setUploading(true)
       setError(null)
+      setPreview(URL.createObjectURL(file)) // Optimistic preview
 
       try {
-        // Using storage-manager for upload
-        const { publicUrl, error: uploadError } = await uploadFile(file, folder as any) // Cast folder if needed by uploadFile
+        const { publicUrl, path, error: uploadError } = await uploadFile(file, folder, userId)
 
         if (uploadError) {
           throw new Error(uploadError.message || "Upload failed.")
         }
 
         if (publicUrl) {
-          setPreview(publicUrl)
+          setPreview(publicUrl) // Update with actual URL
           if (typeof onImageUploaded === "function") {
-            onImageUploaded(publicUrl)
+            onImageUploaded(publicUrl, path)
           } else {
             console.error("[ImageUpload] onImageUploaded is not a function:", onImageUploaded)
             toast({
-              title: "Error",
+              title: "Configuration Error",
               description: "Image upload callback is misconfigured.",
               variant: "destructive",
             })
@@ -66,16 +90,17 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       } catch (e: any) {
         console.error("[ImageUpload] Upload error:", e)
         setError(e.message || "Upload failed.")
+        setPreview(value || null) // Revert to original value on error
         toast({
           title: "Upload Error",
-          description: e.message || "Could not upload image.",
+          description: e.message || "Could not upload image. Please try again.",
           variant: "destructive",
         })
       } finally {
         setUploading(false)
       }
     },
-    [onImageUploaded, folder],
+    [onImageUploaded, folder, userId, value],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -85,8 +110,10 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       "image/png": [],
       "image/webp": [],
       "image/gif": [],
+      "image/svg+xml": [],
     },
     multiple: false,
+    disabled: uploading,
   })
 
   return (
@@ -94,19 +121,20 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       {label && (
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
           {label}
-          {required && <span className="text-red-500">*</span>}
+          {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
       <div
         {...getRootProps()}
-        className={`border-2 border-dashed rounded-md p-6 text-center cursor-pointer
-        ${isDragActive ? "border-primary bg-primary/10" : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"}
-        ${error ? "border-red-500" : ""}`}
+        className={`relative border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors
+        ${isDragActive ? "border-primary bg-primary/10" : "border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600"}
+        ${error ? "border-destructive" : ""}
+        ${uploading ? "cursor-not-allowed opacity-70" : ""}
+        ${preview ? "p-2" : "p-6"}`} // Adjust padding if preview exists
       >
         <input {...getInputProps()} />
         {uploading ? (
-          <div className="flex flex-col items-center justify-center">
-            {/* You can use a spinner component here */}
+          <div className="flex flex-col items-center justify-center h-32">
             <svg
               className="animate-spin h-8 w-8 text-primary mb-2"
               xmlns="http://www.w3.org/2000/svg"
@@ -123,42 +151,53 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
             <span>Uploading...</span>
           </div>
         ) : preview ? (
-          <div className="relative group">
+          <div className="relative group aspect-video max-h-60 mx-auto">
             <img
               src={preview || "/placeholder.svg"}
               alt="Preview"
-              className="max-h-48 w-auto mx-auto object-contain rounded"
+              className="w-full h-full object-contain rounded"
+              onError={() => {
+                // Handle broken image links if necessary
+                setError("Could not load preview image.")
+                setPreview(null)
+              }}
             />
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded">
-              <span className="text-white text-sm">Change image</span>
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-white/20"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  getRootProps().onClick!(e as any)
+                }}
+              >
+                Change
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-white/20 ml-2"
+                onClick={handleRemoveImage}
+              >
+                <Trash2 className="w-4 h-4 mr-1" /> Remove
+              </Button>
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center">
-            {/* You can use an upload icon here */}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-12 w-12 text-gray-400 mb-2"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" x2="12" y1="3" y2="15" />
-            </svg>
-            {isDragActive ? <p>Drop the image here...</p> : <p>Drag 'n' drop an image here, or click to select</p>}
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">PNG, JPG, GIF up to 10MB</p>
+          <div className="flex flex-col items-center justify-center h-32 text-gray-500 dark:text-gray-400">
+            <UploadCloud className="h-12 w-12 mb-2" />
+            {isDragActive ? <p>Drop the image here...</p> : <p>Drag 'n' drop an image, or click to select</p>}
+            <p className="text-xs mt-1">PNG, JPG, GIF, WEBP, SVG</p>
           </div>
         )}
       </div>
-      {description && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{description}</p>}
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {description && !preview && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{description}</p>}
+      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
     </div>
   )
 }
+
+// Provide both named and default export
+export { ImageUploadComponent as ImageUpload }
+export default ImageUploadComponent
