@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { generateEventSlug, generateUniqueSlug } from "@/lib/slug-utils"
@@ -9,27 +9,22 @@ import { generateEventSlug, generateUniqueSlug } from "@/lib/slug-utils"
 export async function deleteEvent(eventId: string) {
   try {
     const cookieStore = cookies()
-    const supabase = createServerComponentClient({ cookies: () => cookieStore })
+    const supabase = createServerActionClient({ cookies: () => cookieStore })
 
-    // Verificar se o usuário está autenticado
     const { data: session } = await supabase.auth.getSession()
     if (!session.session) {
       return { success: false, error: "Usuário não autenticado" }
     }
-
     const userId = session.session.user.id
 
-    // Verificar se o evento pertence à ONG do usuário
     const { data: ong } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
-
     if (!ong) {
       return { success: false, error: "ONG não encontrada" }
     }
 
-    // Verificar se o evento pertence à ONG
     const { data: event, error: eventError } = await supabase
       .from("events")
-      .select("*")
+      .select("id")
       .eq("id", eventId)
       .eq("ong_id", ong.id)
       .single()
@@ -38,124 +33,108 @@ export async function deleteEvent(eventId: string) {
       return { success: false, error: "Evento não encontrado ou você não tem permissão para excluí-lo" }
     }
 
-    // Excluir o evento
     const { error } = await supabase.from("events").delete().eq("id", eventId)
-
     if (error) {
-      console.error("Erro ao excluir evento:", error)
-      return { success: false, error: "Erro ao excluir evento" }
+      console.error("Erro ao excluir evento Supabase:", error)
+      return { success: false, error: "Erro ao excluir evento do banco de dados" }
     }
 
-    // Revalidar páginas
     revalidatePath("/eventos")
     revalidatePath("/ongs/dashboard")
     revalidatePath(`/eventos/${eventId}`)
-
     return { success: true }
-  } catch (error) {
-    console.error("Erro ao excluir evento:", error)
-    return { success: false, error: "Ocorreu um erro ao processar a solicitação" }
+  } catch (error: any) {
+    console.error("Erro inesperado ao excluir evento:", error)
+    return { success: false, error: "Ocorreu um erro ao processar a solicitação de exclusão" }
   }
 }
 
 // Função para atualizar um evento
 export async function updateEvent(eventId: string, eventData: any) {
+  console.log("[Action updateEvent] Data received:", eventData)
   try {
     const cookieStore = cookies()
-    const supabase = createServerComponentClient({ cookies: () => cookieStore })
+    const supabase = createServerActionClient({ cookies: () => cookieStore })
 
-    // Verificar se o usuário está autenticado
     const { data: session } = await supabase.auth.getSession()
     if (!session.session) {
       return { success: false, error: "Usuário não autenticado" }
     }
-
     const userId = session.session.user.id
 
-    // Verificar se o evento pertence à ONG do usuário
     const { data: ong } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
-
     if (!ong) {
       return { success: false, error: "ONG não encontrada" }
     }
 
-    // Verificar se o evento pertence à ONG
-    const { data: event, error: eventError } = await supabase
+    const { data: existingEvent, error: eventError } = await supabase
       .from("events")
-      .select("*")
+      .select("*") // Select all to compare for slug regeneration
       .eq("id", eventId)
       .eq("ong_id", ong.id)
       .single()
 
-    if (eventError || !event) {
+    if (eventError || !existingEvent) {
       return { success: false, error: "Evento não encontrado ou você não tem permissão para editá-lo" }
     }
 
-    // Gerar novo slug se o título, local ou data foram alterados
-    let slug = event.slug
-    if (eventData.name !== event.name || eventData.location !== event.location || eventData.date !== event.date) {
-      // Gerar slug base
+    let slug = existingEvent.slug
+    if (
+      eventData.name !== existingEvent.name ||
+      eventData.location !== existingEvent.location ||
+      eventData.date !== existingEvent.date // Assuming eventData.date is already an ISO string
+    ) {
       const baseSlug = await generateEventSlug(
         eventData.name || "evento",
         eventData.location || "",
-        eventData.date || "",
+        eventData.date || "", // Ensure this is the ISO date string
         eventId,
       )
-
-      // Garantir que o slug seja único
       slug = await generateUniqueSlug(baseSlug, "events", eventId)
+      console.log("[Action updateEvent] New slug generated:", slug)
     }
 
-    // Atualizar o evento
-    const { error } = await supabase
-      .from("events")
-      .update({
-        ...eventData,
-        slug,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", eventId)
+    const updatePayload = {
+      ...eventData,
+      slug,
+      updated_at: new Date().toISOString(),
+    }
+    console.log("[Action updateEvent] Update payload:", updatePayload)
 
-    if (error) {
-      console.error("Erro ao atualizar evento:", error)
-      return { success: false, error: "Erro ao atualizar evento" }
+    const { error: updateDbError } = await supabase.from("events").update(updatePayload).eq("id", eventId)
+    if (updateDbError) {
+      console.error("Erro ao atualizar evento Supabase:", updateDbError)
+      return { success: false, error: "Erro ao atualizar evento no banco de dados" }
     }
 
-    // Revalidar páginas
     revalidatePath("/eventos")
     revalidatePath("/ongs/dashboard")
-    revalidatePath(`/eventos/${eventId}`)
+    revalidatePath(`/eventos/${slug}`) // Use new slug for revalidation
     revalidatePath(`/ongs/dashboard/eventos/${eventId}/edit`)
-
     return { success: true }
-  } catch (error) {
-    console.error("Erro ao atualizar evento:", error)
-    return { success: false, error: "Ocorreu um erro ao processar a solicitação" }
+  } catch (error: any) {
+    console.error("Erro inesperado ao atualizar evento:", error)
+    return { success: false, error: "Ocorreu um erro ao processar a solicitação de atualização" }
   }
 }
 
-// Função para obter um evento pelo ID
+// Função para obter um evento pelo ID para edição
 export async function getEventForEdit(eventId: string) {
   try {
     const cookieStore = cookies()
-    const supabase = createServerComponentClient({ cookies: () => cookieStore })
+    const supabase = createServerActionClient({ cookies: () => cookieStore })
 
-    // Verificar se o usuário está autenticado
     const { data: session } = await supabase.auth.getSession()
     if (!session.session) {
       return { success: false, error: "Usuário não autenticado" }
     }
-
     const userId = session.session.user.id
 
-    // Verificar se o evento pertence à ONG do usuário
     const { data: ong } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
-
     if (!ong) {
       return { success: false, error: "ONG não encontrada" }
     }
 
-    // Buscar o evento
     const { data: event, error: eventError } = await supabase
       .from("events")
       .select("*")
@@ -166,79 +145,94 @@ export async function getEventForEdit(eventId: string) {
     if (eventError || !event) {
       return { success: false, error: "Evento não encontrado ou você não tem permissão para editá-lo" }
     }
-
     return { success: true, event }
-  } catch (error) {
-    console.error("Erro ao buscar evento:", error)
+  } catch (error: any) {
+    console.error("Erro ao buscar evento para edição:", error)
     return { success: false, error: "Ocorreu um erro ao processar a solicitação" }
   }
 }
 
 // Função para criar um evento
-export async function createEvent(eventData: any) {
+export async function createEvent(eventData: {
+  name: string
+  description: string
+  location: string
+  date: string // Expecting ISO string
+  image_url?: string
+}) {
+  console.log("[Action createEvent] Received data:", eventData)
   try {
     const cookieStore = cookies()
-    const supabase = createServerComponentClient({ cookies: () => cookieStore })
+    const supabase = createServerActionClient({ cookies: () => cookieStore })
 
-    // Verificar se o usuário está autenticado
-    const { data: session } = await supabase.auth.getSession()
-    if (!session.session) {
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session) {
+      console.log("[Action createEvent] User not authenticated.")
       return { success: false, error: "Usuário não autenticado" }
     }
+    const userId = sessionData.session.user.id
+    console.log("[Action createEvent] User ID:", userId)
 
-    const userId = session.session.user.id
+    const { data: ongData, error: ongError } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
 
-    // Verificar se o usuário é uma ONG
-    const { data: ong, error: ongError } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
-
-    if (ongError || !ong) {
-      return { success: false, error: "ONG não encontrada" }
+    if (ongError || !ongData) {
+      console.error("[Action createEvent] ONG not found or error:", ongError)
+      return { success: false, error: "ONG não encontrada ou erro ao buscar ONG." }
     }
+    console.log("[Action createEvent] ONG ID:", ongData.id)
 
-    // Inserir o evento para obter o ID
-    const { data: eventData, error: insertError } = await supabase
+    const insertPayload = {
+      ...eventData, // name, description, location, date (ISO), image_url
+      ong_id: ongData.id,
+      user_id: userId,
+      status: "pending", // Default status
+      // created_at and updated_at will be handled by Supabase defaults/triggers
+    }
+    console.log("[Action createEvent] Inserting event with payload:", insertPayload)
+
+    const { data: insertedEvents, error: insertError } = await supabase
       .from("events")
-      .insert([
-        {
-          ...eventData,
-          ong_id: ong.id,
-          user_id: userId,
-          status: "pending",
-          created_at: new Date().toISOString(),
-        },
-      ])
-      .select()
+      .insert([insertPayload])
+      .select("id, name, location, date") // Select fields needed for slug
 
     if (insertError) {
-      console.error("Erro ao criar evento:", insertError)
-      return { success: false, error: "Erro ao criar evento" }
+      console.error("[Action createEvent] Supabase insert error:", insertError)
+      return { success: false, error: "Erro ao criar evento no banco de dados." }
     }
+
+    if (!insertedEvents || insertedEvents.length === 0) {
+      console.error("[Action createEvent] No event data returned after insert.")
+      return { success: false, error: "Falha ao registrar o evento, nenhum dado retornado." }
+    }
+    const newEvent = insertedEvents[0]
+    console.log("[Action createEvent] Event inserted, ID:", newEvent.id)
 
     // Gerar slug com o ID obtido
-    if (eventData && eventData.length > 0) {
-      const event = eventData[0]
+    const baseSlug = await generateEventSlug(
+      newEvent.name || "evento",
+      newEvent.location || "",
+      newEvent.date || "", // This should be the ISO date string from newEvent
+      newEvent.id,
+    )
+    const uniqueSlug = await generateUniqueSlug(baseSlug, "events", newEvent.id)
+    console.log("[Action createEvent] Generated slug:", uniqueSlug)
 
-      // Gerar slug base
-      const baseSlug = await generateEventSlug(event.name || "evento", event.location || "", event.date || "", event.id)
+    const { error: updateError } = await supabase
+      .from("events")
+      .update({ slug: uniqueSlug, updated_at: new Date().toISOString() })
+      .eq("id", newEvent.id)
 
-      // Garantir que o slug seja único
-      const uniqueSlug = await generateUniqueSlug(baseSlug, "events", event.id)
-
-      // Atualizar o registro com o slug
-      const { error: updateError } = await supabase.from("events").update({ slug: uniqueSlug }).eq("id", event.id)
-
-      if (updateError) {
-        console.error("Erro ao atualizar slug do evento:", updateError)
-      }
+    if (updateError) {
+      console.error("[Action createEvent] Supabase slug update error:", updateError)
+      // Non-critical, event is created. Log and continue.
     }
 
-    // Revalidar páginas
     revalidatePath("/eventos")
     revalidatePath("/ongs/dashboard")
-
-    return { success: true, data: eventData }
-  } catch (error) {
-    console.error("Erro ao criar evento:", error)
-    return { success: false, error: "Ocorreu um erro ao processar a solicitação" }
+    console.log("[Action createEvent] Event creation successful.")
+    return { success: true, data: newEvent }
+  } catch (error: any) {
+    console.error("[Action createEvent] Unexpected error:", error)
+    return { success: false, error: "Ocorreu um erro ao processar a solicitação." }
   }
 }
