@@ -19,19 +19,12 @@ export async function deleteEvent(eventId: string) {
 
     const userId = session.session.user.id
 
-    // Verificar se o evento pertence à ONG do usuário
-    const { data: ong } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
-
-    if (!ong) {
-      return { success: false, error: "ONG não encontrada" }
-    }
-
-    // Verificar se o evento pertence à ONG
+    // Verificar se o evento pertence ao usuário
     const { data: event, error: eventError } = await supabase
       .from("events")
       .select("*")
       .eq("id", eventId)
-      .eq("ong_id", ong.id)
+      .eq("user_id", userId)
       .single()
 
     if (eventError || !event) {
@@ -72,19 +65,12 @@ export async function updateEvent(eventId: string, eventData: any) {
 
     const userId = session.session.user.id
 
-    // Verificar se o evento pertence à ONG do usuário
-    const { data: ong } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
-
-    if (!ong) {
-      return { success: false, error: "ONG não encontrada" }
-    }
-
-    // Verificar se o evento pertence à ONG
+    // Verificar se o evento pertence ao usuário
     const { data: event, error: eventError } = await supabase
       .from("events")
       .select("*")
       .eq("id", eventId)
-      .eq("ong_id", ong.id)
+      .eq("user_id", userId)
       .single()
 
     if (eventError || !event) {
@@ -93,7 +79,11 @@ export async function updateEvent(eventId: string, eventData: any) {
 
     // Gerar novo slug se o título, local ou data foram alterados
     let slug = event.slug
-    if (eventData.name !== event.name || eventData.location !== event.location || eventData.date !== event.date) {
+    if (
+      eventData.name !== event.title ||
+      eventData.location !== event.location ||
+      eventData.date !== event.start_date
+    ) {
       // Gerar slug base
       const baseSlug = await generateEventSlug(
         eventData.name || "evento",
@@ -106,15 +96,19 @@ export async function updateEvent(eventId: string, eventData: any) {
       slug = await generateUniqueSlug(baseSlug, "events", eventId)
     }
 
+    // Mapear os dados do formulário para os campos corretos da tabela
+    const updatePayload = {
+      title: eventData.name, // name -> title
+      description: eventData.description,
+      location: eventData.location,
+      start_date: eventData.date, // date -> start_date
+      image_url: eventData.image_url,
+      slug,
+      updated_at: new Date().toISOString(),
+    }
+
     // Atualizar o evento
-    const { error } = await supabase
-      .from("events")
-      .update({
-        ...eventData,
-        slug,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", eventId)
+    const { error } = await supabase.from("events").update(updatePayload).eq("id", eventId)
 
     if (error) {
       console.error("Erro ao atualizar evento:", error)
@@ -148,19 +142,12 @@ export async function getEventForEdit(eventId: string) {
 
     const userId = session.session.user.id
 
-    // Verificar se o evento pertence à ONG do usuário
-    const { data: ong } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
-
-    if (!ong) {
-      return { success: false, error: "ONG não encontrada" }
-    }
-
     // Buscar o evento
     const { data: event, error: eventError } = await supabase
       .from("events")
       .select("*")
       .eq("id", eventId)
-      .eq("ong_id", ong.id)
+      .eq("user_id", userId)
       .single()
 
     if (eventError || !event) {
@@ -204,30 +191,14 @@ export async function createEvent(eventData: {
     const userId = session.session.user.id
     console.log("[createEvent] ID do usuário:", userId)
 
-    // Verificar se o usuário é uma ONG
-    const { data: ong, error: ongError } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
-
-    if (ongError) {
-      console.error("[createEvent] Erro ao buscar ONG:", ongError)
-      return { success: false, error: "Erro ao verificar ONG: " + ongError.message }
-    }
-
-    if (!ong) {
-      console.log("[createEvent] ONG não encontrada para o usuário")
-      return { success: false, error: "ONG não encontrada" }
-    }
-
-    console.log("[createEvent] ID da ONG:", ong.id)
-
-    // Preparar dados para inserção
+    // Preparar dados para inserção - mapear para os campos corretos da tabela
     const insertData = {
-      name: eventData.name,
+      title: eventData.name, // name -> title
       description: eventData.description,
       location: eventData.location,
-      date: eventData.date,
+      start_date: eventData.date, // date -> start_date
       image_url: eventData.image_url || null,
-      ong_id: ong.id,
-      user_id: userId,
+      user_id: userId, // usar user_id em vez de ong_id
       status: "pending",
       created_at: new Date().toISOString(),
     }
@@ -238,7 +209,7 @@ export async function createEvent(eventData: {
     const { data: insertedEvent, error: insertError } = await supabase
       .from("events")
       .insert([insertData])
-      .select("id, name, location, date")
+      .select("id, title, location, start_date")
       .single()
 
     if (insertError) {
@@ -256,9 +227,9 @@ export async function createEvent(eventData: {
     // Gerar slug com o ID obtido
     try {
       const baseSlug = await generateEventSlug(
-        insertedEvent.name || "evento",
+        insertedEvent.title || "evento",
         insertedEvent.location || "",
-        insertedEvent.date || "",
+        insertedEvent.start_date || "",
         insertedEvent.id,
       )
 
