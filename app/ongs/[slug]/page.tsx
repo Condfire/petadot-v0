@@ -107,19 +107,19 @@ export default async function OngPage({ params }: { params: { slug: string } }) 
                   {ong.city}, {ong.state}
                 </span>
               </div>
-              {ong.email && (
+              {ong.contact_email && (
                 <div className="flex items-center text-muted-foreground mt-1">
                   <Mail className="h-4 w-4 mr-1" />
-                  <a href={`mailto:${ong.email}`} className="hover:underline">
-                    {ong.email}
+                  <a href={`mailto:${ong.contact_email}`} className="hover:underline">
+                    {ong.contact_email}
                   </a>
                 </div>
               )}
-              {ong.contact && (
+              {ong.contact_phone && (
                 <div className="flex items-center text-muted-foreground mt-1">
                   <Phone className="h-4 w-4 mr-1" />
-                  <a href={`tel:${ong.contact}`} className="hover:underline">
-                    {ong.contact}
+                  <a href={`tel:${ong.contact_phone}`} className="hover:underline">
+                    {ong.contact_phone}
                   </a>
                 </div>
               )}
@@ -134,11 +134,11 @@ export default async function OngPage({ params }: { params: { slug: string } }) 
             </div>
           </div>
 
-          {ong.description && (
+          {ong.mission && (
             <Card className="mb-8">
               <CardContent className="pt-6">
                 <h2 className="text-xl font-semibold mb-2">Sobre a ONG</h2>
-                <p className="text-muted-foreground whitespace-pre-line">{ong.description}</p>
+                <p className="text-muted-foreground whitespace-pre-line">{ong.mission}</p>
               </CardContent>
             </Card>
           )}
