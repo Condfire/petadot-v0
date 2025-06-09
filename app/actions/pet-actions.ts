@@ -4,6 +4,96 @@ import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { generatePetSlug, generateUniqueSlug } from "@/lib/slug-utils"
+import { z } from "zod"
+
+// Schema for creating an adoption pet by an ONG
+const createAdoptionPetSchema = z.object({
+  name: z.string().min(2),
+  species: z.enum(["dog", "cat", "other"]),
+  breed: z.string().min(2),
+  size: z.enum(["small", "medium", "large"]),
+  gender: z.enum(["male", "female"]),
+  age: z.string().min(1),
+  color: z.string().min(2),
+  description: z.string().min(10),
+  special_needs: z.string().optional(),
+  main_image_url: z.string().url(),
+})
+
+export async function createAdoptionPetByOng(formData: unknown) {
+  const cookieStore = cookies()
+  const supabase = createServerActionClient({ cookies: () => cookieStore })
+
+  try {
+    // 1. Get current user and their ONG
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: "Usuário não autenticado." }
+    }
+
+    const { data: ong, error: ongError } = await supabase
+      .from("ongs")
+      .select("id, city, state")
+      .eq("user_id", user.id)
+      .single()
+
+    if (ongError || !ong) {
+      return { success: false, error: "ONG não encontrada ou usuário não associado a uma ONG." }
+    }
+
+    // 2. Validate form data
+    const validationResult = createAdoptionPetSchema.safeParse(formData)
+    if (!validationResult.success) {
+      console.error("Validation Error:", validationResult.error.flatten().fieldErrors)
+      return { success: false, error: "Dados do formulário inválidos." }
+    }
+    const petData = validationResult.data
+
+    // 3. Insert pet data into the database
+    const { data: newPet, error: insertError } = await supabase
+      .from("pets")
+      .insert([
+        {
+          ...petData,
+          category: "adoption",
+          status: "available", // Default status for new adoption pets
+          user_id: user.id,
+          ong_id: ong.id,
+          city: ong.city, // Inherit city/state from ONG
+          state: ong.state,
+        },
+      ])
+      .select("id, name, city, state")
+      .single()
+
+    if (insertError) {
+      console.error("Supabase Insert Error:", insertError)
+      return { success: false, error: "Erro ao salvar o pet no banco de dados." }
+    }
+
+    // 4. Generate and update slug
+    const baseSlug = generatePetSlug(newPet.name, newPet.city, newPet.state)
+    const uniqueSlug = await generateUniqueSlug(baseSlug, "pets", newPet.id)
+
+    const { error: slugError } = await supabase.from("pets").update({ slug: uniqueSlug }).eq("id", newPet.id)
+
+    if (slugError) {
+      // Log the error but don't fail the whole operation, as the pet is already created
+      console.error("Error updating slug:", slugError)
+    }
+
+    // 5. Revalidate paths to show new data
+    revalidatePath("/ongs/dashboard")
+    revalidatePath("/adocao")
+
+    return { success: true, petId: newPet.id }
+  } catch (e: any) {
+    console.error("Unexpected error in createAdoptionPetByOng:", e)
+    return { success: false, error: "Ocorreu um erro inesperado." }
+  }
+}
 
 // Função para cadastrar um pet perdido
 export async function createLostPet(formData: FormData) {

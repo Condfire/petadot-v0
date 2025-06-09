@@ -85,45 +85,27 @@ const DEFAULT_CONFIGS: Record<ImageCategory, UploadConfig> = {
 }
 
 /**
- * Verifica se o bucket existe via API
+ * Verifica se o bucket existe e o cria se necessário, de forma mais resiliente.
  */
 export async function ensureBucketExists(): Promise<boolean> {
   try {
-    // console.log("[Storage] Verificando bucket via API...")
-    // Primeiro, tenta verificar se o bucket existe diretamente
-    try {
-      const { data, error } = await supabase.storage.getBucket(BUCKET_NAME)
-      if (!error && data) {
-        // console.log("[Storage] Bucket já existe:", data.name)
-        return true
-      }
-      if (error && error.message !== "The resource was not found") {
-        // console.warn("[Storage] Erro ao verificar bucket diretamente, mas não é 'not found':", error.message)
-      }
-    } catch (e) {
-      // console.log("[Storage] Erro ao verificar bucket diretamente, tentando via API")
-    }
-
-    // Se falhar ou não existir, tenta criar via API (setup endpoint)
+    // A API de setup deve ser idempotente (segura para chamar várias vezes).
+    // Ela tenta criar o bucket. Se já existir, não faz nada.
+    // Isso evita o erro 400 de 'getBucket' por falta de permissão.
     const response = await fetch("/api/storage/setup", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
     })
 
     if (!response.ok) {
       const errorResult = await response.json().catch(() => ({}))
       console.error("[Storage] Erro na API de setup:", response.status, response.statusText, errorResult.message)
-      return false // Consider critical if setup API fails
+      return false
     }
-
-    const result = await response.json()
-    // console.log("[Storage] Bucket verificado/criado via API:", result.message)
     return true
   } catch (error) {
-    console.error("[Storage] Erro crítico ao verificar/criar bucket:", error)
-    return false // Consider critical if any exception occurs here
+    console.error("[Storage] Erro crítico ao verificar/criar bucket via API:", error)
+    return false
   }
 }
 
@@ -135,28 +117,22 @@ async function resizeImage(file: File, maxWidth: number, maxHeight: number, qual
     const canvas = document.createElement("canvas")
     const ctx = canvas.getContext("2d")
     const img = new Image()
-    img.crossOrigin = "anonymous" // Add this for potential CORS issues if image source is complex
+    img.crossOrigin = "anonymous"
 
     img.onload = () => {
       let { width, height } = img
-
       if (width > maxWidth || height > maxHeight) {
         const ratio = Math.min(maxWidth / width, maxHeight / height)
         width *= ratio
         height *= ratio
       }
-
       canvas.width = width
       canvas.height = height
       ctx?.drawImage(img, 0, 0, width, height)
       canvas.toBlob(
         (blob) => {
           if (blob) {
-            const resizedFile = new File([blob], file.name, {
-              type: file.type,
-              lastModified: Date.now(),
-            })
-            resolve(resizedFile)
+            resolve(new File([blob], file.name, { type: file.type, lastModified: Date.now() }))
           } else {
             reject(new Error("Erro ao converter canvas para blob"))
           }
@@ -165,10 +141,7 @@ async function resizeImage(file: File, maxWidth: number, maxHeight: number, qual
         quality,
       )
     }
-    img.onerror = (e) => {
-      console.error("Erro ao carregar imagem para redimensionamento:", e)
-      reject(new Error("Erro ao carregar imagem para redimensionamento"))
-    }
+    img.onerror = (e) => reject(new Error("Erro ao carregar imagem para redimensionamento"))
     img.src = URL.createObjectURL(file)
   })
 }
@@ -178,17 +151,11 @@ async function resizeImage(file: File, maxWidth: number, maxHeight: number, qual
  */
 function validateFile(file: File, config: UploadConfig): { valid: boolean; error?: string } {
   if (config.allowedTypes && !config.allowedTypes.includes(file.type)) {
-    return {
-      valid: false,
-      error: `Tipo de arquivo não permitido. Tipos aceitos: ${config.allowedTypes.join(", ")}`,
-    }
+    return { valid: false, error: `Tipo de arquivo não permitido. Aceitos: ${config.allowedTypes.join(", ")}` }
   }
   if (config.maxSize && file.size > config.maxSize) {
     const maxSizeMB = (config.maxSize / (1024 * 1024)).toFixed(1)
-    return {
-      valid: false,
-      error: `Arquivo muito grande. Tamanho máximo: ${maxSizeMB}MB`,
-    }
+    return { valid: false, error: `Arquivo muito grande. Máximo: ${maxSizeMB}MB` }
   }
   return { valid: true }
 }
@@ -203,7 +170,7 @@ function generateFilePath(category: ImageCategory, userId?: string, originalName
   const cleanName = originalName
     ? originalName
         .replace(/\.[^/.]+$/, "")
-        .replace(/[^a-zA-Z0-9._-]/g, "-") // Allow . _ -
+        .replace(/[^a-zA-Z0-9._-]/g, "-")
         .toLowerCase()
         .substring(0, 30)
     : "image"
@@ -220,57 +187,41 @@ export async function uploadImage(
   customConfig?: Partial<UploadConfig>,
 ): Promise<UploadResult> {
   try {
-    // console.log(`[Storage] Iniciando upload para categoria: ${category}`)
     const bucketExists = await ensureBucketExists()
     if (!bucketExists) {
-      // console.error("[Storage] Bucket não existe ou não pôde ser criado. Abortando upload.")
       return { success: false, error: "Erro de configuração do armazenamento. Tente novamente mais tarde." }
     }
 
     const config = { ...DEFAULT_CONFIGS[category], ...customConfig }
     const validation = validateFile(file, config)
-    if (!validation.valid) {
-      return { success: false, error: validation.error }
-    }
+    if (!validation.valid) return { success: false, error: validation.error }
 
     let processedFile = file
     if (config.maxWidth && config.maxHeight && config.quality && file.type !== "image/svg+xml") {
       try {
         processedFile = await resizeImage(file, config.maxWidth, config.maxHeight, config.quality)
-        // console.log(`[Storage] Imagem redimensionada de ${file.size} para ${processedFile.size} bytes`)
       } catch (resizeError: any) {
         console.warn("[Storage] Erro ao redimensionar, usando arquivo original:", resizeError.message)
       }
     }
 
     const filePath = generateFilePath(category, userId, file.name)
-    // console.log(`[Storage] Caminho do arquivo: ${filePath}`)
-    // console.log(`[Storage] Iniciando upload para ${BUCKET_NAME}/${filePath}`)
-
     const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, processedFile, {
-      cacheControl: "3600", // 1 hour
-      upsert: true, // Overwrite if file with same path exists
+      cacheControl: "3600",
+      upsert: true,
     })
 
     if (error) {
       console.error("[Storage] Erro no upload Supabase:", error)
       return { success: false, error: `Erro no upload: ${error.message}` }
     }
-    // console.log("[Storage] Upload Supabase concluído:", data)
 
     const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(data.path)
-    // console.log(`[Storage] URL pública gerada:`, urlData)
-
     if (!urlData || !urlData.publicUrl) {
-      console.error("[Storage] Erro ao gerar URL pública")
       return { success: false, error: "Erro ao gerar URL pública após upload." }
     }
-    // console.log(`[Storage] Upload finalizado: ${urlData.publicUrl}`)
-    return {
-      success: true,
-      url: urlData.publicUrl,
-      path: data.path,
-    }
+
+    return { success: true, url: urlData.publicUrl, path: data.path }
   } catch (error: any) {
     console.error("[Storage] Erro inesperado no processo de upload:", error)
     return { success: false, error: `Erro inesperado: ${error.message}` }
@@ -294,9 +245,7 @@ export async function uploadFile(
   }
 }
 
-/**
- * Remove uma imagem
- */
+// Outras funções (removeImage, listFiles, etc.) permanecem as mesmas
 export async function removeImage(urlOrPath: string): Promise<boolean> {
   try {
     let filePath = urlOrPath
@@ -309,13 +258,11 @@ export async function removeImage(urlOrPath: string): Promise<boolean> {
       }
       filePath = pathMatch[1]
     }
-    // console.log(`[Storage] Removendo arquivo: ${filePath} do bucket ${BUCKET_NAME}`)
     const { error } = await supabase.storage.from(BUCKET_NAME).remove([filePath])
     if (error) {
       console.error("[Storage] Erro ao remover arquivo:", error)
       return false
     }
-    // console.log("[Storage] Arquivo removido com sucesso")
     return true
   } catch (error) {
     console.error("[Storage] Erro inesperado ao remover arquivo:", error)
@@ -323,9 +270,6 @@ export async function removeImage(urlOrPath: string): Promise<boolean> {
   }
 }
 
-/**
- * Lista arquivos em uma pasta
- */
 export async function listFiles(
   category: ImageCategory,
   userId?: string,
@@ -346,18 +290,10 @@ export async function listFiles(
   }
 }
 
-/**
- * Funções específicas para cada tipo de upload
- */
 export const uploadPetImage = (file: File, userId?: string) => uploadFile(file, "pets", userId)
-
 export const uploadEventImage = (file: File, userId?: string) => uploadFile(file, "events", userId)
-
 export const uploadUserAvatar = (file: File, userId: string) => uploadFile(file, "avatars", userId)
-
 export const uploadOngLogo = (file: File, ongId: string) => uploadFile(file, "ongs", ongId)
-
 export const uploadTempImage = (file: File) => uploadFile(file, "temp")
-
 export const uploadPartnerImage = (file: File, partnerId?: string) => uploadFile(file, "partners", partnerId)
 export const uploadStoryImage = (file: File, storyId?: string) => uploadFile(file, "stories", storyId)
