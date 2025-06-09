@@ -112,41 +112,38 @@ export default function OngProfilePage() {
     setSuccess(null)
 
     try {
-      // Atualizar com a URL do logo se foi alterada
-      if (logoUrl) {
-        data.logo_url = logoUrl
+      const updatePayload = {
+        ...data,
+        logo_url: logoUrl, // Use the latest logoUrl from state
+        updated_at: new Date().toISOString(),
       }
 
-      const { error } = await supabase
+      const { data: updatedOng, error: updateError } = await supabase
         .from("ongs")
-        .update({
-          name: data.name,
-          description: data.description,
-          cnpj: data.cnpj,
-          address: data.address,
-          city: data.city,
-          state: data.state,
-          contact: data.contact,
-          website: data.website,
-          logo_url: data.logo_url,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq("id", ong.id)
+        .select()
+        .single() // Request the updated record back and expect a single result
 
-      if (error) {
-        throw new Error(error.message)
+      if (updateError) {
+        // This will now catch RLS errors or other silent failures
+        throw updateError
       }
 
       setSuccess("Perfil atualizado com sucesso!")
 
-      // Atualizar os dados locais
-      setOng({
-        ...ong,
-        ...data,
-      })
-    } catch (err) {
+      // Update local state with the definitive data from the database
+      if (updatedOng) {
+        setOng(updatedOng)
+        form.reset(updatedOng) // Reset the form with the new data
+        setLogoUrl(updatedOng.logo_url || null)
+      }
+
+      // Re-fetch server components to ensure data consistency across the app
+      router.refresh()
+    } catch (err: any) {
       console.error("Erro ao atualizar perfil:", err)
-      setError("Ocorreu um erro ao atualizar o perfil")
+      setError(err.message || "Ocorreu um erro ao atualizar o perfil. Verifique os dados e tente novamente.")
     } finally {
       setIsSaving(false)
     }
