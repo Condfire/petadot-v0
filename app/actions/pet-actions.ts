@@ -76,7 +76,7 @@ export async function createAdoptionPetByOng(formData: unknown) {
       special_needs_description: petData.special_needs || null,
       // Default values for adoption pets by ONG
       category: "adoption",
-      status: "available", // Or "pending_approval" if you have a moderation flow
+      status: "pending", // Changed from "available" to "pending" for moderation
       user_id: user.id,
       ong_id: ong.id,
       city: ong.city || "Não informado", // Use ONG's city/state or a default
