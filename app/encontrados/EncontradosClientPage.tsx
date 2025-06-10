@@ -45,7 +45,10 @@ export default function EncontradosClientPage({
     const fetchPets = async () => {
       setLoading(true)
       try {
-        let query = supabase.from("pets_found").select("*", { count: "exact" })
+        let query = supabase
+          .from("pets_found")
+          .select("*", { count: "exact" })
+          .eq("status", "approved")
 
         // Aplicar filtros
         if (filters.species && filters.species !== "all") {

@@ -52,14 +52,14 @@ export default function CadastrarEventoPage() {
 
     try {
       // Verificar se o usuário está autenticado
-      const { data: session } = await supabase.auth.getSession()
+      const { data: { session } } = await supabase.auth.getSession()
 
-      if (!session.session) {
+      if (!session) {
         router.push("/ongs/login?message=Faça login para cadastrar eventos")
         return
       }
 
-      const userId = session.session.user.id
+      const userId = session.user.id
 
       // Buscar a ONG do usuário
       const { data: ongData, error: ongError } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
