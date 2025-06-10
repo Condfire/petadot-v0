@@ -42,9 +42,9 @@ export default function EventAnalyticsPage() {
       const now = new Date()
 
       // Calculate statistics
-      const upcomingEvents = events.filter((event) => new Date(event.start_date) > now).length
+      const upcomingEvents = events.filter((event) => new Date(event.date) > now).length
 
-      const pastEvents = events.filter((event) => new Date(event.start_date) <= now).length
+      const pastEvents = events.filter((event) => new Date(event.date) <= now).length
 
       // Group by city
       const cityGroups = events.reduce(
@@ -242,7 +242,7 @@ export default function EventAnalyticsPage() {
                           {event.city}, {event.state}
                         </p>
                       </div>
-                      <Badge variant="outline">{formatDate(event.start_date)}</Badge>
+                      <Badge variant="outline">{formatDate(event.date)}</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2">{event.description}</p>
                   </div>

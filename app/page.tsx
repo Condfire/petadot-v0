@@ -38,7 +38,9 @@ export default async function Home() {
     const recentAdoptionPets = adoptionPets
     const recentLostPets = lostPets
     // Filtramos apenas eventos futuros
-    const upcomingEvents = events.filter((event) => new Date(event.start_date) >= new Date()).slice(0, 3)
+    const upcomingEvents = events
+      .filter((event) => new Date(event.date) >= new Date())
+      .slice(0, 3)
 
     return (
       <div className="flex flex-col min-h-screen">
@@ -158,7 +160,7 @@ export default async function Home() {
                     <div className="p-4">
                       <h3 className="font-bold text-lg">{event.title}</h3>
                       <p className="text-sm text-gray-600">
-                        Data: {new Date(event.start_date).toLocaleDateString("pt-BR")}
+                        Data: {new Date(event.date).toLocaleDateString("pt-BR")}
                       </p>
                       <p className="text-sm text-gray-600">Local: {event.location}</p>
                       <p className="mt-2 text-sm line-clamp-2">{event.description}</p>

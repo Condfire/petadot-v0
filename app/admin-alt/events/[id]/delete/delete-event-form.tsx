@@ -100,7 +100,7 @@ export function AdminDeleteEventForm({ event }: { event: any }) {
               <h2 className="text-xl font-bold">{event.title}</h2>
               <div className="flex items-center justify-center gap-1 text-muted-foreground mt-2">
                 <CalendarIcon className="h-4 w-4" />
-                <span>{formatDate(event.start_date)}</span>
+                <span>{formatDate(event.date)}</span>
               </div>
               <div className="flex items-center justify-center gap-1 text-muted-foreground">
                 <MapPinIcon className="h-4 w-4" />
