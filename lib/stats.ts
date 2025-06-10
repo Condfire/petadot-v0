@@ -40,11 +40,11 @@ export async function getSystemStats() {
       .select("*", { count: "exact", head: true })
       .eq("status", "aprovado")
 
-    // Contar eventos
+    // Contar eventos (coluna "date")
     const { count: eventsCount, error: eventsError } = await supabase
       .from("events")
       .select("*", { count: "exact", head: true })
-      .gte("event_date", new Date().toISOString())
+      .gte("date", new Date().toISOString())
 
     // Contar usuários
     const { count: usersCount, error: usersError } = await supabase
