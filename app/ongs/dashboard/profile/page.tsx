@@ -57,14 +57,14 @@ export default function OngProfilePage() {
     async function loadOngData() {
       try {
         // Verificar se o usuário está autenticado
-        const { data: session } = await supabase.auth.getSession()
+        const { data: { session } } = await supabase.auth.getSession()
 
-        if (!session.session) {
+        if (!session) {
           router.push("/ongs/login?message=Faça login para acessar o dashboard")
           return
         }
 
-        const userId = session.session.user.id
+        const userId = session.user.id
 
         // Buscar dados da ONG
         const { data: ongData, error: ongError } = await supabase

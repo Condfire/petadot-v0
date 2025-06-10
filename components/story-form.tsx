@@ -43,14 +43,14 @@ export function StoryForm({ story, isEdit = false }: StoryFormProps) {
     const fetchUserPets = async () => {
       try {
         setIsLoadingPets(true)
-        const { data: session } = await supabase.auth.getSession()
+        const { data: { session } } = await supabase.auth.getSession()
 
-        if (!session?.session?.user) {
+        if (!session?.user) {
           setIsLoadingPets(false)
           return
         }
 
-        const userId = session.session.user.id
+        const userId = session.user.id
 
         // Buscar pets de adoção
         const { data: adoptionPets, error: adoptionError } = await supabase

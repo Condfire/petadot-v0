@@ -12,12 +12,12 @@ export async function deleteEvent(eventId: string) {
     const supabase = createServerComponentClient({ cookies: () => cookieStore })
 
     // Verificar se o usuário está autenticado
-    const { data: session } = await supabase.auth.getSession()
-    if (!session.session) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
       return { success: false, error: "Usuário não autenticado" }
     }
 
-    const userId = session.session.user.id
+    const userId = session.user.id
 
     // Verificar se o evento pertence à ONG do usuário
     const { data: ong } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
@@ -65,12 +65,12 @@ export async function updateEvent(eventId: string, eventData: any) {
     const supabase = createServerComponentClient({ cookies: () => cookieStore })
 
     // Verificar se o usuário está autenticado
-    const { data: session } = await supabase.auth.getSession()
-    if (!session.session) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
       return { success: false, error: "Usuário não autenticado" }
     }
 
-    const userId = session.session.user.id
+    const userId = session.user.id
 
     // Verificar se o evento pertence à ONG do usuário
     const { data: ong } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
@@ -141,12 +141,12 @@ export async function getEventForEdit(eventId: string) {
     const supabase = createServerComponentClient({ cookies: () => cookieStore })
 
     // Verificar se o usuário está autenticado
-    const { data: session } = await supabase.auth.getSession()
-    if (!session.session) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
       return { success: false, error: "Usuário não autenticado" }
     }
 
-    const userId = session.session.user.id
+    const userId = session.user.id
 
     // Verificar se o evento pertence à ONG do usuário
     const { data: ong } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
@@ -181,12 +181,12 @@ export async function createEvent(eventData: any) {
     const supabase = createServerComponentClient({ cookies: () => cookieStore })
 
     // Verificar se o usuário está autenticado
-    const { data: session } = await supabase.auth.getSession()
-    if (!session.session) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
       return { success: false, error: "Usuário não autenticado" }
     }
 
-    const userId = session.session.user.id
+    const userId = session.user.id
 
     // Verificar se o usuário é uma ONG
     const { data: ong, error: ongError } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
