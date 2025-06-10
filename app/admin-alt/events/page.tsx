@@ -51,7 +51,7 @@ export default async function AdminEventsPage() {
     .from("events")
     .select("*, users!events_user_id_fkey(name)")
     .eq("status", "approved")
-    .order("start_date", { ascending: true })
+    .order("date", { ascending: true })
 
   const { data: rejectedEvents, error: rejectedEventsError } = await supabase
     .from("events")

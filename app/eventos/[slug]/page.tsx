@@ -50,7 +50,7 @@ export default async function EventDetailsPage({ params }: EventDetailsPageProps
   }
 
   // Formatar datas
-  const eventDate = new Date(event.start_date)
+  const eventDate = new Date(event.date)
   const formattedDate = eventDate.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
@@ -66,7 +66,7 @@ export default async function EventDetailsPage({ params }: EventDetailsPageProps
   const isPastEvent = eventDate < new Date()
 
   // Verificar se o evento tem data de término
-  const hasEndDate = event.end_date && event.end_date !== event.start_date
+  const hasEndDate = event.end_date && event.end_date !== event.date
 
   // Formatar data de término, se existir
   const endDate = hasEndDate ? new Date(event.end_date!) : null

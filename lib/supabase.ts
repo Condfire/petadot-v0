@@ -397,14 +397,18 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
     }
 
     if (filters.date) {
-      query = query.gte("start_date", filters.date)
+      // Filtrar por data de realização do evento
+      query = query.gte("date", filters.date)
     }
 
     // Aplicar paginação
     const from = (page - 1) * pageSize
     const to = from + pageSize - 1
 
-    const { data, error, count } = await query.order("start_date", { ascending: true }).range(from, to)
+    const { data, error, count } = await query
+      // Ordenar eventos pela data de realização
+      .order("date", { ascending: true })
+      .range(from, to)
 
     if (error) {
       console.error("Erro ao buscar eventos:", error)
