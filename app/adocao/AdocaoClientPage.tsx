@@ -34,7 +34,10 @@ export default function AdocaoClientPage({
     const fetchPets = async () => {
       setLoading(true)
       try {
-        let query = supabase.from("pets").select("*", { count: "exact" })
+        let query = supabase
+          .from("pets")
+          .select("*", { count: "exact" })
+          .eq("status", "approved")
 
         // Aplicar filtros
         if (filters.species) {
