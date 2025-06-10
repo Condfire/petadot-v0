@@ -23,7 +23,9 @@ export default async function Home() {
     // Buscar apenas os primeiros 4 pets para cada categoria (sem paginação completa)
     const adoptionPetsResult = await getPetsForAdoption(1, 4)
     const lostPetsResult = await getLostPets(1, 4)
-    const eventsResult = await getEvents(1, 4)
+    const eventsResult = await getEvents(1, 4, {
+      date: new Date().toISOString(),
+    })
 
     // Extrair os arrays de dados dos resultados paginados
     const adoptionPets = adoptionPetsResult.data || []
