@@ -377,11 +377,6 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
       return { data: [], count: 0 }
     }
 
-    // Dentro da função `getEvents`, adicione logs antes e depois da consulta:
-    // Antes da linha `let query = supabase.from("events").select("*, ongs(id, name, logo_url, city)", { count: "exact" })`
-    // Adicione:
-    console.log("getEvents: Iniciando busca de eventos. Filtros:", filters)
-
     // Substituir a query por:
     let query = supabase.from("events").select("*, ongs(id, name, logo_url, city)", { count: "exact" })
 
@@ -389,8 +384,9 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
     query = query.eq("status", "approved")
 
     // Aplicar filtros se existirem
-    if (filters.title) {
-      query = query.ilike("title", `%${filters.title}%`)
+    if (filters.name) {
+      // Changed from filters.title to filters.name
+      query = query.ilike("name", `%${filters.name}%`) // Changed from title to name
     }
 
     if (filters.city) {
@@ -401,9 +397,10 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
       query = query.eq("state", filters.state)
     }
 
-    if (filters.date) {
+    if (filters.start_date) {
+      // Changed from filters.date to filters.start_date
       // Filtrar por data de realização do evento
-      query = query.gte("date", filters.date)
+      query = query.gte("start_date", filters.start_date) // Changed from date to start_date
     }
 
     // Aplicar paginação
@@ -412,13 +409,8 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
 
     const { data, error, count } = await query
       // Ordenar eventos pela data de realização
-      .order("date", { ascending: true })
+      .order("start_date", { ascending: true }) // Changed from date to start_date
       .range(from, to)
-
-    // Antes da linha `if (error)`
-    // Adicione:
-    console.log("getEvents: Dados recebidos:", data?.length, "Total:", count)
-    console.log("getEvents: Erro na consulta:", error)
 
     if (error) {
       console.error("Erro ao buscar eventos:", error)
@@ -441,11 +433,6 @@ export async function getOngs(page = 1, pageSize = 12, filters: any = {}) {
       console.error("Tabela users não existe")
       return { data: [], count: 0 }
     }
-
-    // Dentro da função `getOngs`, adicione logs antes e depois da consulta:
-    // Antes da linha `let query = supabase.from("users").select("*", { count: "exact" })`
-    // Adicione:
-    console.log("getOngs: Iniciando busca de ONGs. Filtros:", filters)
 
     let query = supabase.from("users").select("*", { count: "exact" })
 
@@ -471,16 +458,12 @@ export async function getOngs(page = 1, pageSize = 12, filters: any = {}) {
 
     const { data, error, count } = await query.order("name", { ascending: true }).range(from, to)
 
-    // Antes da linha `if (error)`
-    // Adicione:
-    console.log("getOngs: Dados recebidos:", data?.length, "Total:", count)
-    console.log("getOngs: Erro na consulta:", error)
-
     if (error) {
       console.error("Erro ao buscar ONGs:", error)
       return { data: [], count: 0 }
     }
 
+    console.log(`ONGs encontradas: ${data?.length || 0}`) // Added log for ONGs
     return { data: data || [], count: count || 0 }
   } catch (error) {
     console.error("Erro ao buscar ONGs:", error)

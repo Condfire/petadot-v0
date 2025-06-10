@@ -25,8 +25,6 @@ export default async function OngsPage({
 
   const { data: ongs, count } = await getOngs(page, pageSize, filters)
 
-  console.log("OngsPage: ONGs recebidas para exibição:", ongs?.length, "Total:", count)
-
   return (
     <main className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8 text-center">ONGs Parceiras</h1>
