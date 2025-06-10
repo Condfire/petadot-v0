@@ -35,14 +35,13 @@ export default async function Home() {
     console.log("Página inicial - Pets para adoção:", adoptionPets.length)
     console.log("Página inicial - Pets perdidos:", lostPets.length)
     console.log("Página inicial - Eventos:", events.length)
+    console.log("Home Page: Eventos recebidos para exibição:", events.length)
 
     // Não precisamos mais fazer slice, pois já limitamos a 4 na consulta
     const recentAdoptionPets = adoptionPets
     const recentLostPets = lostPets
     // Filtramos apenas eventos futuros
-    const upcomingEvents = events
-      .filter((event) => new Date(event.date) >= new Date())
-      .slice(0, 3)
+    const upcomingEvents = events.filter((event) => new Date(event.date) >= new Date()).slice(0, 3)
 
     return (
       <div className="flex flex-col min-h-screen">
@@ -161,9 +160,7 @@ export default async function Home() {
                     </div>
                     <div className="p-4">
                       <h3 className="font-bold text-lg">{event.title}</h3>
-                      <p className="text-sm text-gray-600">
-                        Data: {new Date(event.date).toLocaleDateString("pt-BR")}
-                      </p>
+                      <p className="text-sm text-gray-600">Data: {new Date(event.date).toLocaleDateString("pt-BR")}</p>
                       <p className="text-sm text-gray-600">Local: {event.location}</p>
                       <p className="mt-2 text-sm line-clamp-2">{event.description}</p>
                       <Button className="mt-3 w-full" asChild>

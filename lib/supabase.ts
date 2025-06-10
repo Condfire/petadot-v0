@@ -377,6 +377,11 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
       return { data: [], count: 0 }
     }
 
+    // Dentro da função `getEvents`, adicione logs antes e depois da consulta:
+    // Antes da linha `let query = supabase.from("events").select("*, ongs(id, name, logo_url, city)", { count: "exact" })`
+    // Adicione:
+    console.log("getEvents: Iniciando busca de eventos. Filtros:", filters)
+
     // Substituir a query por:
     let query = supabase.from("events").select("*, ongs(id, name, logo_url, city)", { count: "exact" })
 
@@ -410,6 +415,11 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
       .order("date", { ascending: true })
       .range(from, to)
 
+    // Antes da linha `if (error)`
+    // Adicione:
+    console.log("getEvents: Dados recebidos:", data?.length, "Total:", count)
+    console.log("getEvents: Erro na consulta:", error)
+
     if (error) {
       console.error("Erro ao buscar eventos:", error)
       return { data: [], count: 0 }
@@ -431,6 +441,11 @@ export async function getOngs(page = 1, pageSize = 12, filters: any = {}) {
       console.error("Tabela users não existe")
       return { data: [], count: 0 }
     }
+
+    // Dentro da função `getOngs`, adicione logs antes e depois da consulta:
+    // Antes da linha `let query = supabase.from("users").select("*", { count: "exact" })`
+    // Adicione:
+    console.log("getOngs: Iniciando busca de ONGs. Filtros:", filters)
 
     let query = supabase.from("users").select("*", { count: "exact" })
 
@@ -455,6 +470,11 @@ export async function getOngs(page = 1, pageSize = 12, filters: any = {}) {
     const to = from + pageSize - 1
 
     const { data, error, count } = await query.order("name", { ascending: true }).range(from, to)
+
+    // Antes da linha `if (error)`
+    // Adicione:
+    console.log("getOngs: Dados recebidos:", data?.length, "Total:", count)
+    console.log("getOngs: Erro na consulta:", error)
 
     if (error) {
       console.error("Erro ao buscar ONGs:", error)
