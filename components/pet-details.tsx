@@ -32,6 +32,7 @@ export default function PetDetails({ pet, type }: PetDetailsProps) {
 
   // Preparar as imagens
   const images = []
+  if (pet.main_image_url) images.push(pet.main_image_url)
   if (pet.image_url) images.push(pet.image_url)
   if (pet.additional_images && Array.isArray(pet.additional_images)) {
     images.push(...pet.additional_images)

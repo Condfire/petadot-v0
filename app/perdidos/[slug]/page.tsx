@@ -67,7 +67,7 @@ export async function generateMetadata({ params }: PetLostDetailPageProps): Prom
           : `${pet.name} - ${speciesDisplay} perdido ${location ? `em ${location}` : ""}. Ajude a encontrá-lo.`,
         images: [
           {
-            url: pet.image_url || "/placeholder.svg?key=p34o7",
+            url: pet.main_image_url || pet.image_url || "/placeholder.svg?key=p34o7",
             width: 1200,
             height: 630,
             alt: pet.name || "Pet perdido",

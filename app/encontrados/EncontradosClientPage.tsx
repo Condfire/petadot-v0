@@ -165,7 +165,7 @@ export default function EncontradosClientPage({
                   key={pet.id}
                   id={pet.id}
                   name={pet.name || "Pet sem nome"}
-                  image={pet.image_url}
+                  image={pet.main_image_url || pet.image_url}
                   species={pet.species}
                   species_other={pet.species_other}
                   breed={pet.breed}

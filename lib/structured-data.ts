@@ -10,7 +10,8 @@ export function generateAdoptionPetSchema(pet: any, options: { baseUrl?: string 
 
     const baseUrl = options.baseUrl || "https://www.petadot.com.br"
     const petUrl = `${baseUrl}/adocao/${pet.slug || pet.id}`
-    const imageUrl = pet.image_url || `${baseUrl}/placeholder.svg?height=600&width=800&query=pet`
+    const defaultPlaceholder = `${baseUrl}/placeholder.svg?height=600&width=800&query=pet`
+    const imageUrl = pet.main_image_url || pet.image_url || defaultPlaceholder
 
     // Obter informações da ONG, se disponível
     const ong = pet.ongs || {}
@@ -86,7 +87,8 @@ export function generateLostPetSchema(pet: any, options: { baseUrl?: string } = 
 
     const baseUrl = options.baseUrl || "https://www.petadot.com.br"
     const petUrl = `${baseUrl}/perdidos/${pet.slug || pet.id}`
-    const imageUrl = pet.image_url || `${baseUrl}/placeholder.svg?height=600&width=800&query=pet+perdido`
+    const defaultPlaceholder = `${baseUrl}/placeholder.svg?height=600&width=800&query=pet+perdido`
+    const imageUrl = pet.main_image_url || pet.image_url || defaultPlaceholder
 
     // Preparar a localização
     const location = pet.location || (pet.city && pet.state ? `${pet.city}, ${pet.state}` : "")
@@ -135,7 +137,8 @@ export function generateFoundPetSchema(pet: any, options: { baseUrl?: string } =
 
     const baseUrl = options.baseUrl || "https://www.petadot.com.br"
     const petUrl = `${baseUrl}/encontrados/${pet.slug || pet.id}`
-    const imageUrl = pet.image_url || `${baseUrl}/placeholder.svg?height=600&width=800&query=pet+encontrado`
+    const defaultPlaceholder = `${baseUrl}/placeholder.svg?height=600&width=800&query=pet+encontrado`
+    const imageUrl = pet.main_image_url || pet.image_url || defaultPlaceholder
 
     // Preparar a localização
     const location = pet.location || (pet.city && pet.state ? `${pet.city}, ${pet.state}` : "")

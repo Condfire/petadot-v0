@@ -165,7 +165,7 @@ export function PetDetail({ petId, petType }: PetDetailProps) {
             <CardContent className="p-0">
               <div className="relative aspect-square w-full">
                 <Image
-                  src={pet.image_url || "/placeholder.svg?height=400&width=400&query=pet"}
+                  src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=400&width=400&query=pet"}
                   alt={pet.name || "Pet"}
                   fill
                   className="object-cover rounded-t-lg"

@@ -243,7 +243,7 @@ export default async function AdminOngDetailsPage({ params }: { params: { id: st
                         <Card key={pet.id} className="overflow-hidden">
                           <div className="relative aspect-square">
                             <Image
-                              src={pet.image_url || "/placeholder.svg?height=200&width=200&query=pet"}
+                              src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=200&width=200&query=pet"}
                               alt={pet.name}
                               fill
                               className="object-cover"
