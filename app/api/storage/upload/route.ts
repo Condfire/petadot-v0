@@ -15,28 +15,6 @@ const MAX_EVENT_IMAGE_SIZE = 8 * 1024 * 1024 // 8MB
 export async function POST(request: NextRequest) {
   console.log("[API/Upload] Recebendo requisição de upload...")
   try {
-    // Verificar se o bucket existe, se não, criar
-    console.log(`[API/Upload] Verificando bucket: ${BUCKET_NAME}`)
-    const { data: bucketData, error: bucketError } = await supabase.storage.getBucket(BUCKET_NAME)
-
-    if (bucketError && bucketError.message.includes("not found")) {
-      console.log("[API/Upload] Bucket não encontrado, tentando criar...")
-      const { data: createData, error: createError } = await supabase.storage.createBucket(BUCKET_NAME, {
-        public: true,
-        fileSizeLimit: MAX_EVENT_IMAGE_SIZE, // Use the consistent max size
-      })
-      if (createError) {
-        console.error("[API/Upload] Erro ao criar bucket:", createError)
-        return NextResponse.json({ error: `Erro ao criar bucket: ${createError.message}` }, { status: 500 })
-      }
-      console.log("[API/Upload] Bucket criado com sucesso:", createData)
-    } else if (bucketError) {
-      console.error("[API/Upload] Erro ao verificar bucket:", bucketError)
-      return NextResponse.json({ error: `Erro ao verificar bucket: ${bucketError.message}` }, { status: 500 })
-    } else {
-      console.log("[API/Upload] Bucket já existe:", bucketData)
-    }
-
     // Obter o formulário com a imagem
     console.log("[API/Upload] Processando formData...")
     const formData = await request.formData()
