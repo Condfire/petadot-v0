@@ -125,7 +125,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
                 </div>
                 <div>
                   <h3 className="font-medium mb-2">Ações de Moderação</h3>
-                  <ModerationActions id={event.id} status={event.status} type="event" />
+                  <ModerationActions id={event.id} type="event" />
                 </div>
               </div>
 
