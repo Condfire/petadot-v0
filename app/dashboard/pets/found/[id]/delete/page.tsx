@@ -145,7 +145,7 @@ function DeletePetContent({ id, type }: { id: string; type: string }) {
           <CardContent className="flex flex-col items-center">
             <div className="relative w-[200px] h-[200px] rounded-lg overflow-hidden mb-4">
               <Image
-                src={pet.image_url || "/placeholder.svg?height=200&width=200&query=pet"}
+                src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=200&width=200&query=pet"}
                 alt={pet.name || "Pet"}
                 fill
                 className="object-cover"

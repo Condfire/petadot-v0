@@ -196,7 +196,7 @@ export default function OngDashboardPage() {
                       <div key={pet.id} className="flex items-center gap-4 p-3 rounded-md border">
                         <div className="relative h-16 w-16 rounded-md overflow-hidden">
                           <Image
-                            src={pet.image_url || "/placeholder.svg?height=64&width=64&query=pet"}
+                            src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=64&width=64&query=pet"}
                             alt={pet.name}
                             fill
                             className="object-cover"

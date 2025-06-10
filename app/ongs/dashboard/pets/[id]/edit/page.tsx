@@ -132,10 +132,10 @@ export default function EditPetPage({ params }: { params: { id: string } }) {
           is_vaccinated: pet.is_vaccinated || false,
           is_special_needs: pet.is_special_needs || false,
           special_needs_description: pet.special_needs_description || "",
-          image_url: pet.image_url,
+          image_url: pet.main_image_url || pet.image_url,
         })
 
-        setImageUrl(pet.image_url)
+        setImageUrl(pet.main_image_url || pet.image_url)
       } catch (err: any) {
         console.error("Erro ao carregar pet:", err)
         setError(err.message || "Ocorreu um erro ao carregar o pet")

@@ -323,7 +323,7 @@ export function PetsTable({ pets, type }: PetTableProps) {
                     {pet.image_url ? (
                       <div className="relative h-12 w-12 rounded-md overflow-hidden">
                         <Image
-                          src={pet.image_url || "/placeholder.svg"}
+                          src={pet.main_image_url || pet.image_url || "/placeholder.svg"}
                           alt={pet.name || "Pet"}
                           fill
                           className="object-cover"

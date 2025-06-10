@@ -161,7 +161,7 @@ export default async function OngPage({ params }: { params: { slug: string } }) 
                       key={pet.id}
                       id={pet.id}
                       name={pet.name}
-                      image={pet.image_url}
+                      image={pet.main_image_url || pet.image_url}
                       location={`${ong.city}, ${ong.state}`}
                       species={pet.species}
                       age={pet.age}

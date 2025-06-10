@@ -334,7 +334,7 @@ function PetsContent() {
           <Card key={`adoption-${pet.id}`} className="overflow-hidden">
             <div className="relative aspect-video">
               <Image
-                src={pet.image_url || "/placeholder.svg?height=300&width=400&query=cute+pet"}
+                src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=300&width=400&query=cute+pet"}
                 alt={pet.name || "Pet para adoção"}
                 fill
                 className="object-cover"
@@ -392,7 +392,7 @@ function PetsContent() {
           <Card key={`lost-${pet.id}`} className="overflow-hidden">
             <div className="relative aspect-video">
               <Image
-                src={pet.image_url || "/placeholder.svg?height=300&width=400&query=lost+pet"}
+                src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=300&width=400&query=lost+pet"}
                 alt={pet.name || "Pet perdido"}
                 fill
                 className="object-cover"
@@ -450,7 +450,7 @@ function PetsContent() {
           <Card key={`found-${pet.id}`} className="overflow-hidden">
             <div className="relative aspect-video">
               <Image
-                src={pet.image_url || "/placeholder.svg?height=300&width=400&query=found+pet"}
+                src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=300&width=400&query=found+pet"}
                 alt={pet.name || "Pet encontrado"}
                 fill
                 className="object-cover"
@@ -562,7 +562,7 @@ function PetsContent() {
                 <Card key={`adoption-${pet.id}`} className="overflow-hidden">
                   <div className="relative aspect-video">
                     <Image
-                      src={pet.image_url || "/placeholder.svg?height=300&width=400&query=cute+pet"}
+                      src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=300&width=400&query=cute+pet"}
                       alt={pet.name || "Pet para adoção"}
                       fill
                       className="object-cover"
@@ -620,7 +620,7 @@ function PetsContent() {
                 <Card key={`lost-${pet.id}`} className="overflow-hidden">
                   <div className="relative aspect-video">
                     <Image
-                      src={pet.image_url || "/placeholder.svg?height=300&width=400&query=lost+pet"}
+                      src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=300&width=400&query=lost+pet"}
                       alt={pet.name || "Pet perdido"}
                       fill
                       className="object-cover"
@@ -678,7 +678,7 @@ function PetsContent() {
                 <Card key={`found-${pet.id}`} className="overflow-hidden">
                   <div className="relative aspect-video">
                     <Image
-                      src={pet.image_url || "/placeholder.svg?height=300&width=400&query=found+pet"}
+                      src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=300&width=400&query=found+pet"}
                       alt={pet.name || "Pet encontrado"}
                       fill
                       className="object-cover"
@@ -733,7 +733,7 @@ function PetsContent() {
                 <Card key={`resolved-${pet.id}`} className="overflow-hidden">
                   <div className="relative aspect-video">
                     <Image
-                      src={pet.image_url || "/placeholder.svg?height=300&width=400&query=resolved+pet"}
+                      src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=300&width=400&query=resolved+pet"}
                       alt={pet.name || "Pet resolvido"}
                       fill
                       className="object-cover"

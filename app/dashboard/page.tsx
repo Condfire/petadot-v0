@@ -221,7 +221,7 @@ function DashboardContent() {
                     >
                       <div className="relative h-12 w-12 rounded-md overflow-hidden">
                         <Image
-                          src={pet.image_url || "/placeholder.svg?height=48&width=48&query=pet"}
+                          src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=48&width=48&query=pet"}
                           alt={pet.name || "Pet"}
                           fill
                           className="object-cover"

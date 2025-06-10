@@ -60,7 +60,7 @@ export default async function Home() {
                   <PetCard
                     id={pet.id}
                     name={pet.name}
-                    image={pet.image_url || "/a-cute-pet.png"}
+                    image={pet.main_image_url || pet.image_url || "/a-cute-pet.png"}
                     species={pet.species}
                     species_other={pet.species_other}
                     age={pet.age}
@@ -104,7 +104,7 @@ export default async function Home() {
                   <PetCard
                     id={pet.id}
                     name={pet.name}
-                    image={pet.image_url || "/a-cute-pet.png"}
+                    image={pet.main_image_url || pet.image_url || "/a-cute-pet.png"}
                     species={pet.species}
                     species_other={pet.species_other}
                     age={pet.age}
