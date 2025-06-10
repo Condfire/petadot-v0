@@ -384,8 +384,9 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
     query = query.eq("status", "approved")
 
     // Aplicar filtros se existirem
+    // O campo que armazena o t\u00edtulo do evento na tabela \u00e9 `name`
     if (filters.title) {
-      query = query.ilike("title", `%${filters.title}%`)
+      query = query.ilike("name", `%${filters.title}%`)
     }
 
     if (filters.city) {
