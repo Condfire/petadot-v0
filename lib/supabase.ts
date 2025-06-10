@@ -1142,7 +1142,7 @@ export async function getEventBySlugOrId(slugOrId: string) {
     const isUuidValue = isUuid(slugOrId)
 
     // First try exact match
-    let query = supabase.from("events").select("*, users!events_user_id_fkey(id, name, avatar_url, city, type)")
+    let query = supabase.from("events").select("*, users(id, name, avatar_url, city, type)")
 
     if (isUuidValue) {
       query = query.eq("id", slugOrId)
@@ -1157,7 +1157,7 @@ export async function getEventBySlugOrId(slugOrId: string) {
       console.log("No exact match found, trying LIKE query")
       const { data: likeData, error: likeError } = await supabase
         .from("events")
-        .select("*, users!events_user_id_fkey(id, name, avatar_url, city, type)")
+        .select("*, users(id, name, avatar_url, city, type)")
         .ilike("slug", `%${slugOrId}%`)
         .limit(1)
         .maybeSingle()
