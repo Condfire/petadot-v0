@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
             <CheckCircle2 className="h-4 w-4 text-primary" />
             <AlertTitle>Email enviado!</AlertTitle>
             <AlertDescription>
-              Enviamos um email com instruções para recuperar sua senha. Verifique sua caixa de entrada.
+              Enviamos um email com um link para redefinir sua senha. Após clicar, você será direcionado para escolher a nova senha.
             </AlertDescription>
           </Alert>
         )}

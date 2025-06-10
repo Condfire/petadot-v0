@@ -28,3 +28,9 @@ Continue building your app on:
 2. Deploy your chats from the v0 interface
 3. Changes are automatically pushed to this repository
 4. Vercel deploys the latest version from this repository
+
+## Reset de Senha
+
+1. Clique em **Esqueceu sua senha?** na tela de login e informe seu email.
+2. Você receberá um link que redireciona para a página de redefinição.
+3. Escolha a nova senha e faça login novamente.
