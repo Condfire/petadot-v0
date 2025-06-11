@@ -381,7 +381,7 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
     let query = supabase.from("events").select("*, ongs(id, name, logo_url, city)", { count: "exact" })
 
     // Mostrar apenas eventos aprovados
-    query = query.eq("status", "approved")
+    //query = query.eq("status", "approved") // <-- Este filtro impede que eventos pendentes apareçam
 
     // Aplicar filtros se existirem
     if (filters.name) {

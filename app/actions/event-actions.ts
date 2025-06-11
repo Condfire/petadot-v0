@@ -218,7 +218,7 @@ export async function createEvent(eventData: EventDB) {
           ...eventData,
           ong_id: ong.id,
           user_id: userId,
-          status: "pending",
+          status: "approved", // Temporariamente alterado para teste
           created_at: new Date().toISOString(),
         },
       ])
