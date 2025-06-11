@@ -15,6 +15,9 @@ import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useToast } from "@/components/ui/use-toast"
+import Link from "next/link"
+import { useAuth } from "@/app/auth-provider"
+import { supabase } from "@/lib/supabase"
 import {
   Dialog,
   DialogContent,
@@ -52,6 +55,41 @@ export function EventosClientPage({
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
+  const { user } = useAuth()
+  const [canCreateEvent, setCanCreateEvent] = useState(false)
+
+  useEffect(() => {
+    const checkOng = async () => {
+      if (!user) {
+        setCanCreateEvent(false)
+        return
+      }
+
+      if (user.type === "ngo_admin") {
+        setCanCreateEvent(true)
+        return
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("ongs")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle()
+
+        if (error) {
+          console.error("Erro ao verificar ONG do usuário:", error)
+        }
+
+        setCanCreateEvent(!!data)
+      } catch (err) {
+        console.error("Erro ao verificar ONG do usuário:", err)
+        setCanCreateEvent(false)
+      }
+    }
+
+    checkOng()
+  }, [user])
 
   // useEffect para buscar eventos quando filtros ou paginação mudam
   useEffect(() => {
@@ -118,18 +156,30 @@ export function EventosClientPage({
     <div>
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold">Eventos</h1>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="outline">Criar Evento</Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Criar Evento</DialogTitle>
-              <DialogDescription>Crie um novo evento para ser exibido na plataforma.</DialogDescription>
-            </DialogHeader>
-            <EventoForm />
-          </DialogContent>
-        </Dialog>
+        {canCreateEvent && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline">Criar Evento</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Criar Evento</DialogTitle>
+                <DialogDescription>
+                  Crie um novo evento para ser exibido na plataforma.
+                </DialogDescription>
+              </DialogHeader>
+              <EventoForm />
+            </DialogContent>
+          </Dialog>
+        )}
+        {user && !canCreateEvent && (
+          <p className="text-sm text-muted-foreground">
+            Não possui uma ONG?{' '}
+            <Link href="/ongs/register" className="underline">
+              Cadastre sua ONG
+            </Link>
+          </p>
+        )}
       </div>
 
       <div className="flex space-x-4 mb-4">
