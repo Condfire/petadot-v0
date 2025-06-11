@@ -8,10 +8,11 @@
 
 // Tipos para a interface do usuário
 export type EventFormUI = {
-  title: string
+  name: string // Changed from title to name
   description: string
-  event_date: string
-  event_time: string
+  start_date_ui: string // Changed from event_date to start_date_ui
+  start_time_ui: string // Changed from event_time to start_time_ui
+  end_date_ui?: string // New field for end_date in UI
   location: string
   address?: string
   city?: string
@@ -22,9 +23,9 @@ export type EventFormUI = {
 
 // Tipos para o banco de dados
 export type EventDB = {
-  name: string
+  name: string // Changed from title to name
   description: string
-  date: string
+  start_date: string // Changed from date to start_date
   end_date?: string
   location: string
   address?: string
@@ -43,13 +44,14 @@ export type EventDB = {
  * Converte um evento do formato da UI para o formato do banco de dados
  */
 export function mapEventUIToDB(eventUI: EventFormUI, ongId?: string, userId?: string): EventDB {
-  // Formatar a data e hora do evento
-  const eventDateTime = `${eventUI.event_date}T${eventUI.event_time}:00`
+  // Formatar a data e hora do evento de início
+  const startDateTime = `${eventUI.start_date_ui}T${eventUI.start_time_ui}:00`
 
   return {
-    name: eventUI.title,
+    name: eventUI.name, // Changed from title to name
     description: eventUI.description,
-    date: eventDateTime,
+    start_date: startDateTime, // Changed from date to start_date
+    end_date: eventUI.end_date_ui ? `${eventUI.end_date_ui}T23:59:59` : undefined, // Map end_date_ui to end_date
     location: eventUI.location,
     address: eventUI.address,
     city: eventUI.city,
@@ -65,16 +67,20 @@ export function mapEventUIToDB(eventUI: EventFormUI, ongId?: string, userId?: st
  * Converte um evento do formato do banco de dados para o formato da UI
  */
 export function mapEventDBToUI(eventDB: EventDB): EventFormUI {
-  // Extrair data e hora do campo date
-  const eventDate = new Date(eventDB.date)
-  const event_date = eventDate.toISOString().split("T")[0]
-  const event_time = eventDate.toTimeString().slice(0, 5)
+  // Extrair data e hora do campo start_date
+  const startDateObj = new Date(eventDB.start_date)
+  const start_date_ui = startDateObj.toISOString().split("T")[0]
+  const start_time_ui = startDateObj.toTimeString().slice(0, 5)
+
+  // Extrair data de término, se existir
+  const end_date_ui = eventDB.end_date ? new Date(eventDB.end_date).toISOString().split("T")[0] : undefined
 
   return {
-    title: eventDB.name,
+    name: eventDB.name, // Changed from title to name
     description: eventDB.description,
-    event_date,
-    event_time,
+    start_date_ui,
+    start_time_ui,
+    end_date_ui,
     location: eventDB.location,
     address: eventDB.address,
     city: eventDB.city,

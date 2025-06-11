@@ -36,7 +36,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
   // Buscar detalhes do evento
   const { data: event, error: eventError } = await supabase
     .from("events")
-    .select("*, users!events_user_id_fkey(id, name, email, contact)")
+    .select("*, users(id, name, email, contact)")
     .eq("id", id)
     .single()
 

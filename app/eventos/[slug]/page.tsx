@@ -33,8 +33,8 @@ export async function generateMetadata({ params }: EventDetailsPageProps): Promi
   }
 
   return {
-    title: `${event.title} | Eventos | PetAdot`,
-    description: `${event.title} - ${event.description.substring(0, 150)}${event.description.length > 150 ? "..." : ""}`,
+    title: `${event.name} | Eventos | PetAdot`, // Changed from event.title to event.name
+    description: `${event.name} - ${event.description.substring(0, 150)}${event.description.length > 150 ? "..." : ""}`, // Changed from event.title to event.name
   }
 }
 
@@ -50,24 +50,23 @@ export default async function EventDetailsPage({ params }: EventDetailsPageProps
   }
 
   // Formatar datas
-  const eventDate = new Date(event.date)
-  const formattedDate = eventDate.toLocaleDateString("pt-BR", {
+  const eventStartDate = new Date(event.start_date) // Changed from event.date to event.start_date
+  const formattedStartDate = eventStartDate.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   })
 
-  const formattedTime = eventDate.toLocaleTimeString("pt-BR", {
+  const formattedStartTime = eventStartDate.toLocaleTimeString("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
   })
 
-  // Verificar se o evento já aconteceu
-  const isPastEvent = eventDate < new Date()
+  // Verificar se o evento já aconteceu (usando start_date)
+  const isPastEvent = eventStartDate < new Date()
 
   // Verificar se o evento tem data de término
-  const hasEndDate = event.end_date && event.end_date !== event.date
-
+  const hasEndDate = event.end_date && event.end_date !== event.start_date // Compare with start_date
   // Formatar data de término, se existir
   const endDate = hasEndDate ? new Date(event.end_date!) : null
   const formattedEndDate = endDate
@@ -102,7 +101,7 @@ export default async function EventDetailsPage({ params }: EventDetailsPageProps
           <div className="relative aspect-video rounded-lg overflow-hidden">
             <Image
               src={event.image_url || "/placeholder.svg?height=400&width=800&query=pet+event"}
-              alt={event.title}
+              alt={event.name} // Changed from event.title to event.name
               fill
               className="object-cover"
               priority
@@ -120,7 +119,7 @@ export default async function EventDetailsPage({ params }: EventDetailsPageProps
 
           <div>
             <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold">{event.title}</h1>
+              <h1 className="text-3xl font-bold">{event.name}</h1> {/* Changed from event.title to event.name */}
               <Button variant="ghost" size="icon" aria-label="Compartilhar">
                 <Share2 className="h-5 w-5" />
               </Button>
@@ -150,7 +149,7 @@ export default async function EventDetailsPage({ params }: EventDetailsPageProps
                   <Calendar className="h-5 w-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-medium">Data</p>
-                    <p className="text-muted-foreground">{formattedDate}</p>
+                    <p className="text-muted-foreground">{formattedStartDate}</p>
                     {hasEndDate && <p className="text-muted-foreground">até {formattedEndDate}</p>}
                   </div>
                 </div>
@@ -159,7 +158,7 @@ export default async function EventDetailsPage({ params }: EventDetailsPageProps
                   <Clock className="h-5 w-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-medium">Horário</p>
-                    <p className="text-muted-foreground">{formattedTime}</p>
+                    <p className="text-muted-foreground">{formattedStartTime}</p>
                   </div>
                 </div>
 

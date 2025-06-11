@@ -117,7 +117,7 @@ export default function AdminModerationPage() {
       // Buscar eventos pendentes
       const { data: events, error: eventsError } = await supabase
         .from("events")
-        .select("*, users!events_user_id_fkey(name)")
+        .select("*, users(name)")
         .eq("status", "pending")
         .order("created_at", { ascending: false })
 
@@ -140,7 +140,7 @@ export default function AdminModerationPage() {
       // Buscar eventos rejeitados automaticamente
       const { data: rejectedEvents, error: rejectedEventsError } = await supabase
         .from("events")
-        .select("*, users!events_user_id_fkey(name)")
+        .select("*, users(name)")
         .eq("status", "rejected")
         .order("created_at", { ascending: false })
         .limit(20)

@@ -43,19 +43,19 @@ export default async function AdminEventsPage() {
   // Buscar eventos
   const { data: pendingEvents, error: pendingEventsError } = await supabase
     .from("events")
-    .select("*, users!events_user_id_fkey(name)")
+    .select("*, users(name)")
     .eq("status", "pending")
     .order("created_at", { ascending: false })
 
   const { data: approvedEvents, error: approvedEventsError } = await supabase
     .from("events")
-    .select("*, users!events_user_id_fkey(name)")
+    .select("*, users(name)")
     .eq("status", "approved")
     .order("date", { ascending: true })
 
   const { data: rejectedEvents, error: rejectedEventsError } = await supabase
     .from("events")
-    .select("*, users!events_user_id_fkey(name)")
+    .select("*, users(name)")
     .eq("status", "rejected")
     .order("created_at", { ascending: false })
 

@@ -125,9 +125,21 @@ export default function LoginPage() {
 
       console.log("Login page: Sessão confirmada, redirecionando...")
 
-      // Redirecionar para a página solicitada ou dashboard
+      // Verificar se o usuário possui uma ONG vinculada
+      const { data: ongData } = await supabase
+        .from("ongs")
+        .select("id")
+        .eq("user_id", sessionData.session.user.id)
+        .single()
+
+      // Redirecionar para a página solicitada ou dashboard apropriado
       const newRedirectTo = redirectTo === "/admin" ? "/admin-alt" : redirectTo
-      router.push(newRedirectTo)
+
+      if (newRedirectTo === "/dashboard" && ongData) {
+        router.push("/ongs/dashboard")
+      } else {
+        router.push(newRedirectTo)
+      }
     } catch (err) {
       console.error("Login page: Erro durante login:", err)
       setError(err instanceof Error ? err.message : "Ocorreu um erro ao fazer login")

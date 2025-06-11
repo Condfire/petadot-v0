@@ -384,8 +384,9 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
     query = query.eq("status", "approved")
 
     // Aplicar filtros se existirem
-    if (filters.title) {
-      query = query.ilike("title", `%${filters.title}%`)
+    if (filters.name) {
+      // Changed from filters.title to filters.name
+      query = query.ilike("name", `%${filters.name}%`) // Changed from title to name
     }
 
     if (filters.city) {
@@ -396,9 +397,10 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
       query = query.eq("state", filters.state)
     }
 
-    if (filters.date) {
+    if (filters.start_date) {
+      // Changed from filters.date to filters.start_date
       // Filtrar por data de realização do evento
-      query = query.gte("date", filters.date)
+      query = query.gte("start_date", filters.start_date) // Changed from date to start_date
     }
 
     // Aplicar paginação
@@ -407,7 +409,7 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
 
     const { data, error, count } = await query
       // Ordenar eventos pela data de realização
-      .order("date", { ascending: true })
+      .order("start_date", { ascending: true }) // Changed from date to start_date
       .range(from, to)
 
     if (error) {
@@ -461,6 +463,7 @@ export async function getOngs(page = 1, pageSize = 12, filters: any = {}) {
       return { data: [], count: 0 }
     }
 
+    console.log(`ONGs encontradas: ${data?.length || 0}`) // Added log for ONGs
     return { data: data || [], count: count || 0 }
   } catch (error) {
     console.error("Erro ao buscar ONGs:", error)
@@ -1142,7 +1145,7 @@ export async function getEventBySlugOrId(slugOrId: string) {
     const isUuidValue = isUuid(slugOrId)
 
     // First try exact match
-    let query = supabase.from("events").select("*, users!events_user_id_fkey(id, name, avatar_url, city, type)")
+    let query = supabase.from("events").select("*, users(id, name, avatar_url, city, type)")
 
     if (isUuidValue) {
       query = query.eq("id", slugOrId)
@@ -1157,7 +1160,7 @@ export async function getEventBySlugOrId(slugOrId: string) {
       console.log("No exact match found, trying LIKE query")
       const { data: likeData, error: likeError } = await supabase
         .from("events")
-        .select("*, users!events_user_id_fkey(id, name, avatar_url, city, type)")
+        .select("*, users(id, name, avatar_url, city, type)")
         .ilike("slug", `%${slugOrId}%`)
         .limit(1)
         .maybeSingle()
