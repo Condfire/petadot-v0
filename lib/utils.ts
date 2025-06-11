@@ -574,7 +574,7 @@ export function mapStoryStatus(status: string | null | undefined): string {
  * @param type Tipo do evento
  * @returns Texto legível do tipo
  */
-export function mapEventType(type: string | null | undefined): string {
+export function mapEventTypeOld(type: string | null | undefined): string {
   if (!type) return "Outro"
 
   const typeMap: Record<string, string> = {
@@ -594,20 +594,17 @@ export function mapEventType(type: string | null | undefined): string {
  * @param date Data a ser formatada
  * @returns Data formatada
  */
-export function formatDate(date: string | Date | null | undefined): string {
-  if (!date) return "Data não informada"
-
-  try {
-    const dateObj = typeof date === "string" ? new Date(date) : date
-    return dateObj.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    })
-  } catch (error) {
-    console.error("Erro ao formatar data:", error)
-    return "Data inválida"
+export function formatDate(dateString: string | Date | undefined): string {
+  if (!dateString) return ""
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) {
+    return "" // Retorna vazio para datas inválidas
   }
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date)
 }
 
 /**
@@ -615,22 +612,19 @@ export function formatDate(date: string | Date | null | undefined): string {
  * @param date Data e hora a ser formatada
  * @returns Data e hora formatada
  */
-export function formatDateTime(date: string | Date | null | undefined): string {
-  if (!date) return "Data não informada"
-
-  try {
-    const dateObj = typeof date === "string" ? new Date(date) : date
-    return dateObj.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  } catch (error) {
-    console.error("Erro ao formatar data e hora:", error)
-    return "Data inválida"
+export function formatDateTime(dateString: string | Date | undefined): string {
+  if (!dateString) return ""
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) {
+    return "" // Retorna vazio para datas inválidas
   }
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date)
 }
 
 /**
@@ -648,4 +642,46 @@ export function formatCurrency(value: number | null | undefined): string {
 }
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+export function mapEventType(type: string): string {
+  switch (type) {
+    case "adoption_fair":
+      return "Feira de Adoção"
+    case "vaccination_campaign":
+      return "Campanha de Vacinação"
+    case "fundraising":
+      return "Arrecadação de Fundos"
+    case "workshop":
+      return "Workshop/Palestra"
+    case "volunteer_day":
+      return "Dia do Voluntário"
+    case "other":
+      return "Outro"
+    default:
+      return type
+  }
+}
+
+// Função para gerar slug (já existente, mas garantindo exportação)
+export function generateSlug(text: string): string {
+  return text
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]+/g, "")
+    .replace(/--+/g, "-")
+}
+
+// Função para formatar números de telefone (exemplo)
+export function formatPhoneNumber(phoneNumber: string): string {
+  const cleaned = ("" + phoneNumber).replace(/\D/g, "")
+  const match = cleaned.match(/^(\d{2})(\d{5})(\d{4})$/)
+  if (match) {
+    return `(${match[1]}) ${match[2]}-${match[3]}`
+  }
+  return phoneNumber
 }

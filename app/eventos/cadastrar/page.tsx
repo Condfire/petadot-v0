@@ -29,6 +29,15 @@ const formSchema = z.object({
   state: z.string().optional(),
   postal_code: z.string().optional(),
   image_url: z.string().min(1, { message: "Uma imagem é obrigatória" }),
+  // Adicione outros campos do evento aqui, se necessário, como event_type, contact_email, etc.
+  // Para simplificar, vamos adicionar apenas os campos essenciais para o erro atual.
+  // event_type: z.string().optional(),
+  // contact_email: z.string().email().optional().or(z.literal("")),
+  // contact_phone: z.string().optional(),
+  // registration_url: z.string().url().optional().or(z.literal("")),
+  // registration_required: z.boolean().optional(),
+  // max_participants: z.number().int().min(1).optional(),
+  // is_featured: z.boolean().optional(),
 })
 
 export default function CadastrarEvento() {
@@ -50,6 +59,14 @@ export default function CadastrarEvento() {
       state: "",
       postal_code: "",
       image_url: "",
+      // Default values for new fields if added to schema
+      // event_type: "other",
+      // contact_email: "",
+      // contact_phone: "",
+      // registration_url: "",
+      // registration_required: false,
+      // max_participants: undefined,
+      // is_featured: false,
     },
   })
 
@@ -57,11 +74,13 @@ export default function CadastrarEvento() {
     setIsSubmitting(true)
     setSubmitStatus(null)
 
-    console.log("Valores do formulário antes do mapeamento:", values) // Adicionado para depuração
+    console.log("Valores do formulário antes do mapeamento:", values)
 
     try {
       // Map UI form data to DB format
       const eventDBData = mapEventUIToDB(values as EventFormUI)
+
+      console.log("Dados do evento após mapeamento para DB:", eventDBData)
 
       const result = await createEvent(eventDBData)
 
@@ -83,6 +102,14 @@ export default function CadastrarEvento() {
           state: "",
           postal_code: "",
           image_url: "",
+          // Reset new fields if added to schema
+          // event_type: "other",
+          // contact_email: "",
+          // contact_phone: "",
+          // registration_url: "",
+          // registration_required: false,
+          // max_participants: undefined,
+          // is_featured: false,
         })
       } else {
         setSubmitStatus({
@@ -91,7 +118,6 @@ export default function CadastrarEvento() {
         })
       }
     } catch (error: any) {
-      // Captura o erro para exibir a mensagem específica
       console.error("Error submitting form:", error)
       setSubmitStatus({
         success: false,
