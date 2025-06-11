@@ -22,9 +22,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import EventoForm from "./components/EventoForm"
-import { mapEventType } from "@/lib/utils"
+import { mapEventType } from "@/lib/utils" // Certifique-se de que esta importação está correta
 
-const EventosClientPage = () => {
+export function EventosClientPage() {
+  // Alterado de 'default export' para 'named export'
   const [eventos, setEventos] = useState<Evento[]>([])
   const [search, setSearch] = useState("")
   const [date, setDate] = useState<Date | undefined>(undefined)
@@ -35,7 +36,7 @@ const EventosClientPage = () => {
   useEffect(() => {
     const fetchEventos = async () => {
       try {
-        const response = await fetch("/api/eventos")
+        const response = await fetch("/api/eventos") // Assumindo que você tem uma rota de API para eventos
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
@@ -139,5 +140,3 @@ const EventosClientPage = () => {
     </div>
   )
 }
-
-export default EventosClientPage
