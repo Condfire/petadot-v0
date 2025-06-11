@@ -12,7 +12,7 @@ import type {
   UserProfileUI,
   UserProfileDB,
 } from "./types"
-import { generateSlug } from "./utils" // Import generateSlug
+import { generateSlug } from "./utils" // Import generateSlug from utils
 
 // Mapeamento de UI para DB para Pets
 export function mapPetUIToDB(uiData: PetFormUI): PetFormDB {
