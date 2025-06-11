@@ -1180,6 +1180,9 @@ export async function getEventBySlugOrId(slugOrId: string) {
       return null
     }
 
+    // Adicionar este console.log para depuração
+    console.log("Dados do evento encontrados:", data)
+
     // Transform the data to match the expected structure
     if (data && data.users && data.users.type === "ong") {
       // If the user is an ONG, add it to the ongs property for backward compatibility
