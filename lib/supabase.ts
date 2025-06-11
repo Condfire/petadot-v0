@@ -212,7 +212,7 @@ export async function getLostPets(page = 1, pageSize = 12, filters = {}): Promis
 
       // Filtro de tamanho
       if (filters.size && filters.size !== "all") {
-        query = query.eq("size", filters.size)
+        query = query.eq("gender", filters.gender)
       }
 
       // Filtro de gênero
@@ -322,7 +322,7 @@ export async function getFoundPets(page = 1, pageSize = 12, filters = {}): Promi
 
       // Filtro de tamanho
       if (filters.size && filters.size !== "all") {
-        query = query.eq("size", filters.size)
+        query = query.eq("gender", filters.gender)
       }
 
       // Filtro de gênero
@@ -435,7 +435,7 @@ export async function getOngs(page = 1, pageSize = 12, filters: any = {}) {
       return { data: [], count: 0 }
     }
 
-    let query = supabase.from("users").select("*", { count: "exact" })
+    let query = supabase.from("users").select("*, logo_url, contact_whatsapp, slug", { count: "exact" })
 
     // Filtrar apenas usuários do tipo ONG
     query = query.eq("type", "ong")
@@ -465,6 +465,7 @@ export async function getOngs(page = 1, pageSize = 12, filters: any = {}) {
     }
 
     console.log(`ONGs encontradas: ${data?.length || 0}`) // Added log for ONGs
+    console.log("Dados das ONGs:", data) // Add this line for debugging
     return { data: data || [], count: count || 0 }
   } catch (error) {
     console.error("Erro ao buscar ONGs:", error)
