@@ -24,4 +24,4 @@ const PetInfoCard: React.FC<PetInfoCardProps> = ({ pet }) => {
   )
 }
 
-export default PetInfoCard
+export { PetInfoCard }
