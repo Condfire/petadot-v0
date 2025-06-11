@@ -13,23 +13,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { CheckCircle2, AlertCircle } from "lucide-react"
 import ImageUpload from "@/components/image-upload"
-import { createEvent } from "@/app/actions/event-actions" // Corrected import path
-import { mapEventUIToDB, type EventFormUI } from "@/lib/mappers" // Import mapEventUIToDB and EventFormUI
+import { createEvent } from "@/app/actions/event-actions"
+import { mapEventUIToDB, type EventFormUI } from "@/lib/mappers"
 
 // Esquema de validação
 const formSchema = z.object({
-  name: z.string().min(3, { message: "O nome deve ter pelo menos 3 caracteres" }), // Changed from title to name
+  name: z.string().min(3, { message: "O nome deve ter pelo menos 3 caracteres" }),
   description: z.string().min(10, { message: "A descrição deve ter pelo menos 10 caracteres" }),
-  start_date_ui: z.string().min(1, { message: "A data de início é obrigatória" }), // Changed from date to start_date_ui
-  start_time_ui: z.string().min(1, { message: "O horário de início é obrigatório" }), // Added start_time_ui
-  end_date_ui: z.string().optional(), // Changed from end_date to end_date_ui
+  start_date_ui: z.string().min(1, { message: "A data de início é obrigatória" }),
+  start_time_ui: z.string().min(1, { message: "O horário de início é obrigatório" }),
+  end_date_ui: z.string().optional(),
   location: z.string().min(5, { message: "O local é obrigatório" }),
   address: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   postal_code: z.string().optional(),
   image_url: z.string().min(1, { message: "Uma imagem é obrigatória" }),
-  // ong_id is handled by the server action, no need in form schema
 })
 
 export default function CadastrarEvento() {
@@ -58,9 +57,11 @@ export default function CadastrarEvento() {
     setIsSubmitting(true)
     setSubmitStatus(null)
 
+    console.log("Valores do formulário antes do mapeamento:", values) // Adicionado para depuração
+
     try {
       // Map UI form data to DB format
-      const eventDBData = mapEventUIToDB(values as EventFormUI) // Cast to EventFormUI
+      const eventDBData = mapEventUIToDB(values as EventFormUI)
 
       const result = await createEvent(eventDBData)
 
@@ -89,11 +90,12 @@ export default function CadastrarEvento() {
           message: result.error || "Ocorreu um erro ao cadastrar o evento. Tente novamente.",
         })
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Captura o erro para exibir a mensagem específica
       console.error("Error submitting form:", error)
       setSubmitStatus({
         success: false,
-        message: "Ocorreu um erro ao cadastrar o evento. Tente novamente.",
+        message: error.message || "Ocorreu um erro ao cadastrar o evento. Tente novamente.",
       })
     } finally {
       setIsSubmitting(false)
@@ -134,7 +136,7 @@ export default function CadastrarEvento() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
                   control={form.control}
-                  name="name" // Changed from title to name
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Nome do Evento</FormLabel>
@@ -167,7 +169,7 @@ export default function CadastrarEvento() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
-                    name="start_date_ui" // Changed from date to start_date_ui
+                    name="start_date_ui"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Data de Início do Evento</FormLabel>
@@ -181,7 +183,7 @@ export default function CadastrarEvento() {
 
                   <FormField
                     control={form.control}
-                    name="start_time_ui" // Added start_time_ui
+                    name="start_time_ui"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Horário de Início do Evento</FormLabel>
@@ -196,7 +198,7 @@ export default function CadastrarEvento() {
 
                 <FormField
                   control={form.control}
-                  name="end_date_ui" // Changed from end_date to end_date_ui
+                  name="end_date_ui"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Data de Término (opcional)</FormLabel>
