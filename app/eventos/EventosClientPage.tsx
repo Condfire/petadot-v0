@@ -1,19 +1,36 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import type React from "react"
+
+import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Input } from "@/components/ui/input"
+import type { Evento } from "@/app/eventos/types"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { EventCard } from "@/components/event-card"
-import { PaginationControls } from "@/components/pagination-controls"
-import { states, citiesByState } from "@/lib/constants"
-import type { Event } from "@/lib/types"
+import { Input } from "@/components/ui/input"
+import { Calendar } from "@/components/ui/calendar"
+import { CalendarIcon } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { useToast } from "@/components/ui/use-toast"
+import Link from "next/link"
+import { useAuth } from "@/app/auth-provider"
+import { supabase } from "@/lib/supabase"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import EventoForm from "./components/EventoForm"
+import { EventCard } from "@/components/event-card" // Certifique-se de que esta importação está presente
 
 interface EventosClientPageProps {
-  initialEvents: Event[]
-  totalEvents: number
+  initialEvents: Evento[]
+  totalEvents: number | null
   currentPage: number
   pageSize: number
   initialFilters: {
@@ -31,140 +48,176 @@ export function EventosClientPage({
   pageSize,
   initialFilters,
 }: EventosClientPageProps) {
-  // Garante que events seja sempre um array, mesmo que initialEvents seja null/undefined
-  const [events, setEvents] = useState<Event[]>(initialEvents ?? [])
-  const [filters, setFilters] = useState(initialFilters)
-  const [loading, setLoading] = useState(false)
-
+  const [eventos, setEventos] = useState<Evento[]>(initialEvents)
+  const [search, setSearch] = useState(initialFilters.name || "")
+  const [date, setDate] = useState<Date | undefined>(
+    initialFilters.start_date ? new Date(initialFilters.start_date) : undefined,
+  )
   const router = useRouter()
   const searchParams = useSearchParams()
-
-  const totalPages = Math.ceil(totalEvents / pageSize)
+  const { toast } = useToast()
+  const { user } = useAuth()
+  const [canCreateEvent, setCanCreateEvent] = useState(false)
 
   useEffect(() => {
-    // Atualiza o estado de events quando a prop initialEvents muda, garantindo que seja um array
-    setEvents(initialEvents ?? [])
-  }, [initialEvents])
-
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }))
-  }
-
-  const applyFilters = () => {
-    const newSearchParams = new URLSearchParams(searchParams.toString())
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) {
-        newSearchParams.set(key, value)
-      } else {
-        newSearchParams.delete(key)
+    const checkOng = async () => {
+      if (!user) {
+        setCanCreateEvent(false)
+        return
       }
-    })
-    newSearchParams.set("page", "1")
+
+      if (user.type === "ngo_admin") {
+        setCanCreateEvent(true)
+        return
+      }
+
+      try {
+        const { data, error } = await supabase.from("ongs").select("id").eq("user_id", user.id).maybeSingle()
+
+        if (error) {
+          console.error("Erro ao verificar ONG do usuário:", error)
+        }
+
+        setCanCreateEvent(!!data)
+      } catch (err) {
+        console.error("Erro ao verificar ONG do usuário:", err)
+        setCanCreateEvent(false)
+      }
+    }
+
+    checkOng()
+  }, [user])
+
+  // useEffect para buscar eventos quando filtros ou paginação mudam
+  useEffect(() => {
+    const fetchEventos = async () => {
+      const params = new URLSearchParams()
+      if (search) params.set("name", search)
+      if (date) params.set("start_date", format(date, "yyyy-MM-dd"))
+      params.set("page", currentPage.toString())
+      params.set("pageSize", pageSize.toString())
+
+      try {
+        const response = await fetch(`/api/eventos?${params.toString()}`)
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        const { events: fetchedEvents } = await response.json()
+        setEventos(fetchedEvents)
+      } catch (error) {
+        console.error("Could not fetch eventos:", error)
+        toast({
+          title: "Erro!",
+          description: "Não foi possível carregar os eventos.",
+          variant: "destructive",
+        })
+      }
+    }
+
+    // Só busca se os filtros mudarem ou se for a primeira renderização e initialEvents estiver vazio
+    // A busca inicial é feita pelo Server Component
+    if (
+      search !== (initialFilters.name || "") ||
+      (date && format(date, "yyyy-MM-dd") !== (initialFilters.start_date || "")) ||
+      (!date && initialFilters.start_date) // if date was set initially but now cleared
+    ) {
+      fetchEventos()
+    }
+  }, [search, date, currentPage, pageSize, initialFilters])
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value)
+    // Atualizar URL para refletir o filtro de busca
+    const newSearchParams = new URLSearchParams(searchParams.toString())
+    if (e.target.value) {
+      newSearchParams.set("name", e.target.value)
+    } else {
+      newSearchParams.delete("name")
+    }
     router.push(`/eventos?${newSearchParams.toString()}`)
   }
 
-  const handlePageChange = (page: number) => {
+  const handleDateSelect = (selectedDate: Date | undefined) => {
+    setDate(selectedDate)
+    // Atualizar URL para refletir o filtro de data
     const newSearchParams = new URLSearchParams(searchParams.toString())
-    newSearchParams.set("page", page.toString())
+    if (selectedDate) {
+      newSearchParams.set("start_date", format(selectedDate, "yyyy-MM-dd"))
+    } else {
+      newSearchParams.delete("start_date")
+    }
     router.push(`/eventos?${newSearchParams.toString()}`)
   }
 
   return (
-    <div className="space-y-8">
-      {/* Filter Section */}
-      <Card className="p-6 rounded-2xl shadow-soft">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold">Filtrar Eventos</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Input
-            placeholder="Nome do Evento"
-            value={filters.name || ""}
-            onChange={(e) => handleFilterChange("name", e.target.value)}
-          />
-          <Select
-            value={filters.state || ""}
-            onValueChange={(value) => {
-              handleFilterChange("state", value)
-              handleFilterChange("city", "")
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os Estados</SelectItem>
-              {states.map((state) => (
-                <SelectItem key={state.value} value={state.value}>
-                  {state.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={filters.city || ""}
-            onValueChange={(value) => handleFilterChange("city", value)}
-            disabled={!filters.state}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Cidade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as Cidades</SelectItem>
-              {filters.state &&
-                citiesByState[filters.state]?.map((city) => (
-                  <SelectItem key={city} value={city}>
-                    {city}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-          <Input
-            type="date"
-            placeholder="Data do Evento"
-            value={filters.start_date || ""}
-            onChange={(e) => handleFilterChange("start_date", e.target.value)}
-          />
-          <Button onClick={applyFilters} className="w-full md:col-span-2 lg:col-span-4">
-            Aplicar Filtros
-          </Button>
-        </CardContent>
-      </Card>
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Eventos</h1>
+        {canCreateEvent && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline">Criar Evento</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Criar Evento</DialogTitle>
+                <DialogDescription>Crie um novo evento para ser exibido na plataforma.</DialogDescription>
+              </DialogHeader>
+              <EventoForm />
+            </DialogContent>
+          </Dialog>
+        )}
+        {user && !canCreateEvent && (
+          <p className="text-sm text-muted-foreground">
+            Não possui uma ONG?{" "}
+            <Link href="/ongs/register" className="underline">
+              Cadastre sua ONG
+            </Link>
+          </p>
+        )}
+      </div>
 
-      {/* Event List */}
-      {loading ? (
+      <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mb-8">
+        <Input
+          type="text"
+          placeholder="Pesquisar eventos..."
+          value={search}
+          onChange={handleSearchChange}
+          className="flex-grow"
+        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={"outline"}
+              className={cn(
+                "w-full sm:w-[200px] justify-start text-left font-normal",
+                !date && "text-muted-foreground",
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {date ? format(date, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecionar Data</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="center">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={handleDateSelect}
+              disabled={(date) => date < new Date("1900-01-01")}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {eventos.length === 0 ? (
+        <p className="text-center text-muted-foreground">Nenhum evento encontrado com os filtros aplicados.</p>
+      ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {[...Array(pageSize)].map((_, i) => (
-            <Card key={i} className="rounded-2xl shadow-soft animate-pulse">
-              <div className="w-full h-48 bg-gray-300 rounded-t-2xl" />
-              <CardContent className="p-4 space-y-2">
-                <div className="h-6 bg-gray-300 rounded w-3/4" />
-                <div className="h-4 bg-gray-300 rounded w-1/2" />
-                <div className="h-4 bg-gray-300 rounded w-full" />
-                <div className="h-10 bg-gray-300 rounded w-full" />
-              </CardContent>
-            </Card>
+          {eventos.map((evento) => (
+            <EventCard key={evento.id} {...evento} />
           ))}
         </div>
-      ) : (
-        <>
-          {/* Garante que events é um array antes de verificar o comprimento e mapear */}
-          {(events ?? []).length === 0 ? (
-            <p className="text-center text-gray-500">Nenhum evento encontrado com os filtros aplicados.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {/* Garante que events é um array antes de mapear */}
-              {(events ?? []).map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Pagination */}
-      {totalEvents > pageSize && (
-        <PaginationControls currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
       )}
     </div>
   )
