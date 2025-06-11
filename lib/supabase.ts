@@ -393,6 +393,7 @@ export async function getEvents(page: number, pageSize: number, filters: any) {
 
   // REMOVER TEMPORARIAMENTE ESTE FILTRO PARA DIAGNÓSTICO
   // query = query.eq("status", "approved")
+  query = query.eq("status", "approved")
 
   // Paginação
   const startIndex = (page - 1) * pageSize
