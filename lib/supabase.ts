@@ -391,8 +391,8 @@ export async function getEvents(page: number, pageSize: number, filters: any) {
     query = query.gte("start_date", filters.start_date)
   }
 
-  // Filtra por status aprovado para a página pública
-  query = query.eq("status", "approved") // <-- Este filtro é importante!
+  // REMOVER TEMPORARIAMENTE ESTE FILTRO PARA DIAGNÓSTICO
+  // query = query.eq("status", "approved")
 
   // Paginação
   const startIndex = (page - 1) * pageSize
