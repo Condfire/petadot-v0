@@ -190,7 +190,7 @@ export default async function OngPage({ params }: { params: { slug: string } }) 
                       id={event.id}
                       name={event.name}
                       image={event.image_url}
-                      date={event.date}
+                      start_date={event.start_date}
                       location={event.location}
                       description={event.description}
                     />

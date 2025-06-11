@@ -41,7 +41,7 @@ export default async function Home() {
     const recentLostPets = lostPets
     // Filtramos apenas eventos futuros
     const upcomingEvents = events
-      .filter((event) => new Date(event.date) >= new Date())
+      .filter((event) => new Date(event.start_date) >= new Date())
       .slice(0, 3)
 
     return (
@@ -152,7 +152,7 @@ export default async function Home() {
                     <div className="h-48 relative">
                       <OptimizedImage
                         src={event.image_url || "/placeholder.svg?height=192&width=384&query=pet+event"}
-                        alt={event.title}
+                        alt={event.name}
                         width={384}
                         height={192}
                         className="w-full h-full"
@@ -160,9 +160,9 @@ export default async function Home() {
                       />
                     </div>
                     <div className="p-4">
-                      <h3 className="font-bold text-lg">{event.title}</h3>
+                      <h3 className="font-bold text-lg">{event.name}</h3>
                       <p className="text-sm text-gray-600">
-                        Data: {new Date(event.date).toLocaleDateString("pt-BR")}
+                        Data: {new Date(event.start_date).toLocaleDateString("pt-BR")}
                       </p>
                       <p className="text-sm text-gray-600">Local: {event.location}</p>
                       <p className="mt-2 text-sm line-clamp-2">{event.description}</p>

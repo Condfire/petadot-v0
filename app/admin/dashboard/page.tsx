@@ -75,7 +75,7 @@ export default function AdminDashboard() {
         ...(pendingEvents || []).map((event) => ({
           id: event.id,
           type: "event" as const,
-          title: event.title || "Evento sem título",
+          title: event.name || "Evento sem título",
           description: event.description || "Sem descrição",
           created_at: event.created_at,
           status: event.status,

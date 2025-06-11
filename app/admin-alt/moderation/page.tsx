@@ -418,7 +418,7 @@ export default function AdminModerationPage() {
                         <div className="w-full md:w-1/4 aspect-square relative rounded-md overflow-hidden">
                           <Image
                             src={getImageSrc(event.image_url) || "/placeholder.svg"}
-                            alt={event.title || "Evento rejeitado"}
+                            alt={event.name || "Evento rejeitado"}
                             fill
                             className="object-cover"
                             unoptimized={getImageSrc(event.image_url).includes("placeholder.svg")}
@@ -427,7 +427,7 @@ export default function AdminModerationPage() {
                         <div className="flex-1">
                           <div className="flex justify-between items-start">
                             <div>
-                              <h3 className="font-semibold text-lg">{event.title || "Evento sem título"}</h3>
+                              <h3 className="font-semibold text-lg">{event.name || "Evento sem título"}</h3>
                               <Badge variant="destructive" className="mt-1">
                                 Rejeitado
                               </Badge>
