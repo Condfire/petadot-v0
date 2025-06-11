@@ -6,7 +6,6 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import type { Evento } from "@/app/eventos/types"
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Calendar } from "@/components/ui/calendar"
 import { CalendarIcon } from "lucide-react"
@@ -27,7 +26,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import EventoForm from "./components/EventoForm"
-import { mapEventType } from "@/lib/utils"
+import { EventCard } from "@/components/event-card" // Certifique-se de que esta importação está presente
 
 interface EventosClientPageProps {
   initialEvents: Evento[]
@@ -51,7 +50,9 @@ export function EventosClientPage({
 }: EventosClientPageProps) {
   const [eventos, setEventos] = useState<Evento[]>(initialEvents)
   const [search, setSearch] = useState(initialFilters.name || "")
-  const [date, setDate] = useState<Date | undefined>(initialFilters.start_date ? new Date(initialFilters.start_date) : undefined)
+  const [date, setDate] = useState<Date | undefined>(
+    initialFilters.start_date ? new Date(initialFilters.start_date) : undefined,
+  )
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -71,11 +72,7 @@ export function EventosClientPage({
       }
 
       try {
-        const { data, error } = await supabase
-          .from("ongs")
-          .select("id")
-          .eq("user_id", user.id)
-          .maybeSingle()
+        const { data, error } = await supabase.from("ongs").select("id").eq("user_id", user.id).maybeSingle()
 
         if (error) {
           console.error("Erro ao verificar ONG do usuário:", error)
@@ -164,9 +161,7 @@ export function EventosClientPage({
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>Criar Evento</DialogTitle>
-                <DialogDescription>
-                  Crie um novo evento para ser exibido na plataforma.
-                </DialogDescription>
+                <DialogDescription>Crie um novo evento para ser exibido na plataforma.</DialogDescription>
               </DialogHeader>
               <EventoForm />
             </DialogContent>
@@ -174,7 +169,7 @@ export function EventosClientPage({
         )}
         {user && !canCreateEvent && (
           <p className="text-sm text-muted-foreground">
-            Não possui uma ONG?{' '}
+            Não possui uma ONG?{" "}
             <Link href="/ongs/register" className="underline">
               Cadastre sua ONG
             </Link>
@@ -182,13 +177,22 @@ export function EventosClientPage({
         )}
       </div>
 
-      <div className="flex space-x-4 mb-4">
-        <Input type="text" placeholder="Pesquisar eventos..." value={search} onChange={handleSearchChange} />
+      <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mb-8">
+        <Input
+          type="text"
+          placeholder="Pesquisar eventos..."
+          value={search}
+          onChange={handleSearchChange}
+          className="flex-grow"
+        />
         <Popover>
           <PopoverTrigger asChild>
             <Button
               variant={"outline"}
-              className={cn("w-[200px] justify-start text-left font-normal", !date && "text-muted-foreground")}
+              className={cn(
+                "w-full sm:w-[200px] justify-start text-left font-normal",
+                !date && "text-muted-foreground",
+              )}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
               {date ? format(date, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecionar Data</span>}
@@ -199,36 +203,22 @@ export function EventosClientPage({
               mode="single"
               selected={date}
               onSelect={handleDateSelect}
-              disabled={(date) => date < new Date("1900-01-01")} // Permite selecionar datas passadas para busca
+              disabled={(date) => date < new Date("1900-01-01")}
               initialFocus
             />
           </PopoverContent>
         </Popover>
       </div>
 
-      <Table>
-        <TableCaption>Lista de eventos.</TableCaption>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nome</TableHead>
-            <TableHead>Data</TableHead>
-            <TableHead>Local</TableHead>
-            <TableHead>Tipo</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
+      {eventos.length === 0 ? (
+        <p className="text-center text-muted-foreground">Nenhum evento encontrado com os filtros aplicados.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {eventos.map((evento) => (
-            <TableRow key={evento.id}>
-              <TableCell>{evento.name}</TableCell>
-              <TableCell>
-                {format(new Date(evento.start_date), "dd/MM/yyyy", { locale: ptBR })}
-              </TableCell>
-              <TableCell>{evento.location}</TableCell>
-              <TableCell>{mapEventType(evento.event_type)}</TableCell>
-            </TableRow>
+            <EventCard key={evento.id} {...evento} />
           ))}
-        </TableBody>
-      </Table>
+        </div>
+      )}
     </div>
   )
 }
