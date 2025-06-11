@@ -47,7 +47,7 @@ export default function EditEventPage() {
         }
 
         // Formatar a data para o formato YYYY-MM-DD
-        const eventDate = result.event.date ? new Date(result.event.date) : new Date()
+        const eventDate = result.event.start_date ? new Date(result.event.start_date) : new Date()
         const formattedDate = eventDate.toISOString().split("T")[0]
 
         setFormData({

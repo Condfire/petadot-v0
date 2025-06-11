@@ -309,7 +309,7 @@ export default async function AdminOngDetailsPage({ params }: { params: { id: st
                           <CardContent className="p-3">
                             <h3 className="font-medium">{event.name}</h3>
                             <p className="text-xs text-muted-foreground">
-                              {new Date(event.date).toLocaleDateString("pt-BR")}
+                              {new Date(event.start_date).toLocaleDateString("pt-BR")}
                             </p>
                             <div className="flex justify-end mt-2">
                               <Button variant="ghost" size="sm" asChild>
