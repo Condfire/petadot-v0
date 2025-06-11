@@ -48,3 +48,29 @@ export function formatDateTime(date: string | Date | null | undefined): string {
     return "Data inválida"
   }
 }
+
+/**
+ * Mapeia o tipo de evento para uma string de exibição.
+ * @param eventType O tipo de evento (e.g., "Feira de Adoção", "Campanha de Vacinação").
+ * @returns A string formatada do tipo de evento.
+ */
+export function mapEventType(eventType: string | null | undefined): string {
+  if (!eventType) return "Não especificado"
+
+  switch (eventType.toLowerCase()) {
+    case "feira de adoção":
+      return "Feira de Adoção"
+    case "campanha de vacinação":
+      return "Campanha de Vacinação"
+    case "arrecadação":
+      return "Arrecadação"
+    case "palestra":
+      return "Palestra"
+    case "workshop":
+      return "Workshop"
+    case "mutirão":
+      return "Mutirão"
+    default:
+      return eventType
+  }
+}
