@@ -1,44 +1,22 @@
-import type { Metadata } from "next"
-import { getEvents } from "@/lib/supabase" // Importar getEvents do local correto
-import { EventosClientPage } from "./EventosClientPage" // Importação nomeada
-import { Suspense } from "react"
+import { getEvents } from "@/lib/supabase"
 
-export const metadata: Metadata = {
-  title: "Eventos | PetaDot",
-  description: "Confira os próximos eventos para pets e seus tutores.",
-}
-
-export const revalidate = 3600 // revalidar a cada hora
-
-export default async function EventosPage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined }
-}) {
-  const page = searchParams.page ? Number.parseInt(searchParams.page as string) : 1
-  const pageSize = 12
-
-  // Extrair filtros dos parâmetros de busca
-  const filters: any = {}
-  if (searchParams.name) filters.name = searchParams.name
-  if (searchParams.city) filters.city = searchParams.city
-  if (searchParams.state) filters.state = searchParams.state
-  if (searchParams.start_date) filters.start_date = searchParams.start_date
-
-  const { data: events, count } = await getEvents(page, pageSize, filters)
+async function EventsPage() {
+  const events = await getEvents()
 
   return (
-    <main className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8 text-center">Eventos</h1>
-      <Suspense fallback={<div>Carregando eventos...</div>}>
-        <EventosClientPage
-          initialEvents={events}
-          totalEvents={count}
-          currentPage={page}
-          pageSize={pageSize}
-          initialFilters={filters}
-        />
-      </Suspense>
-    </main>
+    <div>
+      <h1>Eventos</h1>
+      <ul>
+        {events.map((event) => (
+          <li key={event.id}>
+            <h2>{event.title}</h2>
+            <p>{event.description}</p>
+            <p>Data: {event.date}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
+
+export default EventsPage
