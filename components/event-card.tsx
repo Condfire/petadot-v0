@@ -1,79 +1,84 @@
-"use client"
-import Image from "next/image"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import Image from "next/image"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { CalendarIcon, MapPinIcon } from "lucide-react"
-import { mapEventType, formatDate } from "@/lib/utils" // Importar mapEventType e formatDate do utils
+import { Badge } from "@/components/ui/badge"
+import { CalendarDays, MapPin } from "lucide-react"
+import { formatDateTime, mapEventType } from "@/lib/utils" // Importar de lib/utils
 
 interface EventCardProps {
   id: string
   name: string
-  image?: string
-  start_date: string // Usar start_date conforme o DB
-  location: string
   description: string
-  ong?: string
-  isUpcoming?: boolean
+  image_url?: string
+  location?: string
+  city?: string
+  state?: string
+  start_date: string
+  end_date?: string
+  event_type?: string
   slug?: string
-  event_type?: string // Adicionar event_type
 }
 
 export function EventCard({
+  // Exportar como named export
   id,
   name,
-  image,
-  start_date,
-  location,
   description,
-  ong,
-  isUpcoming,
-  slug,
+  image_url,
+  location,
+  city,
+  state,
+  start_date,
+  end_date,
   event_type,
+  slug,
 }: EventCardProps) {
-  const formattedDate = formatDate(start_date) // Usar formatDate do utils
+  const displayLocation = location || (city && state ? `${city}, ${state}` : city || state)
+  const displayDate = formatDateTime(start_date)
+  const displayEventType = mapEventType(event_type)
 
-  // Atualizar a função getDetailUrl para usar slug quando disponível
-  const getDetailUrl = () => {
-    return `/eventos/${slug || id}`
-  }
+  const detailUrl = slug ? `/eventos/${slug}` : `/eventos/${id}`
 
   return (
-    <Card className="overflow-hidden card-hover group">
-      {image && (
-        <Link href={getDetailUrl()} className="block aspect-video relative overflow-hidden">
+    <Link href={detailUrl} className="block">
+      <Card className="overflow-hidden h-full flex flex-col hover:shadow-lg transition-shadow duration-200">
+        <div className="relative w-full h-48">
           <Image
-            src={image || "/placeholder.svg?height=200&width=400&query=pet+event"}
+            src={image_url || "/placeholder.svg?height=192&width=384&text=Evento"}
             alt={name}
             fill
-            className="object-cover transition-transform duration-500 group-hover:scale-110"
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            priority={false}
+            unoptimized={image_url?.includes("placeholder.svg")}
           />
-        </Link>
-      )}
-      <CardHeader className="p-4">
-        <Link href={getDetailUrl()}>
-          <CardTitle className="text-xl hover:text-primary transition-colors">{name}</CardTitle>
-        </Link>
-        {ong && <CardDescription className="font-medium text-primary">Organizado por: {ong}</CardDescription>}
-        {event_type && <p className="text-sm text-muted-foreground mt-1">{mapEventType(event_type)}</p>}{" "}
-        {/* Exibir tipo de evento */}
-      </CardHeader>
-      <CardContent className="p-4 pt-0 space-y-2">
-        <div className="flex items-center text-sm">
-          <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-          <span>{formattedDate}</span>
+          {event_type && (
+            <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground">{displayEventType}</Badge>
+          )}
         </div>
-        <div className="flex items-center text-sm">
-          <MapPinIcon className="mr-2 h-4 w-4 text-primary" />
-          <span>{location}</span>
-        </div>
-        <p className="text-sm text-muted-foreground line-clamp-3 mt-2">{description}</p>
-      </CardContent>
-      <CardFooter className="p-4">
-        <Button className="w-full group-hover:bg-primary/90 transition-all" asChild>
-          <Link href={getDetailUrl()}>Ver Detalhes</Link>
-        </Button>
-      </CardFooter>
-    </Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl font-bold line-clamp-2">{name}</CardTitle>
+          <CardDescription className="flex items-center gap-1 text-sm">
+            <CalendarDays className="w-4 h-4" />
+            {displayDate}
+          </CardDescription>
+          {displayLocation && (
+            <CardDescription className="flex items-center gap-1 text-sm">
+              <MapPin className="w-4 h-4" />
+              {displayLocation}
+            </CardDescription>
+          )}
+        </CardHeader>
+        <CardContent className="flex-grow">
+          <p className="text-sm text-muted-foreground line-clamp-3">{description}</p>
+        </CardContent>
+        <CardFooter>
+          <Button variant="outline" className="w-full">
+            Ver Detalhes
+          </Button>
+        </CardFooter>
+      </Card>
+    </Link>
   )
 }

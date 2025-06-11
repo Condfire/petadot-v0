@@ -1,4 +1,4 @@
-import { mapPetAge, mapPetColor, mapPetGender, mapPetSize, mapPetSpecies } from "@/lib/utils"
+import { mapPetAge, mapPetColor, mapPetGender, mapPetSize, mapPetSpecies } from "@/lib/utils" // Importar de lib/utils
 import { Badge } from "@/components/ui/badge"
 
 interface PetInfoProps {
@@ -19,6 +19,7 @@ interface PetInfoProps {
 }
 
 export function PetInfo({
+  // Exportar como named export
   species,
   species_other,
   breed,

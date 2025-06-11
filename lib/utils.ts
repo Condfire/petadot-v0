@@ -6,9 +6,9 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Formata uma data para exibição
- * @param date Data a ser formatada
- * @returns Data formatada
+ * Formata uma data para exibição no formato DD/MM/AAAA.
+ * @param date Data a ser formatada (string, Date, null ou undefined).
+ * @returns Data formatada ou "Data não informada".
  */
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return "Data não informada"
@@ -27,9 +27,9 @@ export function formatDate(date: string | Date | null | undefined): string {
 }
 
 /**
- * Formata uma data e hora para exibição
- * @param date Data e hora a ser formatada
- * @returns Data e hora formatada
+ * Formata uma data e hora para exibição no formato DD/MM/AAAA HH:MM.
+ * @param date Data e hora a ser formatada (string, Date, null ou undefined).
+ * @returns Data e hora formatada ou "Data não informada".
  */
 export function formatDateTime(date: string | Date | null | undefined): string {
   if (!date) return "Data não informada"
@@ -50,9 +50,9 @@ export function formatDateTime(date: string | Date | null | undefined): string {
 }
 
 /**
- * Formata um número para exibição como moeda
- * @param value Valor a ser formatado
- * @returns Valor formatado como moeda
+ * Formata um número para exibição como moeda (BRL).
+ * @param value Valor a ser formatado (number, null ou undefined).
+ * @returns Valor formatado como moeda ou "R$ 0,00".
  */
 export function formatCurrency(value: number | null | undefined): string {
   if (value === null || value === undefined) return "R$ 0,00"
@@ -64,9 +64,26 @@ export function formatCurrency(value: number | null | undefined): string {
 }
 
 /**
- * Mapeia o status de um pet para um texto legível
- * @param status Status do pet
- * @returns Texto legível do status
+ * Gera um slug a partir de uma string.
+ * @param text Texto para gerar o slug.
+ * @returns Slug gerado.
+ */
+export function generateSlug(text: string): string {
+  return text
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]+/g, "")
+    .replace(/--+/g, "-")
+}
+
+/**
+ * Mapeia o status de um pet para um texto legível.
+ * @param status Status do pet.
+ * @returns Texto legível do status.
  */
 export function mapPetStatus(status: string | null | undefined): string {
   if (!status) return "Desconhecido"
@@ -85,15 +102,14 @@ export function mapPetStatus(status: string | null | undefined): string {
 }
 
 /**
- * Mapeia a espécie de um pet para um texto legível
- * @param species Espécie do pet
- * @param speciesOther Valor personalizado para "other"
- * @returns Texto legível da espécie
+ * Mapeia a espécie de um pet para um texto legível.
+ * @param species Espécie do pet.
+ * @param speciesOther Valor personalizado para "other".
+ * @returns Texto legível da espécie.
  */
 export function mapPetSpecies(species: string | null | undefined, speciesOther?: string | null): string {
   if (!species) return "Outro"
 
-  // Se for "other" e tiver um valor personalizado, retornar o valor personalizado
   if (species === "other" && speciesOther) {
     return speciesOther
   }
@@ -113,15 +129,14 @@ export function mapPetSpecies(species: string | null | undefined, speciesOther?:
 }
 
 /**
- * Mapeia o tamanho de um pet para um texto legível
- * @param size Tamanho do pet
- * @param sizeOther Valor personalizado para "other"
- * @returns Texto legível do tamanho
+ * Mapeia o tamanho de um pet para um texto legível.
+ * @param size Tamanho do pet.
+ * @param sizeOther Valor personalizado para "other".
+ * @returns Texto legível do tamanho.
  */
 export function mapPetSize(size: string | null | undefined, sizeOther?: string | null): string {
   if (!size) return "Não informado"
 
-  // Se for "other" e tiver um valor personalizado, retornar o valor personalizado
   if (size === "other" && sizeOther) {
     return sizeOther
   }
@@ -137,9 +152,9 @@ export function mapPetSize(size: string | null | undefined, sizeOther?: string |
 }
 
 /**
- * Mapeia a idade de um pet para um texto legível
- * @param age Idade do pet
- * @returns Texto legível da idade
+ * Mapeia a idade de um pet para um texto legível.
+ * @param age Idade do pet.
+ * @returns Texto legível da idade.
  */
 export function mapPetAge(age: string | null | undefined): string {
   if (!age) return "Não informada"
@@ -155,15 +170,14 @@ export function mapPetAge(age: string | null | undefined): string {
 }
 
 /**
- * Mapeia o gênero de um pet para um texto legível
- * @param gender Gênero do pet
- * @param genderOther Valor personalizado para "other"
- * @returns Texto legível do gênero
+ * Mapeia o gênero de um pet para um texto legível.
+ * @param gender Gênero do pet.
+ * @param genderOther Valor personalizado para "other".
+ * @returns Texto legível do gênero.
  */
 export function mapPetGender(gender: string | null | undefined, genderOther?: string | null): string {
   if (!gender) return "Não informado"
 
-  // Se for "other" e tiver um valor personalizado, retornar o valor personalizado
   if (gender === "other" && genderOther) {
     return genderOther
   }
@@ -179,15 +193,14 @@ export function mapPetGender(gender: string | null | undefined, genderOther?: st
 }
 
 /**
- * Mapeia a cor de um pet para um texto legível
- * @param color Cor do pet
- * @param colorOther Valor personalizado para "other"
- * @returns Texto legível da cor
+ * Mapeia a cor de um pet para um texto legível.
+ * @param color Cor do pet.
+ * @param colorOther Valor personalizado para "other".
+ * @returns Texto legível da cor.
  */
 export function mapPetColor(color: string | null | undefined, colorOther?: string | null): string {
   if (!color) return "Não informada"
 
-  // Se for "other" e tiver um valor personalizado, retornar o valor personalizado
   if (color === "other" && colorOther) {
     return colorOther
   }
@@ -207,9 +220,9 @@ export function mapPetColor(color: string | null | undefined, colorOther?: strin
 }
 
 /**
- * Mapeia a categoria de uma história para um texto legível
- * @param category Categoria da história
- * @returns Texto legível da categoria
+ * Mapeia a categoria de uma história para um texto legível.
+ * @param category Categoria da história.
+ * @returns Texto legível da categoria.
  */
 export function mapStoryCategory(category: string | null | undefined): string {
   if (!category) return "Outras"
@@ -229,9 +242,9 @@ export function mapStoryCategory(category: string | null | undefined): string {
 }
 
 /**
- * Mapeia o status de uma história para um texto legível
- * @param status Status da história
- * @returns Texto legível do status
+ * Mapeia o status de uma história para um texto legível.
+ * @param status Status da história.
+ * @returns Texto legível do status.
  */
 export function mapStoryStatus(status: string | null | undefined): string {
   if (!status) return "Desconhecido"
@@ -246,9 +259,9 @@ export function mapStoryStatus(status: string | null | undefined): string {
 }
 
 /**
- * Mapeia o tipo de evento para um texto legível
- * @param type Tipo do evento
- * @returns Texto legível do tipo
+ * Mapeia o tipo de evento para um texto legível.
+ * @param type Tipo do evento.
+ * @returns Texto legível do tipo.
  */
 export function mapEventType(type: string | null | undefined): string {
   if (!type) return "Outro"
@@ -263,21 +276,4 @@ export function mapEventType(type: string | null | undefined): string {
   }
 
   return typeMap[type] || type
-}
-
-/**
- * Gera um slug a partir de uma string.
- * @param text A string para gerar o slug.
- * @returns O slug gerado.
- */
-export function generateSlug(text: string): string {
-  return text
-    .toString()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/[^\w-]+/g, "")
-    .replace(/--+/g, "-")
 }

@@ -3,12 +3,12 @@
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PetInfo } from "@/components/pet-info"
+import { PetInfo } from "@/components/pet-info" // Importar PetInfo como named export
 import { PetContactInfo } from "@/components/pet-contact-info"
 import { ShareButtons } from "@/components/share-buttons"
 import { PetImageGallery } from "@/components/pet-image-gallery"
 import { PetResolvedAlert } from "@/components/pet-resolved-alert"
-import { mapPetStatus } from "@/lib/utils"
+import { mapPetStatus } from "@/lib/utils" // Importar mapPetStatus de lib/utils
 import type { PetDB } from "@/lib/types"
 
 interface PetDetailsProps {
