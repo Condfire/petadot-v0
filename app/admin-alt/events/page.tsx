@@ -1,6 +1,6 @@
 "use client"
 
-import { getEvents } from "@/lib/api"
+import { getEvents } from "@/lib/supabase"
 import { EventosClientPage } from "@/app/eventos/EventosClientPage" // Assuming EventosClientPage is a named export
 
 export default async function AdminEventsPage({ searchParams }: { searchParams: { page?: string } }) {
