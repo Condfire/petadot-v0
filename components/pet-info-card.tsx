@@ -1,63 +1,27 @@
-import { Calendar, MapPin, Tag } from "lucide-react"
+import type React from "react"
+import type { Pet } from "@/lib/types"
+import { mapPetSpecies, mapPetSize, mapPetGender, mapPetColor } from "@/lib/utils"
 
 interface PetInfoCardProps {
-  species: string
-  breed?: string | null
-  age?: string | null
-  gender?: string | null
-  size?: string | null
-  color?: string | null
-  location?: string | null
-  date?: string
-  className?: string
+  pet: Pet
 }
 
-export function PetInfoCard({ species, breed, age, gender, size, color, location, date, className }: PetInfoCardProps) {
+const PetInfoCard: React.FC<PetInfoCardProps> = ({ pet }) => {
   return (
-    <div className={`bg-muted p-4 rounded-lg ${className}`}>
-      <h3 className="text-lg font-semibold mb-4">Informações do Pet</h3>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <InfoItem label="Espécie" value={species} />
-          {breed && <InfoItem label="Raça" value={breed} />}
-          {age && <InfoItem label="Idade" value={age} />}
-          {gender && <InfoItem label="Gênero" value={gender} />}
-        </div>
-
-        <div className="space-y-2">
-          {size && <InfoItem label="Porte" value={size} />}
-          {color && <InfoItem label="Cor" value={color} />}
-          {location && (
-            <div className="flex items-start gap-2">
-              <MapPin className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-              <div>
-                <span className="font-medium">Localização:</span>
-                <p className="text-sm">{location}</p>
-              </div>
-            </div>
-          )}
-          {date && (
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <span className="font-medium">Data:</span> {date}
-              </div>
-            </div>
-          )}
-        </div>
+    <div className="bg-white shadow-md rounded-lg overflow-hidden">
+      <img className="w-full h-48 object-cover" src={pet.image || "/placeholder.svg"} alt={pet.name} />
+      <div className="p-4">
+        <h2 className="text-xl font-semibold text-gray-800">{pet.name}</h2>
+        <p className="text-gray-600">
+          {mapPetSpecies(pet.species)} - {mapPetGender(pet.gender)}
+        </p>
+        <p className="text-gray-600">
+          {mapPetSize(pet.size)} - {mapPetColor(pet.color)}
+        </p>
+        <p className="text-gray-700 mt-2">{pet.description}</p>
       </div>
     </div>
   )
 }
 
-function InfoItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <Tag className="h-5 w-5 text-muted-foreground" />
-      <div>
-        <span className="font-medium">{label}:</span> {value}
-      </div>
-    </div>
-  )
-}
+export default PetInfoCard

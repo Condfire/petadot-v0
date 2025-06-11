@@ -1,396 +1,96 @@
-import { clsx, type ClassValue } from "clsx"
+/**
+ * Utilitários - Funções auxiliares e de formatação
+ *
+ * Este arquivo contém funções de uso geral para formatação de dados,
+ * validações e outras operações comuns em toda a aplicação.
+ */
+
+import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
 /**
- * Mappers - Camada de mapeamento entre a interface do usuário e o banco de dados
- *
- * Este arquivo contém funções para converter entre os formatos de dados usados na interface
- * do usuário e os formatos usados no banco de dados, garantindo consistência e facilitando
- * a manutenção.
+ * Formata uma data para exibição no formato DD/MM/AAAA.
+ * @param date Data a ser formatada (string, Date, null ou undefined).
+ * @returns Data formatada ou "Data não informada".
  */
+export function formatDate(date: string | Date | null | undefined): string {
+  if (!date) return "Data não informada"
 
-// Tipos para a interface do usuário
-export type EventFormUI = {
-  name: string // Changed from title to name
-  description: string
-  start_date_ui: string // Changed from event_date to start_date_ui
-  start_time_ui: string // Changed from event_time to start_time_ui
-  end_date_ui?: string // New field for end_date in UI
-  location: string
-  address?: string
-  city?: string
-  state?: string
-  postal_code?: string
-  image_url?: string
-}
-
-// Tipos para o banco de dados
-export type EventDB = {
-  name: string // Changed from title to name
-  description: string
-  start_date: string // Changed from date to start_date
-  end_date?: string
-  location: string
-  address?: string
-  city?: string
-  state?: string
-  postal_code?: string
-  image_url?: string
-  ong_id?: string
-  user_id?: string
-  status?: string
-  created_at?: string
-  updated_at?: string
+  try {
+    const dateObj = typeof date === "string" ? new Date(date) : date
+    return dateObj.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
+  } catch (error) {
+    console.error("Erro ao formatar data:", error)
+    return "Data inválida"
+  }
 }
 
 /**
- * Converte um evento do formato da UI para o formato do banco de dados
+ * Formata uma data e hora para exibição no formato DD/MM/AAAA HH:MM.
+ * @param date Data e hora a ser formatada (string, Date, null ou undefined).
+ * @returns Data e hora formatada ou "Data não informada".
  */
-export function mapEventUIToDB(eventUI: EventFormUI, ongId?: string, userId?: string): EventDB {
-  // Validar e formatar a data e hora do evento de início
-  if (!eventUI.start_date_ui || !eventUI.start_time_ui) {
-    throw new Error("Data de início e horário são obrigatórios.")
-  }
-  const startDateTime = `${eventUI.start_date_ui}T${eventUI.start_time_ui}:00`
+export function formatDateTime(date: string | Date | null | undefined): string {
+  if (!date) return "Data não informada"
 
-  // Validar e formatar a data de término, se fornecida
-  let endDateTime: string | undefined = undefined
-  if (eventUI.end_date_ui) {
-    // Assume end_date_ui is just a date, set time to end of day
-    endDateTime = `${eventUI.end_date_ui}T23:59:59`
-  }
-
-  return {
-    name: eventUI.name,
-    description: eventUI.description,
-    start_date: startDateTime,
-    end_date: endDateTime,
-    location: eventUI.location,
-    address: eventUI.address,
-    city: eventUI.city,
-    state: eventUI.state,
-    postal_code: eventUI.postal_code,
-    image_url: eventUI.image_url,
-    ong_id: ongId,
-    user_id: userId,
+  try {
+    const dateObj = typeof date === "string" ? new Date(date) : date
+    return dateObj.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  } catch (error) {
+    console.error("Erro ao formatar data e hora:", error)
+    return "Data inválida"
   }
 }
 
 /**
- * Converte um evento do formato do banco de dados para o formato da UI
+ * Formata um número para exibição como moeda (BRL).
+ * @param value Valor a ser formatado (number, null ou undefined).
+ * @returns Valor formatado como moeda ou "R$ 0,00".
  */
-export function mapEventDBToUI(eventDB: EventDB): EventFormUI {
-  // Extrair data e hora do campo start_date
-  const startDateObj = new Date(eventDB.start_date)
-  const start_date_ui = startDateObj.toISOString().split("T")[0]
-  const start_time_ui = startDateObj.toTimeString().slice(0, 5)
+export function formatCurrency(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "R$ 0,00"
 
-  // Extrair data de término, se existir
-  const end_date_ui = eventDB.end_date ? new Date(eventDB.end_date).toISOString().split("T")[0] : undefined
-
-  return {
-    name: eventDB.name,
-    description: eventDB.description,
-    start_date_ui,
-    start_time_ui,
-    end_date_ui,
-    location: eventDB.location,
-    address: eventDB.address,
-    city: eventDB.city,
-    state: eventDB.state,
-    postal_code: eventDB.postal_code,
-    image_url: eventDB.image_url,
-  }
-}
-
-// Tipos para pets
-export type PetFormUI = {
-  name: string
-  species: string
-  species_other?: string
-  breed?: string
-  age?: string
-  size: string
-  size_other?: string
-  gender: string
-  gender_other?: string
-  color?: string
-  color_other?: string
-  description: string
-  is_castrated: boolean
-  is_vaccinated: boolean
-  is_special_needs: boolean
-  special_needs_description?: string
-  image_url: string
-}
-
-export type PetDB = {
-  name: string
-  species: string
-  species_other?: string
-  breed?: string
-  age?: string
-  size: string
-  size_other?: string
-  gender: string
-  gender_other?: string
-  color?: string
-  color_other?: string
-  description: string
-  is_castrated: boolean
-  is_vaccinated: boolean
-  is_special_needs: boolean
-  special_needs_description?: string
-  image_url: string
-  ong_id?: string
-  user_id?: string
-  status?: string
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  })
 }
 
 /**
- * Converte um pet do formato da UI para o formato do banco de dados
+ * Gera um slug a partir de uma string.
+ * @param text Texto para gerar o slug.
+ * @returns Slug gerado.
  */
-export function mapPetUIToDB(petUI: PetFormUI, ongId?: string, userId?: string): PetDB {
-  return {
-    ...petUI,
-    ong_id: ongId,
-    user_id: userId,
-  }
+export function generateSlug(text: string): string {
+  return text
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]+/g, "")
+    .replace(/--+/g, "-")
 }
 
 /**
- * Converte um pet do formato do banco de dados para o formato da UI
- */
-export function mapPetDBToUI(petDB: PetDB): PetFormUI {
-  return {
-    name: petDB.name,
-    species: petDB.species,
-    species_other: petDB.species_other,
-    breed: petDB.breed,
-    age: petDB.age,
-    size: petDB.size,
-    size_other: petDB.size_other,
-    gender: petDB.gender,
-    gender_other: petDB.gender_other,
-    color: petDB.color,
-    color_other: petDB.color_other,
-    description: petDB.description,
-    is_castrated: petDB.is_castrated,
-    is_vaccinated: petDB.is_vaccinated,
-    is_special_needs: petDB.is_special_needs,
-    special_needs_description: petDB.special_needs_description,
-    image_url: petDB.image_url,
-  }
-}
-
-// Tipos para pets perdidos
-export type LostPetFormUI = {
-  name?: string
-  species: string
-  species_other?: string
-  breed?: string
-  age?: string
-  size: string
-  size_other?: string
-  gender: string
-  gender_other?: string
-  color?: string
-  color_other?: string
-  description?: string
-  last_seen_date: string
-  last_seen_location: string
-  contact: string
-  image_url: string
-  state?: string
-  city?: string
-  is_special_needs?: boolean
-  special_needs_description?: string
-  good_with_kids?: boolean
-  good_with_cats?: boolean
-  good_with_dogs?: boolean
-  is_vaccinated?: boolean
-  is_neutered?: boolean
-}
-
-export type LostPetDB = {
-  name?: string
-  species: string
-  species_other?: string
-  breed?: string
-  age?: string
-  size: string
-  size_other?: string
-  gender: string
-  gender_other?: string
-  color?: string
-  color_other?: string
-  description?: string
-  last_seen_date: string
-  last_seen_location: string
-  contact: string
-  image_url: string
-  user_id?: string
-  status?: string
-  state?: string
-  city?: string
-  is_special_needs?: boolean
-  special_needs_description?: string
-  good_with_kids?: boolean
-  good_with_cats?: boolean
-  good_with_dogs?: boolean
-  is_vaccinated?: boolean
-  is_neutered?: boolean
-}
-
-/**
- * Converte um pet perdido do formato da UI para o formato do banco de dados
- */
-export function mapLostPetUIToDB(petUI: LostPetFormUI, userId?: string): LostPetDB {
-  return {
-    ...petUI,
-    user_id: userId,
-  }
-}
-
-/**
- * Converte um pet perdido do formato do banco de dados para o formato da UI
- */
-export function mapLostPetDBToUI(petDB: LostPetDB): LostPetFormUI {
-  return {
-    name: petDB.name,
-    species: petDB.species,
-    species_other: petDB.species_other,
-    breed: petDB.breed,
-    age: petDB.age,
-    size: petDB.size,
-    size_other: petDB.size_other,
-    gender: petDB.gender,
-    gender_other: petDB.gender_other,
-    color: petDB.color,
-    color_other: petDB.color_other,
-    description: petDB.description,
-    last_seen_date: petDB.last_seen_date,
-    last_seen_location: petDB.last_seen_location,
-    contact: petDB.contact,
-    image_url: petDB.image_url,
-    state: petDB.state,
-    city: petDB.city,
-    is_special_needs: petDB.is_special_needs,
-    special_needs_description: petDB.special_needs_description,
-    good_with_kids: petDB.good_with_kids,
-    good_with_cats: petDB.good_with_cats,
-    good_with_dogs: petDB.good_with_dogs,
-    is_vaccinated: petDB.is_vaccinated,
-    is_neutered: petDB.is_neutered,
-  }
-}
-
-// Tipos para pets encontrados
-export type FoundPetFormUI = {
-  name?: string
-  species: string
-  species_other?: string
-  breed?: string
-  size: string
-  size_other?: string
-  gender: string
-  gender_other?: string
-  color?: string
-  color_other?: string
-  description?: string
-  found_date: string
-  found_location: string
-  current_location?: string
-  contact: string
-  image_url: string
-  state?: string
-  city?: string
-  is_special_needs?: boolean
-  special_needs_description?: string
-  good_with_kids?: boolean
-  good_with_cats?: boolean
-  good_with_dogs?: boolean
-  is_vaccinated?: boolean
-  is_neutered?: boolean
-}
-
-export type FoundPetDB = {
-  name?: string
-  species: string
-  species_other?: string
-  breed?: string
-  size: string
-  size_other?: string
-  gender: string
-  gender_other?: string
-  color?: string
-  color_other?: string
-  description?: string
-  found_date: string
-  found_location: string
-  current_location?: string
-  contact: string
-  image_url: string
-  user_id?: string
-  status?: string
-  state?: string
-  city?: string
-  is_special_needs?: boolean
-  special_needs_description?: string
-  good_with_kids?: boolean
-  good_with_cats?: boolean
-  good_with_dogs?: boolean
-  is_vaccinated?: boolean
-  is_neutered?: boolean
-}
-
-/**
- * Converte um pet encontrado do formato da UI para o formato do banco de dados
- */
-export function mapFoundPetUIToDB(petUI: FoundPetFormUI, userId?: string): FoundPetDB {
-  return {
-    ...petUI,
-    user_id: userId,
-  }
-}
-
-/**
- * Converte um pet encontrado do formato do banco de dados para o formato da UI
- */
-export function mapFoundPetDBToUI(petDB: FoundPetDB): FoundPetFormUI {
-  return {
-    name: petDB.name,
-    species: petDB.species,
-    species_other: petDB.species_other,
-    breed: petDB.breed,
-    size: petDB.size,
-    size_other: petDB.size_other,
-    gender: petDB.gender,
-    gender_other: petDB.gender_other,
-    color: petDB.color,
-    color_other: petDB.color_other,
-    description: petDB.description,
-    found_date: petDB.found_date,
-    found_location: petDB.found_location,
-    current_location: petDB.current_location,
-    contact: petDB.contact,
-    image_url: petDB.image_url,
-    state: petDB.state,
-    city: petDB.city,
-    is_special_needs: petDB.is_special_needs,
-    special_needs_description: petDB.special_needs_description,
-    good_with_kids: petDB.good_with_kids,
-    good_with_cats: petDB.good_with_cats,
-    good_with_dogs: petDB.good_with_dogs,
-    is_vaccinated: petDB.is_vaccinated,
-    is_neutered: petDB.is_neutered,
-  }
-}
-
-/**
- * Mapeia o status de um pet para um texto legível
- * @param status Status do pet
- * @returns Texto legível do status
+ * Mapeia o status de um pet para um texto legível.
+ * @param status Status do pet.
+ * @returns Texto legível do status.
  */
 export function mapPetStatus(status: string | null | undefined): string {
   if (!status) return "Desconhecido"
@@ -409,15 +109,14 @@ export function mapPetStatus(status: string | null | undefined): string {
 }
 
 /**
- * Mapeia a espécie de um pet para um texto legível
- * @param species Espécie do pet
- * @param speciesOther Valor personalizado para "other"
- * @returns Texto legível da espécie
+ * Mapeia a espécie de um pet para um texto legível.
+ * @param species Espécie do pet.
+ * @param speciesOther Valor personalizado para "other".
+ * @returns Texto legível da espécie.
  */
 export function mapPetSpecies(species: string | null | undefined, speciesOther?: string | null): string {
   if (!species) return "Outro"
 
-  // Se for "other" e tiver um valor personalizado, retornar o valor personalizado
   if (species === "other" && speciesOther) {
     return speciesOther
   }
@@ -437,15 +136,14 @@ export function mapPetSpecies(species: string | null | undefined, speciesOther?:
 }
 
 /**
- * Mapeia o tamanho de um pet para um texto legível
- * @param size Tamanho do pet
- * @param sizeOther Valor personalizado para "other"
- * @returns Texto legível do tamanho
+ * Mapeia o tamanho de um pet para um texto legível.
+ * @param size Tamanho do pet.
+ * @param sizeOther Valor personalizado para "other".
+ * @returns Texto legível do tamanho.
  */
 export function mapPetSize(size: string | null | undefined, sizeOther?: string | null): string {
   if (!size) return "Não informado"
 
-  // Se for "other" e tiver um valor personalizado, retornar o valor personalizado
   if (size === "other" && sizeOther) {
     return sizeOther
   }
@@ -461,9 +159,9 @@ export function mapPetSize(size: string | null | undefined, sizeOther?: string |
 }
 
 /**
- * Mapeia a idade de um pet para um texto legível
- * @param age Idade do pet
- * @returns Texto legível da idade
+ * Mapeia a idade de um pet para um texto legível.
+ * @param age Idade do pet.
+ * @returns Texto legível da idade.
  */
 export function mapPetAge(age: string | null | undefined): string {
   if (!age) return "Não informada"
@@ -479,15 +177,14 @@ export function mapPetAge(age: string | null | undefined): string {
 }
 
 /**
- * Mapeia o gênero de um pet para um texto legível
- * @param gender Gênero do pet
- * @param genderOther Valor personalizado para "other"
- * @returns Texto legível do gênero
+ * Mapeia o gênero de um pet para um texto legível.
+ * @param gender Gênero do pet.
+ * @param genderOther Valor personalizado para "other".
+ * @returns Texto legível do gênero.
  */
 export function mapPetGender(gender: string | null | undefined, genderOther?: string | null): string {
   if (!gender) return "Não informado"
 
-  // Se for "other" e tiver um valor personalizado, retornar o valor personalizado
   if (gender === "other" && genderOther) {
     return genderOther
   }
@@ -503,15 +200,14 @@ export function mapPetGender(gender: string | null | undefined, genderOther?: st
 }
 
 /**
- * Mapeia a cor de um pet para um texto legível
- * @param color Cor do pet
- * @param colorOther Valor personalizado para "other"
- * @returns Texto legível da cor
+ * Mapeia a cor de um pet para um texto legível.
+ * @param color Cor do pet.
+ * @param colorOther Valor personalizado para "other".
+ * @returns Texto legível da cor.
  */
 export function mapPetColor(color: string | null | undefined, colorOther?: string | null): string {
   if (!color) return "Não informada"
 
-  // Se for "other" e tiver um valor personalizado, retornar o valor personalizado
   if (color === "other" && colorOther) {
     return colorOther
   }
@@ -531,9 +227,9 @@ export function mapPetColor(color: string | null | undefined, colorOther?: strin
 }
 
 /**
- * Mapeia a categoria de uma história para um texto legível
- * @param category Categoria da história
- * @returns Texto legível da categoria
+ * Mapeia a categoria de uma história para um texto legível.
+ * @param category Categoria da história.
+ * @returns Texto legível da categoria.
  */
 export function mapStoryCategory(category: string | null | undefined): string {
   if (!category) return "Outras"
@@ -553,9 +249,9 @@ export function mapStoryCategory(category: string | null | undefined): string {
 }
 
 /**
- * Mapeia o status de uma história para um texto legível
- * @param status Status da história
- * @returns Texto legível do status
+ * Mapeia o status de uma história para um texto legível.
+ * @param status Status da história.
+ * @returns Texto legível do status.
  */
 export function mapStoryStatus(status: string | null | undefined): string {
   if (!status) return "Desconhecido"
@@ -570,11 +266,11 @@ export function mapStoryStatus(status: string | null | undefined): string {
 }
 
 /**
- * Mapeia o tipo de evento para um texto legível
- * @param type Tipo do evento
- * @returns Texto legível do tipo
+ * Mapeia o tipo de evento para um texto legível.
+ * @param type Tipo do evento.
+ * @returns Texto legível do tipo.
  */
-export function mapEventTypeOld(type: string | null | undefined): string {
+export function mapEventType(type: string | null | undefined): string {
   if (!type) return "Outro"
 
   const typeMap: Record<string, string> = {
@@ -587,101 +283,4 @@ export function mapEventTypeOld(type: string | null | undefined): string {
   }
 
   return typeMap[type] || type
-}
-
-/**
- * Formata uma data para exibição
- * @param date Data a ser formatada
- * @returns Data formatada
- */
-export function formatDate(dateString: string | Date | undefined): string {
-  if (!dateString) return ""
-  const date = new Date(dateString)
-  if (isNaN(date.getTime())) {
-    return "" // Retorna vazio para datas inválidas
-  }
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date)
-}
-
-/**
- * Formata uma data e hora para exibição
- * @param date Data e hora a ser formatada
- * @returns Data e hora formatada
- */
-export function formatDateTime(dateString: string | Date | undefined): string {
-  if (!dateString) return ""
-  const date = new Date(dateString)
-  if (isNaN(date.getTime())) {
-    return "" // Retorna vazio para datas inválidas
-  }
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date)
-}
-
-/**
- * Formata um número para exibição como moeda
- * @param value Valor a ser formatado
- * @returns Valor formatado como moeda
- */
-export function formatCurrency(value: number | null | undefined): string {
-  if (value === null || value === undefined) return "R$ 0,00"
-
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  })
-}
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
-
-export function mapEventType(type: string): string {
-  switch (type) {
-    case "adoption_fair":
-      return "Feira de Adoção"
-    case "vaccination_campaign":
-      return "Campanha de Vacinação"
-    case "fundraising":
-      return "Arrecadação de Fundos"
-    case "workshop":
-      return "Workshop/Palestra"
-    case "volunteer_day":
-      return "Dia do Voluntário"
-    case "other":
-      return "Outro"
-    default:
-      return type
-  }
-}
-
-// Função para gerar slug (já existente, mas garantindo exportação)
-export function generateSlug(text: string): string {
-  return text
-    .toString()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/[^\w-]+/g, "")
-    .replace(/--+/g, "-")
-}
-
-// Função para formatar números de telefone (exemplo)
-export function formatPhoneNumber(phoneNumber: string): string {
-  const cleaned = ("" + phoneNumber).replace(/\D/g, "")
-  const match = cleaned.match(/^(\d{2})(\d{5})(\d{4})$/)
-  if (match) {
-    return `(${match[1]}) ${match[2]}-${match[3]}`
-  }
-  return phoneNumber
 }
