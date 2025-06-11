@@ -4,8 +4,8 @@ import { ImageUploadManager } from "./image-upload-manager"
 import type { ImageCategory } from "@/lib/storage-manager"
 
 interface ImageUploadProps {
-  value: string
-  onChange: (url: string) => void
+  value: string // A URL da imagem atual
+  onChange: (url: string) => void // Callback para quando a imagem muda
   required?: boolean
   folder?: string
   className?: string
@@ -40,8 +40,8 @@ export function ImageUpload({
   return (
     <ImageUploadManager
       category={getCategoryFromFolder(folder)}
-      value={value}
-      onChange={onChange}
+      value={value} // Passa o 'value' recebido para o ImageUploadManager
+      onChange={onChange} // Passa o 'onChange' recebido para o ImageUploadManager
       label={label}
       description={description}
       required={required}
