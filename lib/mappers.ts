@@ -12,7 +12,7 @@ import type {
   UserProfileUI,
   UserProfileDB,
 } from "./types"
-import { generateSlug } from "./utils" // Import generateSlug from utils
+import { generateSlug, mapPetSpecies, mapPetSize, mapPetGender } from "./utils" // Importar também as funções de mapeamento de pet de utils
 
 // Mapeamento de UI para DB para Pets
 export function mapPetUIToDB(uiData: PetFormUI): PetFormDB {
@@ -242,3 +242,6 @@ export function mapUserProfileUIToDB(uiData: UserProfileUI): UserProfileDB {
     avatar_url: avatar_url || null,
   }
 }
+
+// Re-exportar as funções de mapeamento de pet de lib/utils para satisfazer o ambiente de deployment
+export { mapPetSpecies, mapPetSize, mapPetGender }
