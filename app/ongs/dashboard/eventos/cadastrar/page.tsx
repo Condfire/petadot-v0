@@ -18,11 +18,12 @@ import { mapEventUIToDB } from "@/lib/mappers"
 
 // Schema de validação para o formulário de eventos
 const eventFormSchema = z.object({
-  title: z.string().min(3, { message: "O título deve ter pelo menos 3 caracteres" }),
+  name: z.string().min(3, { message: "O título deve ter pelo menos 3 caracteres" }), // Changed from title to name
   description: z.string().min(10, { message: "A descrição deve ter pelo menos 10 caracteres" }),
   location: z.string().min(5, { message: "Informe o local do evento" }),
-  event_date: z.string().min(1, { message: "Selecione a data do evento" }),
-  event_time: z.string().min(1, { message: "Informe o horário do evento" }),
+  start_date_ui: z.string().min(1, { message: "Selecione a data de início do evento" }), // Changed from event_date to start_date_ui
+  start_time_ui: z.string().min(1, { message: "Informe o horário de início do evento" }), // Changed from event_time to start_time_ui
+  end_date_ui: z.string().optional(), // New field for end date
   image_url: z.string().optional(),
 })
 
@@ -37,11 +38,12 @@ export default function CadastrarEventoPage() {
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
-      title: "",
+      name: "", // Changed from title to name
       description: "",
       location: "",
-      event_date: "",
-      event_time: "",
+      start_date_ui: "", // Changed from event_date to start_date_ui
+      start_time_ui: "", // Changed from event_time to start_time_ui
+      end_date_ui: "", // Added
       image_url: "",
     },
   })
@@ -52,7 +54,9 @@ export default function CadastrarEventoPage() {
 
     try {
       // Verificar se o usuário está autenticado
-      const { data: { session } } = await supabase.auth.getSession()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
       if (!session) {
         router.push("/ongs/login?message=Faça login para cadastrar eventos")
@@ -149,7 +153,7 @@ export default function CadastrarEventoPage() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="title"
+                  name="name" // Changed from title to name
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Título</FormLabel>
@@ -178,10 +182,10 @@ export default function CadastrarEventoPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="event_date"
+                    name="start_date_ui" // Changed from event_date to start_date_ui
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Data</FormLabel>
+                        <FormLabel>Data de Início</FormLabel>
                         <FormControl>
                           <Input type="date" {...field} />
                         </FormControl>
@@ -192,10 +196,10 @@ export default function CadastrarEventoPage() {
 
                   <FormField
                     control={form.control}
-                    name="event_time"
+                    name="start_time_ui" // Changed from event_time to start_time_ui
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Horário</FormLabel>
+                        <FormLabel>Horário de Início</FormLabel>
                         <FormControl>
                           <Input type="time" {...field} />
                         </FormControl>
@@ -204,6 +208,21 @@ export default function CadastrarEventoPage() {
                     )}
                   />
                 </div>
+
+                {/* Novo campo para Data de Término */}
+                <FormField
+                  control={form.control}
+                  name="end_date_ui"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Data de Término (Opcional)</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}

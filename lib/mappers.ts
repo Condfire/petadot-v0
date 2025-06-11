@@ -1,11 +1,3 @@
-/**
- * Mappers - Camada de mapeamento entre a interface do usuário e o banco de dados
- *
- * Este arquivo contém funções para converter entre os formatos de dados usados na interface
- * do usuário e os formatos usados no banco de dados, garantindo consistência e facilitando
- * a manutenção.
- */
-
 // Tipos para a interface do usuário
 export type EventFormUI = {
   name: string // Changed from title to name
@@ -118,7 +110,7 @@ export type PetDB = {
   breed?: string
   age?: string
   size: string
-  size_other?: string
+  size_other: string
   gender: string
   gender_other?: string
   color?: string
@@ -574,50 +566,6 @@ export function mapEventType(type: string | null | undefined): string {
   }
 
   return typeMap[type] || type
-}
-
-/**
- * Formata uma data para exibição
- * @param date Data a ser formatada
- * @returns Data formatada
- */
-export function formatDate(date: string | Date | null | undefined): string {
-  if (!date) return "Data não informada"
-
-  try {
-    const dateObj = typeof date === "string" ? new Date(date) : date
-    return dateObj.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    })
-  } catch (error) {
-    console.error("Erro ao formatar data:", error)
-    return "Data inválida"
-  }
-}
-
-/**
- * Formata uma data e hora para exibição
- * @param date Data e hora a ser formatada
- * @returns Data e hora formatada
- */
-export function formatDateTime(date: string | Date | null | undefined): string {
-  if (!date) return "Data não informada"
-
-  try {
-    const dateObj = typeof date === "string" ? new Date(date) : date
-    return dateObj.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  } catch (error) {
-    console.error("Erro ao formatar data e hora:", error)
-    return "Data inválida"
-  }
 }
 
 /**

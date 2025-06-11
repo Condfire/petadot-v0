@@ -427,17 +427,17 @@ export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
 // Função para buscar ONGs com paginação (usando tabela users)
 export async function getOngs(page = 1, pageSize = 12, filters: any = {}) {
   try {
-    // Verificar se a tabela users existe
-    const usersTableExists = await checkTableExists("users")
-    if (!usersTableExists) {
-      console.error("Tabela users não existe")
+    // Verificar se a tabela ongs existe
+    const ongsTableExists = await checkTableExists("ongs")
+    if (!ongsTableExists) {
+      console.error("Tabela ongs não existe")
       return { data: [], count: 0 }
     }
 
-    let query = supabase.from("users").select("*", { count: "exact" })
+    let query = supabase.from("ongs").select("*", { count: "exact" })
 
-    // Filtrar apenas usuários do tipo ONG
-    query = query.eq("type", "ong")
+    // Retornar apenas ONGs verificadas
+    query = query.eq("is_verified", true)
 
     // Aplicar filtros se existirem
     if (filters.name) {
