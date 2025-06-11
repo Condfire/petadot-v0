@@ -28,3 +28,13 @@ Continue building your app on:
 2. Deploy your chats from the v0 interface
 3. Changes are automatically pushed to this repository
 4. Vercel deploys the latest version from this repository
+
+## Database Setup
+
+When setting up a new Supabase project, run the SQL files inside the `db` folder. The events table can be created with:
+
+```bash
+supabase db execute ./db/create-events-table.sql
+```
+
+Ensure the Supabase CLI is linked to your project before running the command.
