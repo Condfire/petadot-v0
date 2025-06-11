@@ -6,16 +6,16 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const page = Number(searchParams.get("page") || "1")
     const pageSize = Number(searchParams.get("pageSize") || "12")
-    const title = searchParams.get("title") || undefined
+    const name = searchParams.get("name") || undefined
     const city = searchParams.get("city") || undefined
     const state = searchParams.get("state") || undefined
-    const date = searchParams.get("date") || undefined
+    const start_date = searchParams.get("start_date") || undefined
 
     const filters: any = {}
-    if (title) filters.title = title
+    if (name) filters.name = name
     if (city) filters.city = city
     if (state) filters.state = state
-    if (date) filters.date = date
+    if (start_date) filters.start_date = start_date
 
     const { data: events, count } = await getEvents(page, pageSize, filters)
 

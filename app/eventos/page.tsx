@@ -20,10 +20,10 @@ export default async function EventosPage({
 
   // Extrair filtros dos parâmetros de busca
   const filters: any = {}
-  if (searchParams.title) filters.title = searchParams.title
+  if (searchParams.name) filters.name = searchParams.name
   if (searchParams.city) filters.city = searchParams.city
   if (searchParams.state) filters.state = searchParams.state
-  if (searchParams.date) filters.date = searchParams.date
+  if (searchParams.start_date) filters.start_date = searchParams.start_date
 
   const { data: events, count } = await getEvents(page, pageSize, filters)
 
