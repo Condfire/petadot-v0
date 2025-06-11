@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { CheckCircle, XCircle, Search, Calendar, MapPin, Building2 } from "lucide-react"
 import { approveItem, rejectItem } from "@/app/actions"
+import { formatDate } from "@/lib/utils" // formatDateTime não é necessário aqui
 
 export const metadata: Metadata = {
   title: "Gerenciar Eventos | PetAdot",
@@ -121,7 +122,7 @@ export default async function AdminEventsPage() {
                               <h3 className="font-medium text-lg">{event.name}</h3>
                               <div className="flex items-center text-sm text-muted-foreground mt-1">
                                 <Calendar className="h-3.5 w-3.5 mr-1" />
-                                {new Date(event.date).toLocaleDateString("pt-BR")}
+                                {formatDate(event.start_date)} {/* Usar start_date e a função utilitária */}
                               </div>
                               <div className="flex items-center text-sm text-muted-foreground mt-1">
                                 <MapPin className="h-3.5 w-3.5 mr-1" />
@@ -135,7 +136,7 @@ export default async function AdminEventsPage() {
                               )}
                               <div className="mt-2">
                                 <Badge variant="outline">
-                                  Cadastrado em {new Date(event.created_at).toLocaleDateString("pt-BR")}
+                                  Cadastrado em {formatDate(event.created_at)} {/* Usar a função utilitária */}
                                 </Badge>
                               </div>
                             </div>
@@ -211,7 +212,7 @@ export default async function AdminEventsPage() {
                               </div>
                               <div className="flex items-center text-sm text-muted-foreground mt-1">
                                 <Calendar className="h-3.5 w-3.5 mr-1" />
-                                {new Date(event.date).toLocaleDateString("pt-BR")}
+                                {formatDate(event.start_date)}
                               </div>
                               <div className="flex items-center text-sm text-muted-foreground mt-1">
                                 <MapPin className="h-3.5 w-3.5 mr-1" />
@@ -276,7 +277,7 @@ export default async function AdminEventsPage() {
                               </div>
                               <div className="flex items-center text-sm text-muted-foreground mt-1">
                                 <Calendar className="h-3.5 w-3.5 mr-1" />
-                                {new Date(event.date).toLocaleDateString("pt-BR")}
+                                {formatDate(event.start_date)}
                               </div>
                               <div className="flex items-center text-sm text-muted-foreground mt-1">
                                 <MapPin className="h-3.5 w-3.5 mr-1" />
@@ -358,7 +359,7 @@ export default async function AdminEventsPage() {
                                 </div>
                                 <div className="flex items-center text-sm text-muted-foreground mt-1">
                                   <Calendar className="h-3.5 w-3.5 mr-1" />
-                                  {new Date(event.date).toLocaleDateString("pt-BR")}
+                                  {formatDate(event.start_date)}
                                 </div>
                                 <div className="flex items-center text-sm text-muted-foreground mt-1">
                                   <MapPin className="h-3.5 w-3.5 mr-1" />

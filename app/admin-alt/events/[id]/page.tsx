@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CalendarIcon, MapPinIcon, UserIcon, ClockIcon, ArrowLeftIcon } from "lucide-react"
 import { ModerationActions } from "@/components/moderation-actions"
+import { formatDate, formatDateTime } from "@/lib/utils"
 
 export default async function EventDetailPage({ params }: { params: { id: string } }) {
   const supabase = createServerComponentClient({ cookies })
@@ -46,20 +47,10 @@ export default async function EventDetailPage({ params }: { params: { id: string
   }
 
   // Formatar data
-  const formattedDate = new Date(event.date).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  })
+  const formattedDate = formatDate(event.start_date) // Usar start_date e a função utilitária
 
   // Formatar hora de criação
-  const createdAt = new Date(event.created_at).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+  const createdAt = formatDateTime(event.created_at) // Usar a função utilitária
 
   return (
     <div className="container py-8">
