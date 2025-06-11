@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
-import { getEvents } from "@/lib/supabase" // Importar getEvents do local correto
-import { EventosClientPage } from "./EventosClientPage" // Importação nomeada
+import { getEvents } from "@/lib/supabase" // <-- ESTA LINHA DEVE SER ASSIM
+import { EventosClientPage } from "./EventosClientPage"
 import { Suspense } from "react"
 
 export const metadata: Metadata = {
@@ -33,7 +33,7 @@ export default async function EventosPage({
       <h1 className="text-3xl font-bold mb-8 text-center">Eventos</h1>
       <Suspense fallback={<div>Carregando eventos...</div>}>
         <EventosClientPage
-          initialEvents={events} // Passa o array de eventos
+          initialEvents={events}
           totalEvents={count}
           currentPage={page}
           pageSize={pageSize}
