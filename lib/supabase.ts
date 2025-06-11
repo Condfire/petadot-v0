@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { validate as isUuid } from "uuid"
+import type { Database } from "./types" // Assumindo que você tem um tipo de banco de dados
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
@@ -368,66 +369,55 @@ export async function getFoundPets(page = 1, pageSize = 12, filters = {}): Promi
 }
 
 // Função para buscar eventos com paginação (sem join com ongs)
-export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
-  try {
-    // Verificar se a tabela events existe
-    const eventsTableExists = await checkTableExists("events")
-    if (!eventsTableExists) {
-      console.error("Tabela events não existe")
-      return { data: [], count: 0 }
-    }
+export async function getEvents(page: number, pageSize: number, filters: any) {
+  const supabase = createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!, // Ou SUPABASE_ANON_KEY se for para o cliente
+  )
 
-    // Substituir a query por:
-    let query = supabase.from("events").select("*, ongs(id, name, logo_url, city)", { count: "exact" })
+  let query = supabase.from("events").select("*", { count: "exact" })
 
-    // Mostrar apenas eventos aprovados
-    //query = query.eq("status", "approved") // <-- Este filtro impede que eventos pendentes apareçam
+  // Aplica filtros
+  if (filters.name) {
+    query = query.ilike("name", `%${filters.name}%`)
+  }
+  if (filters.city) {
+    query = query.eq("city", filters.city)
+  }
+  if (filters.state) {
+    query = query.eq("state", filters.state)
+  }
+  if (filters.start_date) {
+    query = query.gte("start_date", filters.start_date)
+  }
 
-    // Aplicar filtros se existirem
-    if (filters.name) {
-      // Changed from filters.title to filters.name
-      query = query.ilike("name", `%${filters.name}%`) // Changed from title to name
-    }
+  // Filtra por status aprovado para a página pública
+  query = query.eq("status", "approved") // <-- Este filtro é importante!
 
-    if (filters.city) {
-      query = query.eq("city", filters.city)
-    }
+  // Paginação
+  const startIndex = (page - 1) * pageSize
+  const endIndex = startIndex + pageSize - 1
+  query = query.range(startIndex, endIndex)
 
-    if (filters.state) {
-      query = query.eq("state", filters.state)
-    }
+  // Ordenação
+  query = query.order("start_date", { ascending: true })
 
-    if (filters.start_date) {
-      // Changed from filters.date to filters.start_date
-      // Filtrar por data de realização do evento
-      query = query.gte("start_date", filters.start_date) // Changed from date to start_date
-    }
+  const { data, error, count } = await query
 
-    // Aplicar paginação
-    const from = (page - 1) * pageSize
-    const to = from + pageSize - 1
-
-    const { data, error, count } = await query
-      // Ordenar eventos pela data de realização
-      .order("start_date", { ascending: true }) // Changed from date to start_date
-      .range(from, to)
-
-    if (error) {
-      console.error("Erro ao buscar eventos:", error)
-      return { data: [], count: 0 }
-    }
-
-    return { data: data || [], count: count || 0 }
-  } catch (error) {
+  if (error) {
     console.error("Erro ao buscar eventos:", error)
     return { data: [], count: 0 }
   }
+
+  console.log("Dados do evento encontrados:", data) // Para depuração
+
+  return { data: data || [], count: count || 0 }
 }
 
 // Função para buscar ONGs com paginação (usando tabela users)
 export async function getOngs(page = 1, pageSize = 12, filters: any = {}) {
   try {
-    // Verificar se a tabela users existe
+    // Verificar si a tabela users existe
     const usersTableExists = await checkTableExists("users")
     if (!usersTableExists) {
       console.error("Tabela users não existe")
@@ -1131,75 +1121,24 @@ export async function getFoundPetById(idOrSlug: string) {
 
 // Function to get event by slug or ID
 export async function getEventBySlugOrId(slugOrId: string) {
-  try {
-    console.log(`Buscando evento com slugOrId: ${slugOrId}`)
+  const supabase = createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-    // Verificar se a tabela events existe
-    const eventsTableExists = await checkTableExists("events")
-    if (!eventsTableExists) {
-      console.error("Tabela events não existe")
-      return null
-    }
+  let query = supabase.from("events").select("*").limit(1)
 
-    // Use the existing supabase client
-    const isUuidValue = isUuid(slugOrId)
+  if (isNaN(Number(slugOrId))) {
+    // É um slug
+    query = query.eq("slug", slugOrId)
+  } else {
+    // É um ID
+    query = query.eq("id", slugOrId)
+  }
 
-    // First try exact match
-    let query = supabase.from("events").select("*, users(id, name, avatar_url, city, type)")
+  const { data, error } = await query.single()
 
-    if (isUuidValue) {
-      query = query.eq("id", slugOrId)
-    } else {
-      query = query.eq("slug", slugOrId)
-    }
-
-    let { data, error } = await query.maybeSingle()
-
-    // If no exact match and it's not a UUID, try a LIKE query as fallback
-    if (!data && !isUuidValue) {
-      console.log("No exact match found, trying LIKE query")
-      const { data: likeData, error: likeError } = await supabase
-        .from("events")
-        .select("*, users(id, name, avatar_url, city, type)")
-        .ilike("slug", `%${slugOrId}%`)
-        .limit(1)
-        .maybeSingle()
-
-      if (!likeError && likeData) {
-        data = likeData
-      }
-    }
-
-    if (error) {
-      console.error("Erro ao buscar evento:", error)
-      return null
-    }
-
-    if (!data) {
-      console.log(`Nenhum evento encontrado para slugOrId: ${slugOrId}`)
-      return null
-    }
-
-    // Adicionar este console.log para depuração
-    console.log("Dados do evento encontrados:", data)
-
-    // Transform the data to match the expected structure
-    if (data && data.users && data.users.type === "ong") {
-      // If the user is an ONG, add it to the ongs property for backward compatibility
-      return {
-        ...data,
-        ongs: {
-          id: data.users.id,
-          name: data.users.name,
-          logo_url: data.users.avatar_url,
-          city: data.users.city,
-        },
-      }
-    }
-
-    return data
-  } catch (error) {
-    console.error("Erro ao buscar evento:", error)
+  if (error) {
+    console.error("Erro ao buscar evento por slug ou ID:", error)
     return null
   }
+
+  return data
 }
