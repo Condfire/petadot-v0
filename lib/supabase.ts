@@ -1,11 +1,30 @@
 import { createClient } from "@supabase/supabase-js"
 import { validate as isUuid } from "uuid"
 import type { Database } from "./types" // Assumindo que você tem um tipo de banco de dados
+import { unstable_noStore as noStore } from "next/cache"
+import type { Evento } from "@/app/eventos/types"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Client for use in client components
+export const supabase = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+)
+
+// Server for use in server components and actions
+export const createServerSupabaseClient = () =>
+  createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!, // Use service role key for server-side operations
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    },
+  )
 
 // Define types for your data - replace 'any' with actual types
 type Pet = any
@@ -369,15 +388,16 @@ export async function getFoundPets(page = 1, pageSize = 12, filters = {}): Promi
 }
 
 // Função para buscar eventos com paginação (sem join com ongs)
-export async function getEvents(page: number, pageSize: number, filters: any) {
-  const supabase = createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!, // Ou SUPABASE_ANON_KEY se for para o cliente
-  )
+export async function getEvents(
+  page = 1,
+  pageSize = 12,
+  filters: { name?: string; city?: string; state?: string; start_date?: string } = {},
+): Promise<{ data: Evento[]; count: number | null }> {
+  noStore() // Opt-out of Next.js Data Cache
 
+  const supabase = createServerSupabaseClient()
   let query = supabase.from("events").select("*", { count: "exact" })
 
-  // Aplica filtros
   if (filters.name) {
     query = query.ilike("name", `%${filters.name}%`)
   }
@@ -391,28 +411,18 @@ export async function getEvents(page: number, pageSize: number, filters: any) {
     query = query.gte("start_date", filters.start_date)
   }
 
-  // REMOVER TEMPORARIAMENTE ESTE FILTRO PARA DIAGNÓSTICO
-  // query = query.eq("status", "approved")
-  query = query.eq("status", "approved")
-
-  // Paginação
-  const startIndex = (page - 1) * pageSize
-  const endIndex = startIndex + pageSize - 1
-  query = query.range(startIndex, endIndex)
-
-  // Ordenação
-  query = query.order("start_date", { ascending: true })
+  query = query.eq("status", "approved") // Reativado o filtro de status
 
   const { data, error, count } = await query
+    .order("start_date", { ascending: true })
+    .range((page - 1) * pageSize, page * pageSize - 1)
 
   if (error) {
-    console.error("Erro ao buscar eventos:", error)
+    console.error("Error fetching events:", error)
     return { data: [], count: 0 }
   }
 
-  console.log("Dados do evento encontrados:", data) // Para depuração
-
-  return { data: data || [], count: count || 0 }
+  return { data: data || [], count }
 }
 
 // Função para buscar ONGs com paginação (usando tabela users)
