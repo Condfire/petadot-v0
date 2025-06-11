@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import type { Evento } from "@/app/eventos/types"
@@ -22,26 +24,51 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import EventoForm from "./components/EventoForm"
-import { mapEventType } from "@/lib/utils" // Certifique-se de que esta importação está correta
+import { mapEventType } from "@/lib/utils"
 
-export function EventosClientPage() {
-  // Alterado de 'default export' para 'named export'
-  const [eventos, setEventos] = useState<Evento[]>([])
-  const [search, setSearch] = useState("")
-  const [date, setDate] = useState<Date | undefined>(undefined)
+interface EventosClientPageProps {
+  initialEvents: Evento[]
+  totalEvents: number | null
+  currentPage: number
+  pageSize: number
+  initialFilters: {
+    title?: string
+    city?: string
+    state?: string
+    date?: string
+  }
+}
+
+export function EventosClientPage({
+  initialEvents,
+  totalEvents,
+  currentPage,
+  pageSize,
+  initialFilters,
+}: EventosClientPageProps) {
+  const [eventos, setEventos] = useState<Evento[]>(initialEvents)
+  const [search, setSearch] = useState(initialFilters.title || "")
+  const [date, setDate] = useState<Date | undefined>(initialFilters.date ? new Date(initialFilters.date) : undefined)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
 
+  // useEffect para buscar eventos quando filtros ou paginação mudam
   useEffect(() => {
     const fetchEventos = async () => {
+      const params = new URLSearchParams()
+      if (search) params.set("title", search)
+      if (date) params.set("date", format(date, "yyyy-MM-dd"))
+      params.set("page", currentPage.toString())
+      params.set("pageSize", pageSize.toString())
+
       try {
-        const response = await fetch("/api/eventos") // Assumindo que você tem uma rota de API para eventos
+        const response = await fetch(`/api/eventos?${params.toString()}`)
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
-        const data = await response.json()
-        setEventos(data)
+        const { events: fetchedEvents } = await response.json()
+        setEventos(fetchedEvents)
       } catch (error) {
         console.error("Could not fetch eventos:", error)
         toast({
@@ -52,22 +79,40 @@ export function EventosClientPage() {
       }
     }
 
-    fetchEventos()
-  }, [])
+    // Só busca se os filtros mudarem ou se for a primeira renderização e initialEvents estiver vazio
+    // A busca inicial é feita pelo Server Component
+    if (
+      search !== (initialFilters.title || "") ||
+      (date && format(date, "yyyy-MM-dd") !== (initialFilters.date || "")) ||
+      (!date && initialFilters.date) // if date was set initially but now cleared
+    ) {
+      fetchEventos()
+    }
+  }, [search, date, currentPage, pageSize, initialFilters])
 
-  const filteredEventos = eventos.filter((evento) => {
-    const searchTerm = search.toLowerCase()
-    const matchesSearch =
-      evento.nome.toLowerCase().includes(searchTerm) ||
-      evento.local.toLowerCase().includes(searchTerm) ||
-      evento.descricao.toLowerCase().includes(searchTerm)
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value)
+    // Atualizar URL para refletir o filtro de busca
+    const newSearchParams = new URLSearchParams(searchParams.toString())
+    if (e.target.value) {
+      newSearchParams.set("title", e.target.value)
+    } else {
+      newSearchParams.delete("title")
+    }
+    router.push(`/eventos?${newSearchParams.toString()}`)
+  }
 
-    const matchesDate = date
-      ? format(new Date(evento.data), "dd/MM/yyyy", { locale: ptBR }) === format(date, "dd/MM/yyyy", { locale: ptBR })
-      : true
-
-    return matchesSearch && matchesDate
-  })
+  const handleDateSelect = (selectedDate: Date | undefined) => {
+    setDate(selectedDate)
+    // Atualizar URL para refletir o filtro de data
+    const newSearchParams = new URLSearchParams(searchParams.toString())
+    if (selectedDate) {
+      newSearchParams.set("date", format(selectedDate, "yyyy-MM-dd"))
+    } else {
+      newSearchParams.delete("date")
+    }
+    router.push(`/eventos?${newSearchParams.toString()}`)
+  }
 
   return (
     <div>
@@ -88,12 +133,7 @@ export function EventosClientPage() {
       </div>
 
       <div className="flex space-x-4 mb-4">
-        <Input
-          type="text"
-          placeholder="Pesquisar eventos..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <Input type="text" placeholder="Pesquisar eventos..." value={search} onChange={handleSearchChange} />
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -108,8 +148,8 @@ export function EventosClientPage() {
             <Calendar
               mode="single"
               selected={date}
-              onSelect={setDate}
-              disabled={(date) => date > new Date()}
+              onSelect={handleDateSelect}
+              disabled={(date) => date < new Date("1900-01-01")} // Permite selecionar datas passadas para busca
               initialFocus
             />
           </PopoverContent>
@@ -127,7 +167,7 @@ export function EventosClientPage() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredEventos.map((evento) => (
+          {eventos.map((evento) => (
             <TableRow key={evento.id}>
               <TableCell>{evento.nome}</TableCell>
               <TableCell>{format(new Date(evento.data), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
