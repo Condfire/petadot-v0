@@ -24,7 +24,7 @@ export default async function Home() {
     const adoptionPetsResult = await getPetsForAdoption(1, 4)
     const lostPetsResult = await getLostPets(1, 4)
     const eventsResult = await getEvents(1, 4, {
-      date: new Date().toISOString(),
+      start_date: new Date().toISOString(),
     })
 
     // Extrair os arrays de dados dos resultados paginados

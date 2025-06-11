@@ -32,10 +32,10 @@ interface EventosClientPageProps {
   currentPage: number
   pageSize: number
   initialFilters: {
-    title?: string
+    name?: string
     city?: string
     state?: string
-    date?: string
+    start_date?: string
   }
 }
 
@@ -47,8 +47,8 @@ export function EventosClientPage({
   initialFilters,
 }: EventosClientPageProps) {
   const [eventos, setEventos] = useState<Evento[]>(initialEvents)
-  const [search, setSearch] = useState(initialFilters.title || "")
-  const [date, setDate] = useState<Date | undefined>(initialFilters.date ? new Date(initialFilters.date) : undefined)
+  const [search, setSearch] = useState(initialFilters.name || "")
+  const [date, setDate] = useState<Date | undefined>(initialFilters.start_date ? new Date(initialFilters.start_date) : undefined)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -57,8 +57,8 @@ export function EventosClientPage({
   useEffect(() => {
     const fetchEventos = async () => {
       const params = new URLSearchParams()
-      if (search) params.set("title", search)
-      if (date) params.set("date", format(date, "yyyy-MM-dd"))
+      if (search) params.set("name", search)
+      if (date) params.set("start_date", format(date, "yyyy-MM-dd"))
       params.set("page", currentPage.toString())
       params.set("pageSize", pageSize.toString())
 
@@ -82,9 +82,9 @@ export function EventosClientPage({
     // Só busca se os filtros mudarem ou se for a primeira renderização e initialEvents estiver vazio
     // A busca inicial é feita pelo Server Component
     if (
-      search !== (initialFilters.title || "") ||
-      (date && format(date, "yyyy-MM-dd") !== (initialFilters.date || "")) ||
-      (!date && initialFilters.date) // if date was set initially but now cleared
+      search !== (initialFilters.name || "") ||
+      (date && format(date, "yyyy-MM-dd") !== (initialFilters.start_date || "")) ||
+      (!date && initialFilters.start_date) // if date was set initially but now cleared
     ) {
       fetchEventos()
     }
@@ -95,9 +95,9 @@ export function EventosClientPage({
     // Atualizar URL para refletir o filtro de busca
     const newSearchParams = new URLSearchParams(searchParams.toString())
     if (e.target.value) {
-      newSearchParams.set("title", e.target.value)
+      newSearchParams.set("name", e.target.value)
     } else {
-      newSearchParams.delete("title")
+      newSearchParams.delete("name")
     }
     router.push(`/eventos?${newSearchParams.toString()}`)
   }
@@ -107,9 +107,9 @@ export function EventosClientPage({
     // Atualizar URL para refletir o filtro de data
     const newSearchParams = new URLSearchParams(searchParams.toString())
     if (selectedDate) {
-      newSearchParams.set("date", format(selectedDate, "yyyy-MM-dd"))
+      newSearchParams.set("start_date", format(selectedDate, "yyyy-MM-dd"))
     } else {
-      newSearchParams.delete("date")
+      newSearchParams.delete("start_date")
     }
     router.push(`/eventos?${newSearchParams.toString()}`)
   }
