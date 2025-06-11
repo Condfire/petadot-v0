@@ -169,10 +169,12 @@ export function EventosClientPage({
         <TableBody>
           {eventos.map((evento) => (
             <TableRow key={evento.id}>
-              <TableCell>{evento.nome}</TableCell>
-              <TableCell>{format(new Date(evento.data), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
-              <TableCell>{evento.local}</TableCell>
-              <TableCell>{mapEventType(evento.tipo)}</TableCell>
+              <TableCell>{evento.name}</TableCell>
+              <TableCell>
+                {format(new Date(evento.start_date), "dd/MM/yyyy", { locale: ptBR })}
+              </TableCell>
+              <TableCell>{evento.location}</TableCell>
+              <TableCell>{mapEventType(evento.event_type)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
