@@ -28,6 +28,9 @@ export default async function EventosPage({
   // Desestruturar 'data' e 'count' do objeto retornado por getEvents
   const { data: events, count } = await getEvents(page, pageSize, filters)
 
+  console.log("Server Page: events received", events)
+  console.log("Server Page: count received", count)
+
   return (
     <main className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8 text-center">Eventos</h1>
