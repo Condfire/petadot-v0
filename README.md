@@ -33,8 +33,8 @@ Continue building your app on:
 
 When setting up a new Supabase project, run the SQL files inside the `db` folder. The events table can be created with:
 
-```bash
+\`\`\`bash
 supabase db execute ./db/create-events-table.sql
-```
+\`\`\`
 
 Ensure the Supabase CLI is linked to your project before running the command.
