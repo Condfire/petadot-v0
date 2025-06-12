@@ -438,7 +438,7 @@ export async function getOngs(page = 1, pageSize = 12, filters: any = {}) {
     let query = supabase.from("users").select("*, logo_url, contact_whatsapp, slug", { count: "exact" })
 
     // Filtrar apenas usuários do tipo ONG
-    query = query.eq("type", "ong")
+    query = query.eq("type", "ngo_admin")
 
     // Aplicar filtros se existirem
     if (filters.name) {
