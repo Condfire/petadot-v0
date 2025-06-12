@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MapPin, Mail, Phone, Globe, Calendar, PawPrint, CheckCircle, XCircle, ArrowLeft, Trash2 } from "lucide-react"
-import { verifyOng } from "@/app/actions"
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const supabase = createServerComponentClient({ cookies })
@@ -193,19 +192,7 @@ export default async function AdminOngDetailsPage({ params }: { params: { id: st
               </div>
             </CardContent>
             <CardFooter className="flex flex-col sm:flex-row gap-3 border-t pt-6">
-              {!ong.is_verified && (
-                <form
-                  action={async () => {
-                    "use server"
-                    await verifyOng(ong.id)
-                  }}
-                  className="w-full sm:w-auto"
-                >
-                  <Button type="submit" className="w-full gap-1">
-                    <CheckCircle className="h-4 w-4" /> Verificar ONG
-                  </Button>
-                </form>
-              )}
+              {!ong.is_verified && null}
               <Button variant="outline" className="w-full sm:w-auto gap-1">
                 <XCircle className="h-4 w-4" /> Rejeitar ONG
               </Button>
@@ -336,22 +323,11 @@ export default async function AdminOngDetailsPage({ params }: { params: { id: st
               <CardDescription>Gerencie esta ONG</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {!ong.is_verified ? (
-                <form
-                  action={async () => {
-                    "use server"
-                    await verifyOng(ong.id)
-                  }}
-                >
-                  <Button type="submit" className="w-full gap-1">
-                    <CheckCircle className="h-4 w-4" /> Verificar ONG
-                  </Button>
-                </form>
-              ) : (
+              {ong.is_verified ? (
                 <Button className="w-full gap-1" disabled>
                   <CheckCircle className="h-4 w-4" /> ONG já verificada
                 </Button>
-              )}
+              ) : null}
               <Button variant="outline" className="w-full gap-1">
                 <XCircle className="h-4 w-4" /> Rejeitar ONG
               </Button>

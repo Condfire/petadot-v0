@@ -78,14 +78,8 @@ export default async function OngDetailPage({ params }: { params: { id: string }
                   <CardTitle className="text-2xl">{ong.name}</CardTitle>
                   <CardDescription>ID: {ong.id}</CardDescription>
                 </div>
-                <Badge
-                  className={
-                    ong.is_ong_verified
-                      ? "bg-green-100 text-green-800 hover:bg-green-100"
-                      : "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-                  }
-                >
-                  {ong.is_ong_verified ? "Verificada" : "Pendente"}
+                <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                  Cadastrada
                 </Badge>
               </div>
             </CardHeader>
@@ -202,19 +196,7 @@ export default async function OngDetailPage({ params }: { params: { id: string }
               <CardTitle>Ações</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {!ong.is_ong_verified && (
-                <form
-                  action={async () => {
-                    "use server"
-                    const supabase = createServerComponentClient({ cookies })
-                    await supabase.from("users").update({ is_ong_verified: true }).eq("id", id)
-                  }}
-                >
-                  <Button type="submit" className="w-full">
-                    Verificar ONG
-                  </Button>
-                </form>
-              )}
+              {null}
 
               <Button variant="outline" className="w-full" asChild>
                 <Link href={`/ongs/${ong.slug || ong.id}`} target="_blank">
