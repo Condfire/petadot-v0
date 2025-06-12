@@ -1,405 +1,281 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link"
-import Image from "next/image"
-import { useRouter } from "next/navigation"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useState, useEffect } from "react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Eye, Trash2, CheckCircle, XCircle, Search, ArrowUpDown } from "lucide-react"
-import { supabase } from "@/lib/supabase"
+import { Search, Eye, Edit, Trash2 } from "lucide-react"
+import Image from "next/image"
+import Link from "next/link"
 
-type PetTableProps = {
-  pets: any[]
-  type: string
+type Pet = {
+  id: string
+  name: string
+  category: string
+  species: string
+  breed: string | null
+  status: string
+  main_image_url: string | null
+  city: string
+  state: string
+  created_at: string
+  users?: {
+    name: string
+  }
 }
 
-export function PetsTable({ pets, type }: PetTableProps) {
-  const router = useRouter()
+export function PetsTable() {
+  const [pets, setPets] = useState<{
+    adoptionPets: Pet[]
+    lostPets: Pet[]
+    foundPets: Pet[]
+  }>({
+    adoptionPets: [],
+    lostPets: [],
+    foundPets: [],
+  })
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [sortField, setSortField] = useState("created_at")
-  const [sortDirection, setSortDirection] = useState("desc")
-  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({})
+  const supabase = createClientComponentClient()
 
-  // Função para formatar a data
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return new Intl.DateTimeFormat("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date)
-  }
+  useEffect(() => {
+    fetchPets()
+  }, [])
 
-  // Função para aprovar um pet
-  const approvePet = async (id: string, petType: string) => {
+  async function fetchPets() {
     try {
-      setIsLoading((prev) => ({ ...prev, [id]: true }))
+      // Buscar pets para adoção
+      const { data: adoptionPets, error: adoptionError } = await supabase
+        .from("pets")
+        .select("*, users!pets_user_id_fkey(name)")
+        .eq("category", "adoption")
+        .order("created_at", { ascending: false })
 
-      let tableName = ""
-      switch (petType) {
-        case "adoption":
-          tableName = "pets"
-          break
-        case "lost":
-          tableName = "pets_lost"
-          break
-        case "found":
-          tableName = "pets_found"
-          break
-        default:
-          throw new Error("Tipo de pet inválido")
+      // Buscar pets perdidos
+      const { data: lostPets, error: lostError } = await supabase
+        .from("pets")
+        .select("*, users!pets_user_id_fkey(name)")
+        .eq("category", "lost")
+        .order("created_at", { ascending: false })
+
+      // Buscar pets encontrados
+      const { data: foundPets, error: foundError } = await supabase
+        .from("pets")
+        .select("*, users!pets_user_id_fkey(name)")
+        .eq("category", "found")
+        .order("created_at", { ascending: false })
+
+      if (adoptionError || lostError || foundError) {
+        console.error("Erro ao buscar pets:", { adoptionError, lostError, foundError })
+        return
       }
 
-      const { error } = await supabase.from(tableName).update({ status: "approved" }).eq("id", id)
-
-      if (error) throw error
-
-      // Revalidar a página
-      router.refresh()
-
-      // Forçar revalidação das páginas relevantes
-      try {
-        // Revalidar a página inicial
-        await fetch("/api/revalidate/route?path=/", { method: "GET" })
-
-        // Revalidar a página específica do tipo de pet
-        let petPath = ""
-        switch (petType) {
-          case "adoption":
-            petPath = "/adocao"
-            break
-          case "lost":
-            petPath = "/perdidos"
-            break
-          case "found":
-            petPath = "/encontrados"
-            break
-        }
-
-        if (petPath) {
-          await fetch(`/api/revalidate/route?path=${petPath}`, { method: "GET" })
-          console.log(`Revalidando caminho: ${petPath}`)
-        }
-
-        // Revalidar a página específica do pet
-        await fetch(`/api/revalidate/route?path=${petPath}/${id}`, { method: "GET" })
-      } catch (revalidateError) {
-        console.error("Erro ao revalidar páginas:", revalidateError)
-      }
-
-      alert(`Pet aprovado com sucesso! A página será atualizada.`)
+      setPets({
+        adoptionPets: adoptionPets || [],
+        lostPets: lostPets || [],
+        foundPets: foundPets || [],
+      })
     } catch (error) {
-      console.error("Erro ao aprovar pet:", error)
-      alert("Erro ao aprovar pet. Verifique o console para mais detalhes.")
+      console.error("Erro ao buscar pets:", error)
     } finally {
-      setIsLoading((prev) => ({ ...prev, [id]: false }))
+      setIsLoading(false)
     }
   }
 
-  // Função para rejeitar um pet
-  const rejectPet = async (id: string, petType: string) => {
-    try {
-      setIsLoading((prev) => ({ ...prev, [id]: true }))
-
-      let tableName = ""
-      switch (petType) {
-        case "adoption":
-          tableName = "pets"
-          break
-        case "lost":
-          tableName = "pets_lost"
-          break
-        case "found":
-          tableName = "pets_found"
-          break
-        default:
-          throw new Error("Tipo de pet inválido")
-      }
-
-      const { error } = await supabase.from(tableName).update({ status: "rejected" }).eq("id", id)
-
-      if (error) throw error
-
-      // Revalidar a página
-      router.refresh()
-    } catch (error) {
-      console.error("Erro ao rejeitar pet:", error)
-      alert("Erro ao rejeitar pet. Verifique o console para mais detalhes.")
-    } finally {
-      setIsLoading((prev) => ({ ...prev, [id]: false }))
-    }
-  }
-
-  // Função para excluir um pet
-  const deletePet = async (id: string, petType: string) => {
-    if (!confirm("Tem certeza que deseja excluir este pet? Esta ação não pode ser desfeita.")) {
-      return
-    }
-
-    try {
-      setIsLoading((prev) => ({ ...prev, [id]: true }))
-
-      let tableName = ""
-      switch (petType) {
-        case "adoption":
-          tableName = "pets"
-          break
-        case "lost":
-          tableName = "pets_lost"
-          break
-        case "found":
-          tableName = "pets_found"
-          break
-        default:
-          throw new Error("Tipo de pet inválido")
-      }
-
-      const { error } = await supabase.from(tableName).delete().eq("id", id)
-
-      if (error) throw error
-
-      // Revalidar a página
-      router.refresh()
-    } catch (error) {
-      console.error("Erro ao excluir pet:", error)
-      alert("Erro ao excluir pet. Verifique o console para mais detalhes.")
-    } finally {
-      setIsLoading((prev) => ({ ...prev, [id]: false }))
-    }
-  }
-
-  // Função para alternar a ordenação
-  const toggleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
-    } else {
-      setSortField(field)
-      setSortDirection("asc")
-    }
-  }
-
-  // Filtrar e ordenar os pets
-  const filteredPets = pets
-    .filter((pet) => {
-      // Filtro de busca
-      const searchMatch =
+  const filterPets = (petsList: Pet[]) => {
+    if (!searchTerm) return petsList
+    return petsList.filter(
+      (pet) =>
         pet.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         pet.species?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pet.breed?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         pet.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pet.state?.toLowerCase().includes(searchTerm.toLowerCase())
-
-      // Filtro de status
-      const statusMatch = statusFilter === "all" || pet.status === statusFilter
-
-      return searchMatch && statusMatch
-    })
-    .sort((a, b) => {
-      // Ordenação
-      if (!a[sortField] && !b[sortField]) return 0
-      if (!a[sortField]) return 1
-      if (!b[sortField]) return -1
-
-      let comparison = 0
-      if (typeof a[sortField] === "string") {
-        comparison = a[sortField].localeCompare(b[sortField])
-      } else {
-        comparison = a[sortField] - b[sortField]
-      }
-
-      return sortDirection === "asc" ? comparison : -comparison
-    })
-
-  // Função para obter a cor do badge de status
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "bg-green-100 text-green-800 hover:bg-green-200"
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-      case "rejected":
-        return "bg-red-100 text-red-800 hover:bg-red-200"
-      default:
-        return "bg-gray-100 text-gray-800 hover:bg-gray-200"
-    }
+        pet.state?.toLowerCase().includes(searchTerm.toLowerCase()),
+    )
   }
 
-  // Função para obter o texto do status
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "Aprovado"
-      case "pending":
-        return "Pendente"
-      case "rejected":
-        return "Rejeitado"
-      default:
-        return status
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-4 justify-between">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-          <Input
-            placeholder="Buscar por nome, espécie, raça, cidade..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
+  const PetCard = ({ pet }: { pet: Pet }) => (
+    <div className="border rounded-lg p-4">
+      <div className="flex gap-4">
+        <div className="relative w-20 h-20 rounded-md overflow-hidden flex-shrink-0">
+          <Image
+            src={pet.main_image_url || "/placeholder.svg?height=80&width=80&query=pet"}
+            alt={pet.name || "Pet"}
+            fill
+            className="object-cover"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Filtrar por status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            <SelectItem value="approved">Aprovados</SelectItem>
-            <SelectItem value="pending">Pendentes</SelectItem>
-            <SelectItem value="rejected">Rejeitados</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="font-medium truncate">{pet.name || "Sem nome"}</h3>
+              <p className="text-sm text-muted-foreground">
+                {pet.species} {pet.breed && `• ${pet.breed}`}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {pet.city}, {pet.state}
+              </p>
+              <p className="text-xs text-muted-foreground">Por: {pet.users?.name || "Usuário desconhecido"}</p>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <Badge
+                variant={pet.status === "approved" ? "default" : pet.status === "pending" ? "secondary" : "destructive"}
+              >
+                {pet.status === "approved" ? "Aprovado" : pet.status === "pending" ? "Pendente" : "Rejeitado"}
+              </Badge>
+              <div className="flex gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                  <Link
+                    href={`/${pet.category === "adoption" ? "adocao" : pet.category === "lost" ? "perdidos" : "encontrados"}/${pet.id}`}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                  <Link href={`/admin/pets/${pet.id}/edit`}>
+                    <Edit className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" asChild>
+                  <Link href={`/admin/pets/${pet.id}/delete`}>
+                    <Trash2 className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Carregando pets...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const totalPets = pets.adoptionPets.length + pets.lostPets.length + pets.foundPets.length
+
+  return (
+    <div className="space-y-6">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Buscar pets por nome, espécie, cidade..."
+          className="pl-8"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[80px]">Imagem</TableHead>
-              <TableHead className="cursor-pointer" onClick={() => toggleSort("name")}>
-                <div className="flex items-center">
-                  Nome
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </div>
-              </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => toggleSort("species")}>
-                <div className="flex items-center">
-                  Espécie
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </div>
-              </TableHead>
-              {type === "all" && <TableHead>Tipo</TableHead>}
-              <TableHead className="cursor-pointer" onClick={() => toggleSort("city")}>
-                <div className="flex items-center">
-                  Cidade/UF
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </div>
-              </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => toggleSort("status")}>
-                <div className="flex items-center">
-                  Status
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </div>
-              </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => toggleSort("created_at")}>
-                <div className="flex items-center">
-                  Cadastrado em
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </div>
-              </TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredPets.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={type === "all" ? 8 : 7} className="text-center py-10 text-muted-foreground">
-                  Nenhum pet encontrado com os filtros selecionados.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredPets.map((pet) => (
-                <TableRow key={`${pet.type}-${pet.id}`}>
-                  <TableCell>
-                    {pet.image_url ? (
-                      <div className="relative h-12 w-12 rounded-md overflow-hidden">
-                        <Image
-                          src={pet.main_image_url || pet.image_url || "/placeholder.svg"}
-                          alt={pet.name || "Pet"}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="h-12 w-12 rounded-md bg-gray-200 flex items-center justify-center text-gray-500">
-                        N/A
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-medium">{pet.name || "Sem nome"}</TableCell>
-                  <TableCell>{pet.species || "N/A"}</TableCell>
-                  {type === "all" && (
-                    <TableCell>
-                      <Badge variant="outline">{pet.typeName}</Badge>
-                    </TableCell>
-                  )}
-                  <TableCell>{`${pet.city || "N/A"}/${pet.state || "N/A"}`}</TableCell>
-                  <TableCell>
-                    <Badge className={getStatusBadgeColor(pet.status)}>{getStatusText(pet.status)}</Badge>
-                  </TableCell>
-                  <TableCell>{pet.created_at ? formatDate(pet.created_at) : "N/A"}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="icon" asChild>
-                        <Link
-                          href={`/${pet.type === "adoption" ? "adocao" : pet.type === "lost" ? "perdidos" : "encontrados"}/${pet.id}`}
-                        >
-                          <Eye className="h-4 w-4" />
-                          <span className="sr-only">Ver</span>
-                        </Link>
-                      </Button>
+      <Tabs defaultValue="adoption">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="adoption">Adoção ({pets.adoptionPets.length})</TabsTrigger>
+          <TabsTrigger value="lost">Perdidos ({pets.lostPets.length})</TabsTrigger>
+          <TabsTrigger value="found">Encontrados ({pets.foundPets.length})</TabsTrigger>
+          <TabsTrigger value="all">Todos ({totalPets})</TabsTrigger>
+        </TabsList>
 
-                      {pet.status === "pending" && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => approvePet(pet.id, pet.type)}
-                            disabled={isLoading[pet.id]}
-                          >
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                            <span className="sr-only">Aprovar</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => rejectPet(pet.id, pet.type)}
-                            disabled={isLoading[pet.id]}
-                          >
-                            <XCircle className="h-4 w-4 text-red-600" />
-                            <span className="sr-only">Rejeitar</span>
-                          </Button>
-                        </>
-                      )}
+        <TabsContent value="adoption">
+          <Card>
+            <CardHeader>
+              <CardTitle>Pets para Adoção</CardTitle>
+              <CardDescription>Pets disponíveis para adoção na plataforma.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {filterPets(pets.adoptionPets).map((pet) => (
+                  <PetCard key={pet.id} pet={pet} />
+                ))}
+                {filterPets(pets.adoptionPets).length === 0 && (
+                  <p className="text-center text-muted-foreground py-8">
+                    {searchTerm
+                      ? "Nenhum pet encontrado com os critérios de busca."
+                      : "Nenhum pet para adoção cadastrado."}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => deletePet(pet.id, pet.type)}
-                        disabled={isLoading[pet.id]}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                        <span className="sr-only">Excluir</span>
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+        <TabsContent value="lost">
+          <Card>
+            <CardHeader>
+              <CardTitle>Pets Perdidos</CardTitle>
+              <CardDescription>Pets perdidos reportados na plataforma.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {filterPets(pets.lostPets).map((pet) => (
+                  <PetCard key={pet.id} pet={pet} />
+                ))}
+                {filterPets(pets.lostPets).length === 0 && (
+                  <p className="text-center text-muted-foreground py-8">
+                    {searchTerm ? "Nenhum pet encontrado com os critérios de busca." : "Nenhum pet perdido cadastrado."}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <div className="text-sm text-muted-foreground">Total de pets: {filteredPets.length}</div>
+        <TabsContent value="found">
+          <Card>
+            <CardHeader>
+              <CardTitle>Pets Encontrados</CardTitle>
+              <CardDescription>Pets encontrados reportados na plataforma.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {filterPets(pets.foundPets).map((pet) => (
+                  <PetCard key={pet.id} pet={pet} />
+                ))}
+                {filterPets(pets.foundPets).length === 0 && (
+                  <p className="text-center text-muted-foreground py-8">
+                    {searchTerm
+                      ? "Nenhum pet encontrado com os critérios de busca."
+                      : "Nenhum pet encontrado cadastrado."}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="all">
+          <Card>
+            <CardHeader>
+              <CardTitle>Todos os Pets</CardTitle>
+              <CardDescription>Lista completa de pets cadastrados na plataforma.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {[...filterPets(pets.adoptionPets), ...filterPets(pets.lostPets), ...filterPets(pets.foundPets)]
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .map((pet) => (
+                    <PetCard key={pet.id} pet={pet} />
+                  ))}
+                {[...filterPets(pets.adoptionPets), ...filterPets(pets.lostPets), ...filterPets(pets.foundPets)]
+                  .length === 0 && (
+                  <p className="text-center text-muted-foreground py-8">
+                    {searchTerm ? "Nenhum pet encontrado com os critérios de busca." : "Nenhum pet cadastrado."}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -765,11 +765,11 @@ export async function approveItem(itemId: string, type: "adoption" | "event" | "
       case "lost":
       case "found":
         table = "pets"
-        revalidationPaths = ["/adocao", "/perdidos", "/encontrados", "/admin-alt/pets", "/admin-alt/moderation"]
+        revalidationPaths = ["/adocao", "/perdidos", "/encontrados", "/admin/pets", "/admin/moderation"]
         break
       case "event":
         table = "events"
-        revalidationPaths = ["/eventos", "/admin-alt/events", "/admin-alt/moderation"]
+        revalidationPaths = ["/eventos", "/admin/events", "/admin/moderation"]
         break
       default:
         return { success: false, error: "Tipo de item inválido" }
@@ -853,9 +853,9 @@ export async function rejectItem(itemId: string, type: "adoption" | "event" | "l
     revalidatePath("/perdidos")
     revalidatePath("/encontrados")
     revalidatePath("/eventos")
-    revalidatePath("/admin-alt/pets")
-    revalidatePath("/admin-alt/events")
-    revalidatePath("/admin-alt/moderation")
+    revalidatePath("/admin/pets")
+    revalidatePath("/admin/events")
+    revalidatePath("/admin/moderation")
     revalidatePath("/")
 
     return { success: true }

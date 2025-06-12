@@ -1,9 +1,9 @@
 import { notFound, redirect } from "next/navigation"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { AdminDeleteOngForm } from "./delete-ong-form"
+import { AdminDeleteEventForm } from "./delete-event-form"
 
-export default async function DeleteOngPage({ params }: { params: { id: string } }) {
+export default async function DeleteEventPage({ params }: { params: { id: string } }) {
   const supabase = createServerComponentClient({ cookies })
   const { id } = params
 
@@ -13,7 +13,7 @@ export default async function DeleteOngPage({ params }: { params: { id: string }
   } = await supabase.auth.getSession()
 
   if (!session) {
-    redirect("/login?callbackUrl=/admin/ongs/" + id + "/delete")
+    redirect("/login?callbackUrl=/admin/events/" + id + "/delete")
   }
 
   // Verificar se o usuário é um administrador
@@ -27,26 +27,17 @@ export default async function DeleteOngPage({ params }: { params: { id: string }
     redirect("/")
   }
 
-  // Buscar detalhes da ONG
-  const { data: ong, error: ongError } = await supabase.from("users").select("*").eq("id", id).single()
+  // Buscar detalhes do evento
+  const { data: event, error: eventError } = await supabase.from("events").select("*").eq("id", id).single()
 
-  if (ongError || !ong) {
-    console.error("Erro ao buscar ONG:", ongError)
+  if (eventError || !event) {
+    console.error("Erro ao buscar evento:", eventError)
     notFound()
   }
 
-  // Buscar pets da ONG
-  const { data: pets, error: petsError } = await supabase.from("pets").select("id").eq("user_id", id)
-
-  if (petsError) {
-    console.error("Erro ao buscar pets da ONG:", petsError)
-  }
-
-  const petCount = pets?.length || 0
-
   return (
     <div className="container py-8">
-      <AdminDeleteOngForm ong={ong} petCount={petCount} />
+      <AdminDeleteEventForm event={event} />
     </div>
   )
 }

@@ -133,7 +133,7 @@ export default function LoginPage() {
         .single()
 
       // Redirecionar para a página solicitada ou dashboard apropriado
-      const newRedirectTo = redirectTo === "/admin" ? "/admin-alt" : redirectTo
+      const newRedirectTo = redirectTo;
 
       if (newRedirectTo === "/dashboard" && ongData) {
         router.push("/ongs/dashboard")
