@@ -162,7 +162,7 @@ export function mapEventUIToDB(uiData: EventFormUI): EventFormDB {
     max_participants: max_participants || null,
     is_featured: is_featured || false,
     slug: generateSlug(`${name}-${city || ""}-${state || ""}`), // Gerar slug
-    status: "pending", // Status inicial como pendente para aprovação
+    status: "approved", // Publicado automaticamente sem moderação
     start_date,
     end_date,
     latitude: null, // Preencher se tivermos integração de geolocalização

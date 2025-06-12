@@ -153,7 +153,7 @@ export default function OngRegisterPage() {
         contact: formData.contact,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        is_verified: false,
+        is_verified: true,
       }
 
       console.log("Dados da ONG a serem inseridos:", ongData)

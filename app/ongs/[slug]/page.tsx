@@ -50,7 +50,6 @@ export default async function OngPage({ params }: { params: { slug: string } }) 
     .from("ongs")
     .select("*")
     .eq(isUuidValue ? "id" : "slug", slugOrId)
-    .eq("is_verified", true)
     .single()
 
   if (ongError || !ong) {

@@ -130,7 +130,7 @@ export async function createOng(ongData: any) {
           ...ongData,
           id: userId,
           type: "ong",
-          is_verified: false,
+          is_verified: true,
           created_at: new Date().toISOString(),
         },
       ])
@@ -581,7 +581,7 @@ export async function createEvent(eventData: EventFormData) {
         {
           ...eventData,
           user_id: session.user.id,
-          status: "pending",
+          status: "approved", // Eventos são publicados automaticamente
           created_at: new Date().toISOString(),
           slug: baseSlug,
         },

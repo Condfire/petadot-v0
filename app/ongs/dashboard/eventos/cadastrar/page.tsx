@@ -84,7 +84,7 @@ export default function CadastrarEventoPage() {
 
       const { error: eventError } = await supabase.from("events").insert({
         ...eventData,
-        status: "pending",
+        status: "approved", // Evento publicado imediatamente
         created_at: new Date().toISOString(),
       })
 
