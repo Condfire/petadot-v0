@@ -28,7 +28,13 @@ export default async function DeleteOngPage({ params }: { params: { id: string }
   }
 
   // Buscar detalhes da ONG
-  const { data: ong, error: ongError } = await supabase.from("users").select("*").eq("id", id).single()
+  const { data: ong, error: ongError } = await supabase
+    .from("ongs")
+    .select(
+      "id, user_id, name, city, state, contact_email, contact_phone, mission, cnpj, slug"
+    )
+    .eq("id", id)
+    .single()
 
   if (ongError || !ong) {
     console.error("Erro ao buscar ONG:", ongError)
@@ -36,7 +42,10 @@ export default async function DeleteOngPage({ params }: { params: { id: string }
   }
 
   // Buscar pets da ONG
-  const { data: pets, error: petsError } = await supabase.from("pets").select("id").eq("user_id", id)
+  const { data: pets, error: petsError } = await supabase
+    .from("pets")
+    .select("id")
+    .eq("ong_id", id)
 
   if (petsError) {
     console.error("Erro ao buscar pets da ONG:", petsError)

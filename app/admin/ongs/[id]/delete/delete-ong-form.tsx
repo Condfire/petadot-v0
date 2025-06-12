@@ -23,7 +23,10 @@ export function AdminDeleteOngForm({ ong, petCount }: { ong: any; petCount: numb
     try {
       // Primeiro excluir todos os pets da ONG
       if (petCount > 0) {
-        const { error: petsDeleteError } = await supabase.from("pets").delete().eq("user_id", ong.id)
+        const { error: petsDeleteError } = await supabase
+          .from("pets")
+          .delete()
+          .eq("ong_id", ong.id)
 
         if (petsDeleteError) {
           console.error("Erro ao excluir pets da ONG:", petsDeleteError)
@@ -34,7 +37,7 @@ export function AdminDeleteOngForm({ ong, petCount }: { ong: any; petCount: numb
       }
 
       // Depois excluir a ONG
-      const { error } = await supabase.from("users").delete().eq("id", ong.id)
+      const { error } = await supabase.from("ongs").delete().eq("id", ong.id)
 
       if (error) {
         console.error("Erro ao excluir ONG:", error)
@@ -112,7 +115,7 @@ export function AdminDeleteOngForm({ ong, petCount }: { ong: any; petCount: numb
               <p className="text-muted-foreground">
                 {ong.city}, {ong.state}
               </p>
-              <p className="text-muted-foreground">Email: {ong.email}</p>
+              <p className="text-muted-foreground">Email: {ong.contact_email}</p>
               {petCount > 0 && (
                 <p className="mt-2 font-medium text-red-600">
                   Esta ONG possui {petCount} {petCount === 1 ? "pet cadastrado" : "pets cadastrados"} que também serão

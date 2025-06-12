@@ -41,9 +41,10 @@ export default async function AdminOngsPage() {
 
   // Buscar todas as ONGs
   const { data: verifiedOngs, error: ongsError } = await supabase
-    .from("users")
-    .select("*")
-    .eq("type", "ong")
+    .from("ongs")
+    .select(
+      "id, name, city, state, logo_url, contact_email, contact_phone, mission, slug"
+    )
     .order("name", { ascending: true })
 
   if (ongsError) {
@@ -89,16 +90,16 @@ export default async function AdminOngsPage() {
                       <MapPin className="h-3.5 w-3.5 mr-1" />
                       {ong.city}, {ong.state}
                     </div>
-                    {ong.email && (
+                    {ong.contact_email && (
                       <div className="flex items-center text-sm text-muted-foreground mt-1">
                         <Mail className="h-3.5 w-3.5 mr-1" />
-                        {ong.email}
+                        {ong.contact_email}
                       </div>
                     )}
-                    {ong.contact && (
+                    {ong.contact_phone && (
                       <div className="flex items-center text-sm text-muted-foreground mt-1">
                         <Phone className="h-3.5 w-3.5 mr-1" />
-                        {ong.contact}
+                        {ong.contact_phone}
                       </div>
                     )}
                   </div>
@@ -114,9 +115,9 @@ export default async function AdminOngsPage() {
                   </Button>
                 </div>
               </div>
-              {ong.description && (
+              {ong.mission && (
                 <div className="mt-4">
-                  <p className="text-sm text-muted-foreground">{ong.description}</p>
+                  <p className="text-sm text-muted-foreground">{ong.mission}</p>
                 </div>
               )}
             </div>

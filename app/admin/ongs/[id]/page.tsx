@@ -33,7 +33,11 @@ export default async function OngDetailPage({ params }: { params: { id: string }
   }
 
   // Buscar detalhes da ONG
-  const { data: ong, error: ongError } = await supabase.from("users").select("*").eq("id", id).single()
+  const { data: ong, error: ongError } = await supabase
+    .from("ongs")
+    .select("id, user_id, name, city, state, logo_url, contact_email, contact_phone, mission, cnpj, slug, created_at")
+    .eq("id", id)
+    .single()
 
   if (ongError || !ong) {
     console.error("Erro ao buscar ONG:", ongError)
@@ -44,7 +48,7 @@ export default async function OngDetailPage({ params }: { params: { id: string }
   const { data: pets, error: petsError } = await supabase
     .from("pets")
     .select("id, name, species, breed, category, status, main_image_url")
-    .eq("user_id", id)
+    .eq("ong_id", id)
     .order("created_at", { ascending: false })
 
   if (petsError) {
@@ -101,11 +105,11 @@ export default async function OngDetailPage({ params }: { params: { id: string }
                   </div>
                   <div className="flex items-center">
                     <MailIcon className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>{ong.email}</span>
+                    <span>{ong.contact_email}</span>
                   </div>
                   <div className="flex items-center">
                     <PhoneIcon className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>{ong.contact || "Não informado"}</span>
+                    <span>{ong.contact_phone || "Não informado"}</span>
                   </div>
                   <div className="flex items-center">
                     <ClockIcon className="h-4 w-4 mr-2 text-muted-foreground" />
@@ -114,10 +118,10 @@ export default async function OngDetailPage({ params }: { params: { id: string }
                 </div>
               </div>
 
-              {ong.description && (
+              {ong.mission && (
                 <div>
                   <h3 className="font-medium mb-2">Descrição</h3>
-                  <p className="text-muted-foreground whitespace-pre-wrap">{ong.description}</p>
+                  <p className="text-muted-foreground whitespace-pre-wrap">{ong.mission}</p>
                 </div>
               )}
 
