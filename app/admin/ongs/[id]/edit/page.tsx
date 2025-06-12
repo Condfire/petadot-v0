@@ -30,7 +30,11 @@ export default async function EditOngPage({ params }: { params: { id: string } }
   }
 
   // Buscar detalhes da ONG
-  const { data: ong, error: ongError } = await supabase.from("users").select("*").eq("id", id).single()
+  const { data: ong, error: ongError } = await supabase
+    .from("ongs")
+    .select("id, name, city, state, contact_email, contact_phone, mission, cnpj, slug")
+    .eq("id", id)
+    .single()
 
   if (ongError || !ong) {
     console.error("Erro ao buscar ONG:", ongError)
