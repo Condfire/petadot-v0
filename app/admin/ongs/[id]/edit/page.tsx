@@ -5,7 +5,7 @@ import { cookies } from "next/headers"
 import { Button } from "@/components/ui/button"
 import { ArrowLeftIcon } from "lucide-react"
 
-export default async function EditEventPage({ params }: { params: { id: string } }) {
+export default async function EditOngPage({ params }: { params: { id: string } }) {
   const supabase = createServerComponentClient({ cookies })
   const { id } = params
 
@@ -15,7 +15,7 @@ export default async function EditEventPage({ params }: { params: { id: string }
   } = await supabase.auth.getSession()
 
   if (!session) {
-    redirect("/login?callbackUrl=/admin/events/" + id + "/edit")
+    redirect("/login?callbackUrl=/admin/ongs/" + id + "/edit")
   }
 
   // Verificar se o usuário é um administrador
@@ -29,11 +29,11 @@ export default async function EditEventPage({ params }: { params: { id: string }
     redirect("/")
   }
 
-  // Buscar detalhes do evento
-  const { data: event, error: eventError } = await supabase.from("events").select("*").eq("id", id).single()
+  // Buscar detalhes da ONG
+  const { data: ong, error: ongError } = await supabase.from("users").select("*").eq("id", id).single()
 
-  if (eventError || !event) {
-    console.error("Erro ao buscar evento:", eventError)
+  if (ongError || !ong) {
+    console.error("Erro ao buscar ONG:", ongError)
     notFound()
   }
 
@@ -41,23 +41,23 @@ export default async function EditEventPage({ params }: { params: { id: string }
     <div className="container py-8">
       <div className="flex items-center gap-2 mb-6">
         <Button variant="outline" size="icon" asChild>
-          <Link href={`/admin/events/${id}`}>
+          <Link href={`/admin/ongs/${id}`}>
             <ArrowLeftIcon className="h-4 w-4" />
           </Link>
         </Button>
-        <h1 className="text-2xl font-bold">Editar Evento</h1>
+        <h1 className="text-2xl font-bold">Editar ONG</h1>
       </div>
 
       <div className="max-w-3xl mx-auto">
-        {/* Formulário de edição do evento */}
+        {/* Formulário de edição da ONG */}
         <form className="space-y-6">
           <div className="space-y-4">
             <p className="text-center text-muted-foreground">
-              Funcionalidade em desenvolvimento. Por favor, use o painel de administração principal para editar eventos.
+              Funcionalidade em desenvolvimento. Por favor, use o painel de administração principal para editar ONGs.
             </p>
             <div className="flex justify-center">
               <Button asChild>
-                <Link href={`/admin/events/${id}/edit`}>Ir para o editor de eventos</Link>
+                <Link href={`/admin/ongs/${id}`}>Ir para o gerenciamento de ONGs</Link>
               </Button>
             </div>
           </div>

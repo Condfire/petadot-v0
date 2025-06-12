@@ -323,7 +323,7 @@ export async function verifyAndFixAdminStatus(userId: string): Promise<{
     }
 
     // Revalidar caminhos relevantes
-    revalidatePath("/admin-alt/users")
+    revalidatePath("/admin/users")
     revalidatePath("/admin/users")
 
     return {

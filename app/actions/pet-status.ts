@@ -97,7 +97,7 @@ export async function updatePetStatus(
 
     // Revalidar páginas relevantes
     revalidatePath("/dashboard/pets")
-    revalidatePath("/admin-alt/pets")
+    revalidatePath("/admin/pets")
     revalidatePath("/")
 
     // Revalidar páginas específicas baseadas na categoria do pet

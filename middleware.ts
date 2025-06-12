@@ -7,12 +7,6 @@ import { isUuid } from "./lib/slug-utils"
 const SPECIAL_ROUTES = ["/cadastrar", "/editar", "/excluir", "/novo"]
 
 export async function middleware(request: NextRequest) {
-  // Adicionar esta lógica no início da função middleware
-  if (request.nextUrl.pathname.startsWith("/admin") && !request.nextUrl.pathname.startsWith("/admin-alt")) {
-    const newUrl = request.nextUrl.pathname.replace("/admin", "/admin-alt")
-    return NextResponse.redirect(new URL(newUrl, request.url))
-  }
-
   // Ignorar a rota de cadastro de pets para adoção
   if (request.nextUrl.pathname === "/cadastrar-pet-adocao") {
     return NextResponse.next()
