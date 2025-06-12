@@ -1,31 +1,405 @@
 import { createClient } from "@supabase/supabase-js"
+import { validate as isUuid } from "uuid"
 import type { Database } from "./types"
+import { unstable_noStore as noStore } from "next/cache"
+import type { Evento } from "@/app/eventos/types"
 
-// Create a single supabase client for interacting with your database
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+
+// Client for use in client components
 export const supabase = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  },
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 )
 
-export async function getPets(type: "lost" | "found" | "adoption", page = 1, limit = 10, filters: any = {}) {
-  const offset = (page - 1) * limit
-  let query = supabase.from("pets").select("*").eq("status", "approved")
+// Server for use in server components and actions
+export const createServerSupabaseClient = () =>
+  createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!, // Use service role key for server-side operations
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    },
+  )
 
-  if (type) {
-    query = query.eq("type", type)
+// Define types for your data - replace 'any' with actual types
+type Pet = any
+type Event = any
+type Ong = any
+type UserStats = any
+
+// Interface para paginação
+export interface PaginationResult<T> {
+  data: T[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+// Função para criar um cliente Supabase (útil para server components)
+export function createSupabaseClient() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || "", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "")
+}
+
+// Função auxiliar para verificar se uma tabela existe
+async function checkTableExists(tableName: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.from(tableName).select("*", { count: "exact", head: true }).limit(1)
+
+    return !error
+  } catch (error) {
+    console.error(`Erro ao verificar tabela ${tableName}:`, error)
+    return false
   }
-  if (filters.species) {
-    query = query.eq("species", filters.species)
+}
+
+// Função para buscar pets para adoção com paginação
+export async function getPetsForAdoption(page = 1, pageSize = 12, filters = {}): Promise<PaginationResult<Pet>> {
+  try {
+    console.log("Buscando pets para adoção com timestamp:", Date.now())
+    console.log("Paginação:", { page, pageSize })
+    console.log("Filtros:", filters)
+
+    // Calcular o range para paginação
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+
+    // Verificar se a tabela pets existe
+    const petsTableExists = await checkTableExists("pets")
+    if (!petsTableExists) {
+      console.error("Tabela pets não existe")
+      return {
+        data: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0,
+      }
+    }
+
+    // Substituir a query que fazia join com ongs por:
+    let query = supabase
+      .from("pets")
+      .select(`*, ongs(id, name, logo_url, city)`, { count: "exact" })
+      .eq("category", "adoption") // Filter for adoption pets
+      // Mostrar apenas pets aprovados
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .range(from, to)
+
+    // Aplicar filtros se existirem
+    if (filters) {
+      // Filtro de espécie
+      if (filters.species && filters.species !== "all") {
+        query = query.eq("species", filters.species)
+      }
+
+      // Filtro de tamanho
+      if (filters.size && filters.size !== "all") {
+        query = query.eq("size", filters.size)
+      }
+
+      // Filtro de gênero
+      if (filters.gender && filters.gender !== "all") {
+        query = query.eq("gender", filters.gender)
+      }
+
+      // Filtro de estado
+      if (filters.state) {
+        query = query.eq("state", filters.state)
+      }
+
+      // Filtro de cidade
+      if (filters.city) {
+        query = query.eq("city", filters.city)
+      }
+
+      // Filtro de busca
+      if (filters.search) {
+        query = query.or(
+          `name.ilike.%${filters.search}%,breed.ilike.%${filters.search}%,description.ilike.%${filters.search}%`,
+        )
+      }
+    }
+
+    // Executar a query
+    const { data, error, count } = await query
+
+    if (error) {
+      console.error("Erro ao buscar pets para adoção:", error)
+      return {
+        data: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0,
+      }
+    }
+
+    // Calcular o total de páginas
+    const totalPages = Math.ceil((count || 0) / pageSize)
+
+    // Log detalhado dos resultados
+    console.log(`Encontrados ${data?.length || 0} pets para adoção (página ${page} de ${totalPages})`)
+    console.log(`Total de pets: ${count}`)
+
+    return {
+      data: data || [],
+      total: count || 0,
+      page,
+      pageSize,
+      totalPages,
+    }
+  } catch (error) {
+    console.error("Erro inesperado ao buscar pets para adoção:", error)
+    return {
+      data: [],
+      total: 0,
+      page,
+      pageSize,
+      totalPages: 0,
+    }
   }
-  if (filters.breed) {
-    query = query.eq("breed", filters.breed)
+}
+
+// Função para buscar pets perdidos com paginação (usando tabela pets)
+export async function getLostPets(page = 1, pageSize = 12, filters = {}): Promise<PaginationResult<Pet>> {
+  try {
+    // Adicionar um timestamp para evitar cache
+    const timestamp = Date.now()
+    console.log(`Buscando pets perdidos: ${timestamp}`)
+    console.log("Paginação:", { page, pageSize })
+    console.log("Filtros:", filters)
+
+    // Calcular o range para paginação
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+
+    // Verificar se a tabela pets existe
+    const petsTableExists = await checkTableExists("pets")
+    if (!petsTableExists) {
+      console.error("Tabela pets não existe")
+      return {
+        data: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0,
+      }
+    }
+
+    // Usar a tabela pets com filtro de categoria para pets perdidos
+    let query = supabase
+      .from("pets")
+      .select("*", { count: "exact" })
+      .eq("category", "lost") // Filtrar apenas pets perdidos
+      // Mostrar apenas pets aprovados
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .range(from, to)
+
+    // Aplicar filtros se existirem
+    if (filters) {
+      // Filtro de espécie
+      if (filters.species && filters.species !== "all") {
+        query = query.eq("species", filters.species)
+      }
+
+      // Filtro de tamanho
+      if (filters.size && filters.size !== "all") {
+        query = query.eq("size", filters.size)
+      }
+
+      // Filtro de gênero
+      if (filters.gender && filters.gender !== "all") {
+        query = query.eq("gender", filters.gender)
+      }
+
+      // Filtro de estado
+      if (filters.state) {
+        query = query.eq("state", filters.state)
+      }
+
+      // Filtro de cidade
+      if (filters.city) {
+        query = query.eq("city", filters.city)
+      }
+
+      // Filtro de busca
+      if (filters.search) {
+        query = query.or(
+          `name.ilike.%${filters.search}%,location_details.ilike.%${filters.search}%,description.ilike.%${filters.search}%`,
+        )
+      }
+    }
+
+    // Executar a query
+    const { data, error, count } = await query
+
+    if (error) {
+      console.error("Error fetching lost pets:", error)
+      return {
+        data: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0,
+      }
+    }
+
+    // Calcular o total de páginas
+    const totalPages = Math.ceil((count || 0) / pageSize)
+
+    console.log(`Pets perdidos encontrados: ${data?.length || 0} (página ${page} de ${totalPages})`)
+    console.log(`Total de pets perdidos: ${count}`)
+
+    return {
+      data: data || [],
+      total: count || 0,
+      page,
+      pageSize,
+      totalPages,
+    }
+  } catch (error) {
+    console.error("Erro inesperado ao buscar pets perdidos:", error)
+    return {
+      data: [],
+      total: 0,
+      page,
+      pageSize,
+      totalPages: 0,
+    }
+  }
+}
+
+// Função para buscar pets encontrados com paginação (usando tabela pets)
+export async function getFoundPets(page = 1, pageSize = 12, filters = {}): Promise<PaginationResult<Pet>> {
+  try {
+    // Adicionar um timestamp para evitar cache
+    const timestamp = Date.now()
+    console.log(`Buscando pets encontrados: ${timestamp}`)
+    console.log("Paginação:", { page, pageSize })
+    console.log("Filtros:", filters)
+
+    // Calcular o range para paginação
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+
+    // Verificar se a tabela pets existe
+    const petsTableExists = await checkTableExists("pets")
+    if (!petsTableExists) {
+      console.error("Tabela pets não existe")
+      return {
+        data: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0,
+      }
+    }
+
+    // Usar a tabela pets com filtro de categoria para pets encontrados
+    let query = supabase
+      .from("pets")
+      .select("*", { count: "exact" })
+      .eq("category", "found") // Filtrar apenas pets encontrados
+      // Mostrar apenas pets aprovados
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .range(from, to)
+
+    // Aplicar filtros se existirem
+    if (filters) {
+      // Filtro de espécie
+      if (filters.species && filters.species !== "all") {
+        query = query.eq("species", filters.species)
+      }
+
+      // Filtro de tamanho
+      if (filters.size && filters.size !== "all") {
+        query = query.eq("size", filters.size)
+      }
+
+      // Filtro de gênero
+      if (filters.gender && filters.gender !== "all") {
+        query = query.eq("gender", filters.gender)
+      }
+
+      // Filtro de estado
+      if (filters.state) {
+        query = query.eq("state", filters.state)
+      }
+
+      // Filtro de cidade
+      if (filters.city) {
+        query = query.eq("city", filters.city)
+      }
+
+      // Filtro de busca
+      if (filters.search) {
+        query = query.or(
+          `name.ilike.%${filters.search}%,location_details.ilike.%${filters.search}%,description.ilike.%${filters.search}%`,
+        )
+      }
+    }
+
+    // Executar a query
+    const { data, error, count } = await query
+
+    if (error) {
+      console.error("Error fetching found pets:", error)
+      return {
+        data: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0,
+      }
+    }
+
+    // Calcular o total de páginas
+    const totalPages = Math.ceil((count || 0) / pageSize)
+
+    console.log(`Pets encontrados: ${data?.length || 0} (página ${page} de ${totalPages})`)
+    console.log(`Total de pets encontrados: ${count}`)
+
+    return {
+      data: data || [],
+      total: count || 0,
+      page,
+      pageSize,
+      totalPages,
+    }
+  } catch (error) {
+    console.error("Erro inesperado ao buscar pets encontrados:", error)
+    return {
+      data: [],
+      total: 0,
+      page,
+      pageSize,
+      totalPages: 0,
+    }
+  }
+}
+
+// Função para buscar eventos com paginação (sem join com ongs)
+export async function getEvents(
+  page = 1,
+  pageSize = 12,
+  filters: { name?: string; city?: string; state?: string; start_date?: string } = {},
+): Promise<{ data: Evento[]; count: number | null }> {
+  noStore() // Opt-out of Next.js Data Cache
+
+  const supabase = createServerSupabaseClient()
+  let query = supabase.from("events").select("*", { count: "exact" })
+
+  if (filters.name) {
+    query = query.ilike("name", `%${filters.name}%`)
   }
   if (filters.city) {
     query = query.eq("city", filters.city)
@@ -33,115 +407,742 @@ export async function getPets(type: "lost" | "found" | "adoption", page = 1, lim
   if (filters.state) {
     query = query.eq("state", filters.state)
   }
-  if (filters.gender) {
-    query = query.eq("gender", filters.gender)
+  if (filters.start_date) {
+    query = query.gte("start_date", filters.start_date)
   }
-  if (filters.size) {
-    query = query.eq("size", filters.size)
-  }
-  if (filters.color) {
-    query = query.contains("color", [filters.color])
-  }
+
+  query = query.eq("status", "approved") // Reativado o filtro de status
 
   const { data, error, count } = await query
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1)
-    .limit(limit)
+    .order("start_date", { ascending: true })
+    .range((page - 1) * pageSize, page * pageSize - 1)
 
   if (error) {
-    console.error("Erro ao buscar pets:", error)
+    console.error("Error fetching events:", error)
     return { data: [], count: 0 }
   }
-  return { data, count: count || 0 }
+
+  return { data: data || [], count }
 }
 
-export async function getPetBySlugOrId(slugOrId: string) {
-  let query = supabase.from("pets").select("*").eq("status", "approved")
+// Função para buscar ONGs com paginação (usando tabela users)
+export async function getOngs(page = 1, pageSize = 12, filters: any = {}) {
+  try {
+    // Verificar si a tabela users existe
+    const usersTableExists = await checkTableExists("users")
+    if (!usersTableExists) {
+      console.error("Tabela users não existe")
+      return { data: [], count: 0 }
+    }
 
-  if (slugOrId.length === 36 && slugOrId.includes("-")) {
-    // Assume UUID
-    query = query.eq("id", slugOrId)
-  } else {
-    // Assume slug
-    query = query.eq("slug", slugOrId)
-  }
+    let query = supabase.from("users").select("*, logo_url, contact_whatsapp, slug", { count: "exact" })
 
-  const { data, error } = await query.single()
+    // Filtrar apenas usuários do tipo ONG
+    query = query.eq("type", "ngo_admin")
 
-  if (error) {
-    console.error("Erro ao buscar pet por slug ou ID:", error)
-    return null
-  }
-  return data
-}
+    // Aplicar filtros se existirem
+    if (filters.name) {
+      query = query.ilike("name", `%${filters.name}%`)
+    }
 
-export async function getOngs(page = 1, limit = 10) {
-  const offset = (page - 1) * limit
-  const { data, error, count } = await supabase
-    .from("users")
-    .select("id, name, email, logo_url, contact_whatsapp, city, state, slug")
-    .eq("type", "ngo_admin") // Alterado para 'ngo_admin'
-    .order("name", { ascending: true })
-    .range(offset, offset + limit - 1)
-    .limit(limit)
+    if (filters.city) {
+      query = query.eq("city", filters.city)
+    }
 
-  if (error) {
+    if (filters.state) {
+      query = query.eq("state", filters.state)
+    }
+
+    // Aplicar paginação
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+
+    const { data, error, count } = await query.order("name", { ascending: true }).range(from, to)
+
+    if (error) {
+      console.error("Erro ao buscar ONGs:", error)
+      return { data: [], count: 0 }
+    }
+
+    console.log(`ONGs encontradas: ${data?.length || 0}`) // Added log for ONGs
+    console.log("Dados das ONGs:", data) // Add this line for debugging
+    return { data: data || [], count: count || 0 }
+  } catch (error) {
     console.error("Erro ao buscar ONGs:", error)
     return { data: [], count: 0 }
   }
-  console.log("ONGs encontradas:", count)
-  console.log("Dados das ONGs:", data)
-  return { data, count: count || 0 }
 }
 
-export async function getOngBySlugOrId(slugOrId: string) {
-  let query = supabase.from("users").select("*").eq("type", "ngo_admin")
+// Função para buscar parceiros com paginação
+export async function getPartners(page = 1, pageSize = 12, filters: any = {}) {
+  try {
+    // Verificar se a tabela partners existe
+    const partnersTableExists = await checkTableExists("partners")
+    if (!partnersTableExists) {
+      console.error("Tabela partners não existe")
+      return { data: [], count: 0 }
+    }
 
-  if (slugOrId.length === 36 && slugOrId.includes("-")) {
-    // Assume UUID
-    query = query.eq("id", slugOrId)
-  } else {
-    // Assume slug
-    query = query.eq("slug", slugOrId)
-  }
+    let query = supabase.from("partners").select("*", { count: "exact" })
 
-  const { data, error } = await query.single()
+    // Aplicar filtros se existirem
+    if (filters.name) {
+      query = query.ilike("name", `%${filters.name}%`)
+    }
 
-  if (error) {
-    console.error("Erro ao buscar ONG por slug ou ID:", error)
-    return null
-  }
-  return data
-}
+    // Aplicar paginação
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
 
-export async function getEvents(page = 1, limit = 10) {
-  const offset = (page - 1) * limit
-  const { data, error, count } = await supabase
-    .from("events")
-    .select("*")
-    .eq("status", "approved")
-    .order("start_date", { ascending: true })
-    .range(offset, offset + limit - 1)
-    .limit(limit)
+    const { data, error, count } = await query.order("name", { ascending: true }).range(from, to)
 
-  if (error) {
-    console.error("Erro ao buscar eventos:", error)
+    if (error) {
+      console.error("Erro ao buscar parceiros:", error)
+      return { data: [], count: 0 }
+    }
+
+    return { data: data || [], count: count || 0 }
+  } catch (error) {
+    console.error("Erro ao buscar parceiros:", error)
     return { data: [], count: 0 }
   }
-  console.log("Eventos encontrados:", count)
-  console.log("Dados dos Eventos:", data)
-  return { data, count: count || 0 }
 }
 
-export async function getEventBySlugOrId(slugOrId: string) {
-  let query = supabase.from("events").select("*").eq("status", "approved")
+export async function getPendingItems(supabaseClient: any) {
+  try {
+    console.log("Buscando itens pendentes para moderação")
 
-  if (slugOrId.length === 36 && slugOrId.includes("-")) {
-    // Assume UUID
-    query = query.eq("id", slugOrId)
-  } else {
-    // Assume slug
+    // Usar o cliente Supabase fornecido
+    const supabaseInstance = supabaseClient || createSupabaseClient()
+
+    // Verificar se as tabelas existem
+    const petsTableExists = await checkTableExists("pets")
+    const eventsTableExists = await checkTableExists("events")
+
+    let pets = []
+    let lostPets = []
+    let foundPets = []
+    let events = []
+
+    if (petsTableExists) {
+      // Buscar pets para adoção pendentes
+      const { data: petsData, error: petsError } = await supabaseInstance
+        .from("pets")
+        .select("*")
+        .eq("category", "adoption")
+        .or("status.eq.pending,status.eq.pendente")
+        .order("created_at", { ascending: false })
+
+      if (!petsError) {
+        pets = petsData || []
+      }
+
+      // Buscar pets perdidos pendentes
+      const { data: lostPetsData, error: lostPetsError } = await supabaseInstance
+        .from("pets")
+        .select("*")
+        .eq("category", "lost")
+        .or("status.eq.pending,status.eq.pendente")
+        .order("created_at", { ascending: false })
+
+      if (!lostPetsError) {
+        lostPets = lostPetsData || []
+      }
+
+      // Buscar pets encontrados pendentes
+      const { data: foundPetsData, error: foundPetsError } = await supabaseInstance
+        .from("pets")
+        .select("*")
+        .eq("category", "found")
+        .or("status.eq.pending,status.eq.pendente")
+        .order("created_at", { ascending: false })
+
+      if (!foundPetsError) {
+        foundPets = foundPetsData || []
+      }
+    }
+
+    if (eventsTableExists) {
+      // Buscar eventos pendentes
+      const { data: eventsData, error: eventsError } = await supabaseInstance
+        .from("events")
+        .select("*")
+        .or("status.eq.pending,status.eq.pendente")
+        .order("created_at", { ascending: false })
+
+      if (!eventsError) {
+        events = eventsData || []
+      }
+    }
+
+    console.log("Itens pendentes encontrados:", {
+      pets: pets.length,
+      lostPets: lostPets.length,
+      foundPets: foundPets.length,
+      events: events.length,
+    })
+
+    return {
+      pets,
+      lostPets,
+      foundPets,
+      events,
+    }
+  } catch (error) {
+    console.error("Erro ao buscar itens pendentes:", error)
+    // Retornar arrays vazios em caso de erro para evitar quebrar a página
+    return {
+      pets: [],
+      lostPets: [],
+      foundPets: [],
+      events: [],
+    }
+  }
+}
+
+export async function getUserStats(userId: string): Promise<UserStats | null> {
+  try {
+    console.log("Buscando estatísticas para o usuário:", userId)
+
+    // Verificar se a tabela pets existe
+    const petsTableExists = await checkTableExists("pets")
+    if (!petsTableExists) {
+      console.error("Tabela pets não existe")
+      return null
+    }
+
+    // Buscar contagem de pets para adoção
+    const { count: adoptionCount, error: adoptionError } = await supabase
+      .from("pets")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("category", "adoption")
+
+    // Buscar contagem de pets perdidos
+    const { count: lostCount, error: lostError } = await supabase
+      .from("pets")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("category", "lost")
+
+    // Buscar contagem de pets encontrados
+    const { count: foundCount, error: foundError } = await supabase
+      .from("pets")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("category", "found")
+
+    // Buscar pets recentes do usuário (todos os tipos)
+    const { data: recentPets, error: recentError } = await supabase
+      .from("pets")
+      .select("id, name, main_image_url, created_at, status, category")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(5)
+
+    if (adoptionError || lostError || foundError || recentError) {
+      console.error("Erro ao buscar estatísticas do usuário:", {
+        adoptionError,
+        lostError,
+        foundError,
+        recentError,
+      })
+    }
+
+    console.log("Pets recentes encontrados:", recentPets?.length || 0)
+
+    return {
+      adoptionCount: adoptionCount || 0,
+      lostCount: lostCount || 0,
+      foundCount: foundCount || 0,
+      totalCount: (adoptionCount || 0) + (lostCount || 0) + (foundCount || 0),
+      recentPets: recentPets || [],
+    }
+  } catch (error) {
+    console.error("Erro ao buscar estatísticas do usuário:", error)
+    return null
+  }
+}
+
+export async function getPetById(id: string): Promise<Pet | null> {
+  try {
+    // Verificar se a tabela pets existe
+    const petsTableExists = await checkTableExists("pets")
+    if (!petsTableExists) {
+      console.error("Tabela pets não existe")
+      return null
+    }
+
+    const { data, error } = await supabase.from("pets").select(`*`).eq("id", id).single()
+
+    if (error) {
+      console.error("Error fetching pet by ID:", error)
+      return null
+    }
+
+    return data || null
+  } catch (error) {
+    console.error("Error fetching pet by ID:", error)
+    return null
+  }
+}
+
+export async function getEventById(id: string): Promise<Event | null> {
+  try {
+    // Verificar se a tabela events existe
+    const eventsTableExists = await checkTableExists("events")
+    if (!eventsTableExists) {
+      console.error("Tabela events não existe")
+      return null
+    }
+
+    const { data, error } = await supabase.from("events").select(`*`).eq("id", id).single()
+
+    if (error) {
+      console.error("Error fetching event by ID:", error)
+      return null
+    }
+
+    return data || null
+  } catch (error) {
+    console.error("Error fetching event by ID:", error)
+    return null
+  }
+}
+
+export async function getOngById(id: string): Promise<Ong | null> {
+  try {
+    // Verificar se o ID é válido
+    if (!id || id === "undefined" || id === "null") {
+      console.error("ID de ONG inválido fornecido:", id)
+      return null
+    }
+
+    // Verificar se a tabela users existe
+    const usersTableExists = await checkTableExists("users")
+    if (!usersTableExists) {
+      console.error("Tabela users não existe")
+      return null
+    }
+
+    const { data, error } = await supabase.from("users").select(`*`).eq("id", id).eq("type", "ngo_admin").single()
+
+    if (error) {
+      console.error("Error fetching ong by ID:", error)
+      return null
+    }
+
+    return data || null
+  } catch (error) {
+    console.error("Error fetching ong by ID:", error)
+    return null
+  }
+}
+
+export async function getUserPets(userId: string): Promise<{
+  adoptionPets: Pet[]
+  lostPets: Pet[]
+  foundPets: Pet[]
+  resolvedPets: Pet[] // Pets que foram 'adopted', 'resolved' (para lost), ou 'reunited' (para found)
+}> {
+  try {
+    const petsTableExists = await checkTableExists("pets")
+    if (!petsTableExists) {
+      console.error("Tabela pets não existe")
+      return { adoptionPets: [], lostPets: [], foundPets: [], resolvedPets: [] }
+    }
+
+    const { data: userPets, error } = await supabase
+      .from("pets")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Erro ao buscar pets do usuário:", error)
+      return { adoptionPets: [], lostPets: [], foundPets: [], resolvedPets: [] }
+    }
+
+    const adoptionPets: Pet[] = []
+    const lostPets: Pet[] = []
+    const foundPets: Pet[] = []
+    const resolvedPets: Pet[] = []
+    ;(userPets || []).forEach((pet) => {
+      if (pet.category === "adoption") {
+        if (pet.status === "adopted") {
+          resolvedPets.push({ ...pet, resolvedType: "adopted", type: "adoption" })
+        } else {
+          adoptionPets.push(pet)
+        }
+      } else if (pet.category === "lost") {
+        if (pet.status === "resolved" || pet.status === "found") {
+          // 'found' as status for lost pet means resolved
+          resolvedPets.push({ ...pet, resolvedType: "found", type: "lost" })
+        } else {
+          lostPets.push(pet)
+        }
+      } else if (pet.category === "found") {
+        if (pet.status === "reunited") {
+          resolvedPets.push({ ...pet, resolvedType: "reunited", type: "found" })
+        } else {
+          foundPets.push(pet)
+        }
+      }
+    })
+
+    return { adoptionPets, lostPets, foundPets, resolvedPets }
+  } catch (error) {
+    console.error("Erro inesperado ao buscar pets do usuário:", error)
+    return { adoptionPets: [], lostPets: [], foundPets: [], resolvedPets: [] }
+  }
+}
+
+export async function deleteUserPet(
+  petId: string,
+  userId: string,
+  petType: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log("Função deleteUserPet chamada com:", { petId, userId, petType })
+
+    // Verificar se a tabela pets existe
+    const petsTableExists = await checkTableExists("pets")
+    if (!petsTableExists) {
+      console.error("Tabela pets não existe")
+      return { success: false, error: "Tabela de pets não encontrada" }
+    }
+
+    // Verificar se o pet pertence ao usuário
+    const { data: pet, error: fetchError } = await supabase
+      .from("pets")
+      .select("*")
+      .eq("id", petId)
+      .eq("user_id", userId)
+      .single()
+
+    if (fetchError) {
+      console.error(`Erro ao verificar pet:`, fetchError)
+      return { success: false, error: fetchError.message }
+    }
+
+    if (!pet) {
+      console.error(`Pet não encontrado ou não pertence ao usuário:`, { petId, userId })
+      return { success: false, error: "Pet não encontrado ou você não tem permissão para excluí-lo" }
+    }
+
+    console.log(`Pet encontrado, prosseguindo com a exclusão:`, pet)
+
+    const { error } = await supabase.from("pets").delete().eq("id", petId).eq("user_id", userId)
+
+    if (error) {
+      console.error(`Erro ao excluir pet:`, error)
+      return { success: false, error: error.message }
+    }
+
+    console.log(`Pet excluído com sucesso`)
+    return { success: true }
+  } catch (error) {
+    console.error(`Erro ao excluir pet:`, error)
+    return { success: false, error: "Ocorreu um erro ao excluir o pet." }
+  }
+}
+
+// Função para verificar pets de um usuário diretamente
+export async function checkUserPetsDirectly(email: string) {
+  try {
+    // Verificar se o email foi fornecido
+    if (!email) {
+      return {
+        success: false,
+        error: "Email não fornecido",
+      }
+    }
+
+    // Verificar se a tabela users existe
+    const usersTableExists = await checkTableExists("users")
+    if (!usersTableExists) {
+      return {
+        success: false,
+        error: "Tabela de usuários não encontrada",
+      }
+    }
+
+    // Buscar o usuário pelo email
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("id, email")
+      .eq("email", email)
+      .single()
+
+    if (userError) {
+      return {
+        success: false,
+        error: `Usuário não encontrado: ${userError.message}`,
+      }
+    }
+
+    // Verificar se a tabela pets existe
+    const petsTableExists = await checkTableExists("pets")
+    if (!petsTableExists) {
+      return {
+        success: true,
+        userId: userData.id,
+        email: userData.email,
+        pets: {
+          adoption: [],
+          lost: [],
+          found: [],
+        },
+      }
+    }
+
+    // Buscar pets para adoção do usuário
+    const { data: adoptionPets, error: adoptionError } = await supabase
+      .from("pets")
+      .select("id, name, species, status")
+      .eq("user_id", userData.id)
+      .eq("category", "adoption")
+
+    // Buscar pets perdidos do usuário
+    const { data: lostPets, error: lostError } = await supabase
+      .from("pets")
+      .select("id, name, species, status")
+      .eq("user_id", userData.id)
+      .eq("category", "lost")
+
+    // Buscar pets encontrados do usuário
+    const { data: foundPets, error: foundError } = await supabase
+      .from("pets")
+      .select("id, name, species, status")
+      .eq("user_id", userData.id)
+      .eq("category", "found")
+
+    return {
+      success: true,
+      userId: userData.id,
+      email: userData.email,
+      pets: {
+        adoption: adoptionPets || [],
+        lost: lostPets || [],
+        found: foundPets || [],
+      },
+    }
+  } catch (error) {
+    console.error("Erro ao verificar pets:", error)
+    return {
+      success: false,
+      error: "Erro ao verificar pets",
+    }
+  }
+}
+
+// Função para criar um pet de teste
+export async function createTestPet(userId: string) {
+  try {
+    // Verificar se o ID do usuário foi fornecido
+    if (!userId) {
+      return {
+        success: false,
+        error: "ID do usuário não fornecido",
+      }
+    }
+
+    // Verificar se a tabela users existe
+    const usersTableExists = await checkTableExists("users")
+    if (!usersTableExists) {
+      return {
+        success: false,
+        error: "Tabela de usuários não encontrada",
+      }
+    }
+
+    // Verificar se a tabela pets existe
+    const petsTableExists = await checkTableExists("pets")
+    if (!petsTableExists) {
+      return {
+        success: false,
+        error: "Tabela de pets não encontrada",
+      }
+    }
+
+    // Verificar se o usuário existe na tabela users
+    const { data: userData, error: userError } = await supabase.from("users").select("id").eq("id", userId).single()
+
+    if (userError) {
+      // Se o usuário não existir, criar um registro na tabela users
+      const { data: newUser, error: createUserError } = await supabase
+        .from("users")
+        .insert([
+          {
+            id: userId,
+            name: "Usuário de Teste",
+            email: "teste@exemplo.com",
+          },
+        ])
+        .select()
+
+      if (createUserError) {
+        return {
+          success: false,
+          error: `Erro ao criar usuário: ${createUserError.message}`,
+        }
+      }
+    }
+
+    // Criar um pet perdido de teste
+    const { data: newPet, error: petError } = await supabase
+      .from("pets")
+      .insert([
+        {
+          name: "Pet de Teste",
+          species: "dog",
+          breed: "Vira-lata",
+          age: "adult",
+          size: "medium",
+          gender: "male",
+          color: "brown",
+          description: "Este é um pet de teste criado automaticamente.",
+          lost_date: new Date().toISOString(),
+          location_details: "Rua de Teste, 123",
+          contact_email: "teste@exemplo.com",
+          main_image_url: "/golden-retriever-park.png",
+          status: "pending",
+          category: "lost",
+          user_id: userId,
+        },
+      ])
+      .select()
+
+    if (petError) {
+      return {
+        success: false,
+        error: `Erro ao criar pet de teste: ${petError.message}`,
+      }
+    }
+
+    return {
+      success: true,
+      petId: newPet[0].id,
+      message: "Pet de teste criado com sucesso",
+    }
+  } catch (error) {
+    console.error("Erro ao criar pet de teste:", error)
+    return {
+      success: false,
+      error: "Erro ao criar pet de teste",
+    }
+  }
+}
+
+// Adicionar após as funções existentes
+
+export async function getApprovedStories(limit = 3) {
+  try {
+    console.log("Buscando histórias aprovadas")
+
+    // Verificar se a tabela pet_stories existe
+    const storiesTableExists = await checkTableExists("pet_stories")
+    if (!storiesTableExists) {
+      console.log("Tabela pet_stories não existe")
+      return []
+    }
+
+    const { data, error } = await supabase
+      .from("pet_stories")
+      .select(`*`)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(limit)
+
+    if (error) {
+      console.error("Erro ao buscar histórias aprovadas:", error)
+      return []
+    }
+
+    console.log(`Encontradas ${data.length} histórias aprovadas`)
+    return data || []
+  } catch (error) {
+    console.error("Erro ao buscar histórias aprovadas:", error)
+    return []
+  }
+}
+
+// Adicionar função para buscar evento por slug ou id
+
+// Function to get lost pet by ID or slug
+export async function getLostPetById(idOrSlug: string) {
+  try {
+    // Verificar se a tabela pets existe
+    const petsTableExists = await checkTableExists("pets")
+    if (!petsTableExists) {
+      console.error("Tabela pets não existe")
+      return null
+    }
+
+    const isUuidValue = isUuid(idOrSlug)
+
+    const { data, error } = await supabase
+      .from("pets")
+      .select(`*`)
+      .eq("category", "lost")
+      .eq(isUuidValue ? "id" : "slug", idOrSlug)
+      .single()
+
+    if (error) {
+      console.error("Error fetching lost pet by ID:", error)
+      return null
+    }
+
+    return data || null
+  } catch (error) {
+    console.error("Error fetching lost pet by ID:", error)
+    return null
+  }
+}
+
+// Function to get found pet by ID or slug
+export async function getFoundPetById(idOrSlug: string) {
+  try {
+    // Verificar se a tabela pets existe
+    const petsTableExists = await checkTableExists("pets")
+    if (!petsTableExists) {
+      console.error("Tabela pets não existe")
+      return null
+    }
+
+    const isUuidValue = isUuid(idOrSlug)
+
+    const { data, error } = await supabase
+      .from("pets")
+      .select(`*`)
+      .eq("category", "found")
+      .eq(isUuidValue ? "id" : "slug", idOrSlug)
+      .single()
+
+    if (error) {
+      console.error("Error fetching found pet by ID:", error)
+      return null
+    }
+
+    return data || null
+  } catch (error) {
+    console.error("Error fetching found pet by ID:", error)
+    return null
+  }
+}
+
+// Function to get event by slug or ID
+export async function getEventBySlugOrId(slugOrId: string) {
+  const supabase = createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+  let query = supabase.from("events").select("*").limit(1)
+
+  if (isNaN(Number(slugOrId))) {
+    // É um slug
     query = query.eq("slug", slugOrId)
+  } else {
+    // É um ID
+    query = query.eq("id", slugOrId)
   }
 
   const { data, error } = await query.single()
@@ -150,275 +1151,6 @@ export async function getEventBySlugOrId(slugOrId: string) {
     console.error("Erro ao buscar evento por slug ou ID:", error)
     return null
   }
-  return data
-}
 
-export async function getSuccessStories(page = 1, limit = 10) {
-  const offset = (page - 1) * limit
-  const { data, error, count } = await supabase
-    .from("success_stories")
-    .select("*")
-    .eq("status", "approved")
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1)
-    .limit(limit)
-
-  if (error) {
-    console.error("Erro ao buscar histórias de sucesso:", error)
-    return { data: [], count: 0 }
-  }
-  return { data, count: count || 0 }
-}
-
-export async function getSuccessStoryById(id: string) {
-  const { data, error } = await supabase
-    .from("success_stories")
-    .select("*")
-    .eq("id", id)
-    .eq("status", "approved")
-    .single()
-
-  if (error) {
-    console.error("Erro ao buscar história de sucesso por ID:", error)
-    return null
-  }
-  return data
-}
-
-export async function getPartners(page = 1, limit = 10) {
-  const offset = (page - 1) * limit
-  const { data, error, count } = await supabase
-    .from("partners")
-    .select("*")
-    .eq("status", "approved")
-    .order("name", { ascending: true })
-    .range(offset, offset + limit - 1)
-    .limit(limit)
-
-  if (error) {
-    console.error("Erro ao buscar parceiros:", error)
-    return { data: [], count: 0 }
-  }
-  return { data, count: count || 0 }
-}
-
-export async function getPartnerById(id: string) {
-  const { data, error } = await supabase.from("partners").select("*").eq("id", id).eq("status", "approved").single()
-
-  if (error) {
-    console.error("Erro ao buscar parceiro por ID:", error)
-    return null
-  }
-  return data
-}
-
-export async function getUserPets(userId: string) {
-  const { data, error } = await supabase
-    .from("pets")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Erro ao buscar pets do usuário:", error)
-    return []
-  }
-  return data
-}
-
-export async function getUserEvents(userId: string) {
-  const { data, error } = await supabase
-    .from("events")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Erro ao buscar eventos do usuário:", error)
-    return []
-  }
-  return data
-}
-
-export async function getUserSuccessStories(userId: string) {
-  const { data, error } = await supabase
-    .from("success_stories")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Erro ao buscar histórias de sucesso do usuário:", error)
-    return []
-  }
-  return data
-}
-
-export async function getModerationKeywords() {
-  const { data, error } = await supabase.from("moderation_keywords").select("keyword")
-
-  if (error) {
-    console.error("Erro ao buscar palavras-chave de moderação:", error)
-    return []
-  }
-  return data.map((row) => row.keyword)
-}
-
-export async function getModerationSettings() {
-  const { data, error } = await supabase
-    .from("settings")
-    .select("value")
-    .eq("key", "keyword_moderation_enabled")
-    .single()
-
-  if (error) {
-    console.error("Erro ao buscar configuração de moderação:", error)
-    return { keyword_moderation_enabled: false }
-  }
-  return { keyword_moderation_enabled: data?.value === "true" }
-}
-
-export async function getAdminUsers() {
-  const { data, error } = await supabase
-    .from("users")
-    .select("id, name, email, type, is_admin, is_verified")
-    .or("type.eq.admin,type.eq.ngo_admin")
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Erro ao buscar usuários admin:", error)
-    return []
-  }
-  return data
-}
-
-export async function getUserById(id: string) {
-  const { data, error } = await supabase.from("users").select("*").eq("id", id).single()
-
-  if (error) {
-    console.error("Erro ao buscar usuário por ID:", error)
-    return null
-  }
-  return data
-}
-
-export async function getOngsForAdmin() {
-  const { data, error } = await supabase
-    .from("users")
-    .select("id, name, email, type, is_ong_verified, cnpj, logo_url, city, state")
-    .eq("type", "ngo_admin")
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Erro ao buscar ONGs para admin:", error)
-    return []
-  }
-  return data
-}
-
-export async function getOngByIdForAdmin(id: string) {
-  const { data, error } = await supabase
-    .from("users")
-    .select("*, pets(*)") // Inclui pets relacionados
-    .eq("id", id)
-    .eq("type", "ngo_admin")
-    .single()
-
-  if (error) {
-    console.error("Erro ao buscar ONG por ID para admin:", error)
-    return null
-  }
-  return data
-}
-
-export async function getEventsForAdmin() {
-  const { data, error } = await supabase
-    .from("events")
-    .select("id, name, status, start_date, city, state, created_at")
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Erro ao buscar eventos para admin:", error)
-    return []
-  }
-  return data
-}
-
-export async function getEventByIdForAdmin(id: string) {
-  const { data, error } = await supabase.from("events").select("*").eq("id", id).single()
-
-  if (error) {
-    console.error("Erro ao buscar evento por ID para admin:", error)
-    return null
-  }
-  return data
-}
-
-export async function getPetsForAdmin() {
-  const { data, error } = await supabase
-    .from("pets")
-    .select("id, name, type, status, city, state, created_at")
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Erro ao buscar pets para admin:", error)
-    return []
-  }
-  return data
-}
-
-export async function getPetByIdForAdmin(id: string) {
-  const { data, error } = await supabase.from("pets").select("*").eq("id", id).single()
-
-  if (error) {
-    console.error("Erro ao buscar pet por ID para admin:", error)
-    return null
-  }
-  return data
-}
-
-export async function getPartnersForAdmin() {
-  const { data, error } = await supabase
-    .from("partners")
-    .select("id, name, status, created_at")
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Erro ao buscar parceiros para admin:", error)
-    return []
-  }
-  return data
-}
-
-export async function getPartnerByIdForAdmin(id: string) {
-  const { data, error } = await supabase.from("partners").select("*").eq("id", id).single()
-
-  if (error) {
-    console.error("Erro ao buscar parceiro por ID para admin:", error)
-    return null
-  }
-  return data
-}
-
-export async function getSuccessStoriesForAdmin() {
-  const { data, error } = await supabase
-    .from("success_stories")
-    .select("id, title, status, created_at")
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    console.error("Erro ao buscar histórias de sucesso para admin:", error)
-    return []
-  }
-  return data
-}
-
-export async function getSuccessStoryByIdForAdmin(id: string) {
-  const { data, error } = await supabase.from("success_stories").select("*").eq("id", id).single()
-
-  if (error) {
-    console.error("Erro ao buscar história de sucesso por ID para admin:", error)
-    return null
-  }
   return data
 }
