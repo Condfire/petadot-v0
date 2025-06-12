@@ -108,11 +108,7 @@ export default async function AdminOngDetailsPage({ params }: { params: { id: st
                   </div>
                 </div>
                 <div>
-                  {ong.is_verified ? (
-                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Verificada</Badge>
-                  ) : (
-                    <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pendente</Badge>
-                  )}
+                  <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Cadastrada</Badge>
                 </div>
               </div>
             </CardHeader>

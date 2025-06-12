@@ -160,7 +160,7 @@ export default function OngDashboardPage() {
             <CardTitle className="text-sm font-medium">Status da ONG</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{ong?.is_verified ? "Verificada" : "Pendente"}</div>
+            <div className="text-2xl font-bold">Cadastrada</div>
           </CardContent>
         </Card>
       </div>

@@ -620,50 +620,6 @@ export async function createEvent(eventData: EventFormData) {
   }
 }
 
-// Função para verificar uma ONG
-export async function verifyOng(ongId: string) {
-  const supabase = createServerComponentClient({ cookies })
-
-  try {
-    // Verificar se o usuário é um administrador
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (!session) {
-      return { success: false, error: "Usuário não autenticado" }
-    }
-
-    const { data: user, error: userError } = await supabase
-      .from("users")
-      .select("is_admin")
-      .eq("id", session.user.id)
-      .single()
-
-    if (userError || !user?.is_admin) {
-      return { success: false, error: "Usuário não autorizado" }
-    }
-
-    // Atualizar ONG
-    const { error: updateError } = await supabase.from("ongs").update({ is_verified: true }).eq("id", ongId)
-
-    if (updateError) {
-      console.error("Erro ao verificar ONG:", updateError)
-      return { success: false, error: "Erro ao verificar ONG" }
-    }
-
-    // Revalidar páginas
-    revalidatePath("/ongs")
-    revalidatePath(`/ongs/${ongId}`)
-    revalidatePath("/admin/ongs")
-    revalidatePath(`/admin/ongs/${ongId}`)
-
-    return { success: true }
-  } catch (error) {
-    console.error("Erro ao verificar ONG:", error)
-    return { success: false, error: "Erro ao processar solicitação" }
-  }
-}
 
 // Função para excluir uma ONG
 export async function deleteOng(ongId: string) {

@@ -32,7 +32,6 @@ export async function getSystemStats() {
     const { count: ongsCount, error: ongsError } = await supabase
       .from("ongs")
       .select("*", { count: "exact", head: true })
-      .eq("is_verified", true)
 
     // Contar histórias
     const { count: storiesCount, error: storiesError } = await supabase
@@ -125,7 +124,7 @@ export async function getPetsBySpeciesStats() {
 export async function getOngsByStateStats() {
   try {
     // Contar ONGs por estado
-    const { data, error } = await supabase.from("ongs").select("state").eq("is_verified", true)
+    const { data, error } = await supabase.from("ongs").select("state")
 
     if (error) {
       throw error
