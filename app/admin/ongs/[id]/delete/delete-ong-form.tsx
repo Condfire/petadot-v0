@@ -9,7 +9,15 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeftIcon, AlertTriangleIcon, CheckIcon, Loader2Icon } from "lucide-react"
 import { toast } from "sonner"
 
-export function AdminDeleteOngForm({ ong, petCount }: { ong: any; petCount: number }) {
+export function AdminDeleteOngForm({
+  ong,
+  petCount,
+  eventCount,
+}: {
+  ong: any
+  petCount: number
+  eventCount: number
+}) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDeleted, setIsDeleted] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,6 +39,23 @@ export function AdminDeleteOngForm({ ong, petCount }: { ong: any; petCount: numb
         if (petsDeleteError) {
           console.error("Erro ao excluir pets da ONG:", petsDeleteError)
           setError("Erro ao excluir pets da ONG: " + petsDeleteError.message)
+          setIsDeleting(false)
+          return
+        }
+      }
+
+      // Excluir todos os eventos associados à ONG
+      if (eventCount > 0) {
+        const { error: eventsDeleteError } = await supabase
+          .from("events")
+          .delete()
+          .eq("ong_id", ong.id)
+
+        if (eventsDeleteError) {
+          console.error("Erro ao excluir eventos da ONG:", eventsDeleteError)
+          setError(
+            "Erro ao excluir eventos da ONG: " + eventsDeleteError.message
+          )
           setIsDeleting(false)
           return
         }
@@ -120,6 +145,11 @@ export function AdminDeleteOngForm({ ong, petCount }: { ong: any; petCount: numb
                 <p className="mt-2 font-medium text-red-600">
                   Esta ONG possui {petCount} {petCount === 1 ? "pet cadastrado" : "pets cadastrados"} que também serão
                   excluídos!
+                </p>
+              )}
+              {eventCount > 0 && (
+                <p className="mt-1 font-medium text-red-600">
+                  Além disso, {eventCount === 1 ? "1 evento" : `${eventCount} eventos`} associados serão removidos.
                 </p>
               )}
             </div>
