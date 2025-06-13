@@ -18,6 +18,8 @@ interface EventCardProps {
   end_date?: string
   event_type?: string
   slug?: string
+  /** Mostrar botão de exclusão (para admins) */
+  showDeleteButton?: boolean
 }
 
 export function EventCard({
@@ -33,12 +35,59 @@ export function EventCard({
   end_date,
   event_type,
   slug,
+  showDeleteButton = false,
 }: EventCardProps) {
   const displayLocation = location || (city && state ? `${city}, ${state}` : city || state)
   const displayDate = formatDateTime(start_date)
   const displayEventType = mapEventType(event_type)
 
   const detailUrl = slug ? `/eventos/${slug}` : `/eventos/${id}`
+  if (showDeleteButton) {
+    return (
+      <Card className="overflow-hidden h-full flex flex-col hover:shadow-lg transition-shadow duration-200">
+        <Link href={detailUrl} className="block">
+          <div className="relative w-full h-48">
+            <Image
+              src={image_url || "/placeholder.svg?height=192&width=384&text=Evento"}
+              alt={name}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              priority={false}
+              unoptimized={image_url?.includes("placeholder.svg")}
+            />
+            {event_type && (
+              <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground">{displayEventType}</Badge>
+            )}
+          </div>
+        </Link>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl font-bold line-clamp-2">{name}</CardTitle>
+          <CardDescription className="flex items-center gap-1 text-sm">
+            <CalendarDays className="w-4 h-4" />
+            {displayDate}
+          </CardDescription>
+          {displayLocation && (
+            <CardDescription className="flex items-center gap-1 text-sm">
+              <MapPin className="w-4 h-4" />
+              {displayLocation}
+            </CardDescription>
+          )}
+        </CardHeader>
+        <CardContent className="flex-grow">
+          <p className="text-sm text-muted-foreground line-clamp-3">{description}</p>
+        </CardContent>
+        <CardFooter className="justify-between">
+          <Button variant="outline" asChild>
+            <Link href={detailUrl}>Ver Detalhes</Link>
+          </Button>
+          <Button variant="destructive" size="sm" asChild>
+            <Link href={`/admin/events/${id}/delete`}>Excluir</Link>
+          </Button>
+        </CardFooter>
+      </Card>
+    )
+  }
 
   return (
     <Link href={detailUrl} className="block">

@@ -17,6 +17,7 @@ export default async function AdminEventsPage({ searchParams }: { searchParams: 
         currentPage={page}
         pageSize={10}
         initialFilters={{}}
+        adminView
       />
     </div>
   )
