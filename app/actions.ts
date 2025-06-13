@@ -732,6 +732,52 @@ export async function deleteOng(ongId: string) {
   }
 }
 
+// Função para excluir um evento (admin)
+export async function deleteEventAdmin(eventId: string) {
+  const supabase = createServerComponentClient({ cookies })
+
+  try {
+    // Verificar se o usuário é um administrador
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session) {
+      return { success: false, error: "Usuário não autenticado" }
+    }
+
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("is_admin")
+      .eq("id", session.user.id)
+      .single()
+
+    if (userError || !user?.is_admin) {
+      return { success: false, error: "Usuário não autorizado" }
+    }
+
+    // Excluir o evento
+    const { error: deleteError } = await supabase
+      .from("events")
+      .delete()
+      .eq("id", eventId)
+
+    if (deleteError) {
+      console.error("Erro ao excluir evento:", deleteError)
+      return { success: false, error: "Erro ao excluir evento" }
+    }
+
+    // Revalidar páginas relacionadas
+    revalidatePath("/eventos")
+    revalidatePath("/admin/events")
+
+    return { success: true }
+  } catch (error) {
+    console.error("Erro ao excluir evento:", error)
+    return { success: false, error: "Erro ao processar solicitação" }
+  }
+}
+
 // Update the approveItem function
 export async function approveItem(itemId: string, type: "adoption" | "event" | "lost" | "found") {
   const supabase = createServerComponentClient({ cookies })

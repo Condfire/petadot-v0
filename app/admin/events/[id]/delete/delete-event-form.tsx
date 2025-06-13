@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { deleteEventAdmin } from "@/app/actions"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowLeftIcon, AlertTriangleIcon, CheckIcon, Loader2Icon, CalendarIcon, MapPinIcon } from "lucide-react"
@@ -11,43 +11,31 @@ import { toast } from "sonner"
 import { formatDate } from "@/lib/utils"
 
 export function AdminDeleteEventForm({ event }: { event: any }) {
-  const [isDeleting, setIsDeleting] = useState(false)
   const [isDeleted, setIsDeleted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
   const router = useRouter()
-  const supabase = createClientComponentClient()
 
-  async function handleDelete() {
-    setIsDeleting(true)
+  const handleDelete = () => {
     setError(null)
-
-    try {
-      // Excluir o evento
-      const { error } = await supabase.from("events").delete().eq("id", event.id)
-
-      if (error) {
-        console.error("Erro ao excluir evento:", error)
-        setError("Erro ao excluir evento: " + error.message)
-        setIsDeleting(false)
-        return
+    startTransition(async () => {
+      try {
+        const result = await deleteEventAdmin(event.id)
+        if (result.success) {
+          setIsDeleted(true)
+          toast.success("Evento excluído com sucesso!")
+          router.refresh()
+          setTimeout(() => {
+            router.push("/admin/events")
+          }, 2000)
+        } else {
+          setError(result.error || "Erro ao excluir evento")
+        }
+      } catch (err) {
+        console.error("Erro ao excluir evento:", err)
+        setError("Erro ao excluir evento")
       }
-
-      // Sucesso!
-      setIsDeleted(true)
-      toast.success("Evento excluído com sucesso!")
-
-      // Atualiza a lista de eventos
-      router.refresh()
-
-      // Redirecionar após 2 segundos
-      setTimeout(() => {
-        router.push("/admin/events")
-      }, 2000)
-    } catch (error) {
-      console.error("Erro ao excluir evento:", error)
-      setError("Erro ao excluir evento")
-      setIsDeleting(false)
-    }
+    })
   }
 
   if (isDeleted) {
@@ -121,8 +109,8 @@ export function AdminDeleteEventForm({ event }: { event: any }) {
             )}
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button onClick={handleDelete} variant="destructive" className="w-full" disabled={isDeleting}>
-              {isDeleting ? (
+            <Button onClick={handleDelete} variant="destructive" className="w-full" disabled={isPending}>
+              {isPending ? (
                 <>
                   <Loader2Icon className="mr-2 h-4 w-4 animate-spin" /> Excluindo...
                 </>
@@ -130,7 +118,7 @@ export function AdminDeleteEventForm({ event }: { event: any }) {
                 "Confirmar Exclusão"
               )}
             </Button>
-            <Button variant="outline" className="w-full" asChild disabled={isDeleting}>
+            <Button variant="outline" className="w-full" asChild disabled={isPending}>
               <Link href={`/admin/events/${event.id}`}>Cancelar</Link>
             </Button>
           </CardFooter>
