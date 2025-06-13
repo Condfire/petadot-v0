@@ -53,9 +53,21 @@ export default async function DeleteOngPage({ params }: { params: { id: string }
 
   const petCount = pets?.length || 0
 
+  // Buscar eventos da ONG
+  const { data: events, error: eventsError } = await supabase
+    .from("events")
+    .select("id")
+    .eq("ong_id", id)
+
+  if (eventsError) {
+    console.error("Erro ao buscar eventos da ONG:", eventsError)
+  }
+
+  const eventCount = events?.length || 0
+
   return (
     <div className="container py-8">
-      <AdminDeleteOngForm ong={ong} petCount={petCount} />
+      <AdminDeleteOngForm ong={ong} petCount={petCount} eventCount={eventCount} />
     </div>
   )
 }
