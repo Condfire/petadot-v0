@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { deleteOng } from "@/app/actions"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowLeftIcon, AlertTriangleIcon, CheckIcon, Loader2Icon } from "lucide-react"
@@ -18,75 +18,34 @@ export function AdminDeleteOngForm({
   petCount: number
   eventCount: number
 }) {
-  const [isDeleting, setIsDeleting] = useState(false)
   const [isDeleted, setIsDeleted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
   const router = useRouter()
-  const supabase = createClientComponentClient()
 
-  async function handleDelete() {
-    setIsDeleting(true)
+  const handleDelete = () => {
     setError(null)
+    startTransition(async () => {
+      try {
+        const result = await deleteOng(ong.id)
 
-    try {
-      // Primeiro excluir todos os pets da ONG
-      if (petCount > 0) {
-        const { error: petsDeleteError } = await supabase
-          .from("pets")
-          .delete()
-          .eq("ong_id", ong.id)
+        if (result.success) {
+          setIsDeleted(true)
+          toast.success("ONG excluída com sucesso!")
 
-        if (petsDeleteError) {
-          console.error("Erro ao excluir pets da ONG:", petsDeleteError)
-          setError("Erro ao excluir pets da ONG: " + petsDeleteError.message)
-          setIsDeleting(false)
-          return
+          router.refresh()
+
+          setTimeout(() => {
+            router.push("/admin/ongs")
+          }, 2000)
+        } else {
+          setError(result.error || "Erro ao excluir ONG")
         }
+      } catch (err) {
+        console.error("Erro ao excluir ONG:", err)
+        setError("Erro ao excluir ONG")
       }
-
-      // Excluir todos os eventos associados à ONG
-      if (eventCount > 0) {
-        const { error: eventsDeleteError } = await supabase
-          .from("events")
-          .delete()
-          .eq("ong_id", ong.id)
-
-        if (eventsDeleteError) {
-          console.error("Erro ao excluir eventos da ONG:", eventsDeleteError)
-          setError(
-            "Erro ao excluir eventos da ONG: " + eventsDeleteError.message
-          )
-          setIsDeleting(false)
-          return
-        }
-      }
-
-      // Depois excluir a ONG
-      const { error } = await supabase.from("ongs").delete().eq("id", ong.id)
-
-      if (error) {
-        console.error("Erro ao excluir ONG:", error)
-        setError("Erro ao excluir ONG: " + error.message)
-        setIsDeleting(false)
-        return
-      }
-
-      // Sucesso!
-      setIsDeleted(true)
-      toast.success("ONG excluída com sucesso!")
-
-      // Atualiza a lista de ONGs
-      router.refresh()
-
-      // Redirecionar após 2 segundos
-      setTimeout(() => {
-        router.push("/admin/ongs")
-      }, 2000)
-    } catch (error) {
-      console.error("Erro ao excluir ONG:", error)
-      setError("Erro ao excluir ONG")
-      setIsDeleting(false)
-    }
+    })
   }
 
   if (isDeleted) {
@@ -167,8 +126,8 @@ export function AdminDeleteOngForm({
             )}
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button onClick={handleDelete} variant="destructive" className="w-full" disabled={isDeleting}>
-              {isDeleting ? (
+            <Button onClick={handleDelete} variant="destructive" className="w-full" disabled={isPending}>
+              {isPending ? (
                 <>
                   <Loader2Icon className="mr-2 h-4 w-4 animate-spin" /> Excluindo...
                 </>
@@ -176,7 +135,7 @@ export function AdminDeleteOngForm({
                 "Confirmar Exclusão"
               )}
             </Button>
-            <Button variant="outline" className="w-full" asChild disabled={isDeleting}>
+            <Button variant="outline" className="w-full" asChild disabled={isPending}>
               <Link href={`/admin/ongs/${ong.id}`}>Cancelar</Link>
             </Button>
           </CardFooter>
