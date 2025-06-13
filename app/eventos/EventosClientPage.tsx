@@ -39,6 +39,7 @@ interface EventosClientPageProps {
     state?: string
     start_date?: string
   }
+  adminView?: boolean
 }
 
 export function EventosClientPage({
@@ -48,6 +49,7 @@ export function EventosClientPage({
   currentPage,
   pageSize,
   initialFilters,
+  adminView = false,
 }: EventosClientPageProps) {
   const [eventos, setEventos] = useState<Evento[]>(initialEvents)
   const [search, setSearch] = useState(initialFilters.name || "")
@@ -214,7 +216,7 @@ export function EventosClientPage({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {eventos.map((evento) => (
-            <EventCard key={evento.id} {...evento} />
+            <EventCard key={evento.id} {...evento} showDeleteButton={adminView} />
           ))}
         </div>
       )}
