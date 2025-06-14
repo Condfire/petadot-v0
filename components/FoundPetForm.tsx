@@ -16,7 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, XCircle } from "lucide-react"
 import ImageUpload from "./ImageUpload" // Importação padrão
 import { SimpleLocationSelector } from "./simple-location-selector"
-import { useUser } from "@supabase/auth-helpers-react" // Importar useUser
+import { useAuth } from "@/app/auth-provider"
 import { speciesEnum, petSizeEnum } from "@/lib/validators/animal" // Importar enums do validador
 
 interface FoundPetData {
@@ -137,7 +137,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
   const [rejectionReason, setRejectionReason] = useState("")
   const router = useRouter()
   const supabase = createClientComponentClient()
-  const { user } = useUser() // Obtenha o usuário autenticado aqui
+  const { user } = useAuth()
 
   useEffect(() => {
     if (initialData) {
