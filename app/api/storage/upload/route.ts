@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get("file") as File
     const category = (formData.get("category") as string) || "pets" // Default to 'pets' if not provided
-    const userId = (formData.get("userId") as string) || "public"
+    const userId = (formData.get("userId") as string) || "public" // Recebe o userId do cliente
 
     if (!file) {
       console.error("[API/Upload] Nenhum arquivo enviado.")
@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[API/Upload] Arquivo recebido: ${file.name}, tipo: ${file.type}, tamanho: ${file.size} bytes`)
+    console.log(`[API/Upload] Categoria: ${category}, User ID: ${userId}`) // Log do userId recebido
 
     // Validar o arquivo
     if (!file.type.startsWith("image/")) {
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
     console.log("[API/Upload] Convertendo arquivo para ArrayBuffer...")
     const arrayBuffer = await file.arrayBuffer()
     const buffer = new Uint8Array(arrayBuffer)
-    console.log("[API/Upload] Conversão para ArrayBuffer concluída.")
+    console.log(`[API/Upload] Conversão para ArrayBuffer concluída. Tamanho do buffer: ${buffer.byteLength} bytes.`)
 
     // Fazer o upload usando a chave de serviço (ignora RLS)
     console.log(`[API/Upload] Iniciando upload para Supabase Storage. Bucket: ${BUCKET_NAME}, Path: ${filePath}`)
