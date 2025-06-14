@@ -10,7 +10,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey)
 const BUCKET_NAME = "petadot-images"
 
 // Define max size for events, matching client-side config for events
-const MAX_EVENT_IMAGE_SIZE = 8 * 1024 * 1024 // 8MB
+const MAX_EVENT_IMAGE_SIZE = 20 * 1024 * 1024 // 20MB (temporariamente para teste)
 
 export async function POST(request: NextRequest) {
   console.log("[API/Upload] Recebendo requisição de upload...")
