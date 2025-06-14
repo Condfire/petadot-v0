@@ -5,6 +5,13 @@ import { v4 as uuidv4 } from "uuid"
 // Usar a chave de serviço para contornar as políticas de RLS
 const supabaseUrl = process.env.SUPABASE_URL || ""
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error(
+    "[API/Upload] Supabase credentials are not configured. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+  )
+}
+
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 const BUCKET_NAME = "petadot-images"
@@ -14,6 +21,16 @@ const MAX_EVENT_IMAGE_SIZE = 20 * 1024 * 1024 // 20MB (temporariamente para test
 
 export async function POST(request: NextRequest) {
   console.log("[API/Upload] Recebendo requisição de upload...")
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error(
+      "[API/Upload] Supabase credentials are not configured. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+    )
+    return NextResponse.json(
+      { error: "Supabase credentials are not configured" },
+      { status: 500 },
+    )
+  }
   try {
     // Obter o formulário com a imagem
     console.log("[API/Upload] Processando formData...")
