@@ -229,6 +229,7 @@ export async function uploadImage(
   category: ImageCategory,
   userId?: string,
   customConfig?: Partial<UploadConfig>,
+  signal?: AbortSignal,
 ): Promise<UploadResult> {
   try {
     console.log(`[Storage] Iniciando upload para categoria: ${category}, arquivo: ${file.name}`)
@@ -292,10 +293,42 @@ export async function uploadImage(
     }
 
     console.log(`[Storage] Enviando requisição de upload para a API route: /api/storage/upload`)
-    const response = await fetch("/api/storage/upload", {
-      method: "POST",
-      body: formData,
-    })
+
+    const controller = new AbortController()
+    let timeoutTriggered = false
+    const timeoutId = setTimeout(() => {
+      timeoutTriggered = true
+      controller.abort()
+    }, 30000)
+
+    if (signal) {
+      if (signal.aborted) {
+        clearTimeout(timeoutId)
+        throw signal.reason || new Error("Upload abortado")
+      }
+      signal.addEventListener("abort", () => controller.abort(), { once: true })
+    }
+
+    let response: Response
+    try {
+      response = await fetch("/api/storage/upload", {
+        method: "POST",
+        body: formData,
+        signal: controller.signal,
+      })
+    } catch (err: any) {
+      clearTimeout(timeoutId)
+      if (timeoutTriggered) {
+        const error = new Error("Tempo limite de upload excedido.")
+        error.name = "TimeoutError"
+        throw error
+      }
+      if (err.name === "AbortError") {
+        throw err
+      }
+      throw err
+    }
+    clearTimeout(timeoutId)
 
     if (!response.ok) {
       const errorData = await response.json()
@@ -332,6 +365,9 @@ export async function uploadImage(
     //   path: data.path,
     // }
   } catch (error: any) {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      throw error
+    }
     console.error("[Storage] Erro inesperado durante o upload:", error)
     return { success: false, error: `Erro inesperado: ${error.message}` }
   }
