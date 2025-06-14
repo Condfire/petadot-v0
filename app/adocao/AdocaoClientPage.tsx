@@ -37,7 +37,7 @@ export default function AdocaoClientPage({
         let query = supabase
           .from("pets")
           .select("*", { count: "exact" })
-          .eq("status", "approved")
+          .eq("status", "available")
 
         // Aplicar filtros
         if (filters.species) {
