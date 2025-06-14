@@ -1,1 +1,5 @@
-export { default } from "../../my-pets/page"
+import MyPetsPage from "../../my-pets/page"
+
+export default function PetsPage() {
+  return <MyPetsPage />
+}
