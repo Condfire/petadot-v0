@@ -11,9 +11,11 @@ interface ImageUploadProps {
   className?: string
   label?: string
   description?: string
+  userId?: string // Adicionando a prop userId
 }
 
 export function ImageUpload({
+  // Exportação nomeada restaurada
   value,
   onChange,
   required = false,
@@ -21,6 +23,7 @@ export function ImageUpload({
   className = "",
   label = "Imagem",
   description,
+  userId, // Destruturando userId
 }: ImageUploadProps) {
   // Mapear folder para categoria
   const getCategoryFromFolder = (folder: string): ImageCategory => {
@@ -46,8 +49,9 @@ export function ImageUpload({
       description={description}
       required={required}
       className={className}
+      userId={userId} // Passando o userId para o ImageUploadManager
     />
   )
 }
 
-export default ImageUpload
+export default ImageUpload // Exportação padrão mantida
