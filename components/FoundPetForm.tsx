@@ -16,6 +16,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, XCircle } from "lucide-react"
 import ImageUpload from "./ImageUpload"
 import { SimpleLocationSelector } from "./simple-location-selector"
+// Importar useUser
+import { useUser } from "@supabase/auth-helpers-react"
 
 interface FoundPetData {
   id?: string
@@ -53,6 +55,7 @@ interface FoundPetFormProps {
   isEditing?: boolean
 }
 
+// Ajustar o status padrão para 'pending'
 const defaultFoundPetData: FoundPetData = {
   name: "",
   species: "dog",
@@ -77,7 +80,9 @@ const defaultFoundPetData: FoundPetData = {
   good_with_dogs: false,
   is_vaccinated: false,
   is_neutered: false,
-  status: "approved",
+  // ... outras propriedades
+  status: "pending", // Alterado de "approved" para "pending"
+  // ...
   state: "",
   city: "",
 }
@@ -132,6 +137,9 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
   const [rejectionReason, setRejectionReason] = useState("")
   const router = useRouter()
   const supabase = createClientComponentClient()
+
+  // Dentro da função FoundPetForm, antes do return:
+  const { user } = useUser() // Obtenha o usuário autenticado aqui
 
   useEffect(() => {
     if (initialData) {
@@ -727,7 +735,8 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
           <Label className="flex">
             Foto do Pet<span className="text-red-500 ml-1">*</span>
           </Label>
-          <ImageUpload value={imageUrl} onChange={setImageUrl} required folder="pets_found" />
+          {/* Na seção de renderização, no componente ImageUpload: */}
+          <ImageUpload value={imageUrl} onChange={setImageUrl} required folder="pets_found" userId={user?.id} />
           {formErrors.image_url && <p className="text-red-500 text-sm mt-1">{formErrors.image_url}</p>}
         </div>
       </div>
