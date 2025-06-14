@@ -1,5 +1,1 @@
-import { redirect } from "next/navigation"
-
-export default function DashboardPetsPage() {
-  redirect("/my-pets")
-}
+export { default } from "../../my-pets/page"
