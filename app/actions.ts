@@ -380,7 +380,7 @@ export async function createLostPet(petData: any) {
       ...petData,
       user_id: userId,
       category: "lost", // Add category field
-      status: "pending",
+      status: "approved",
       created_at: new Date().toISOString(),
       slug: baseSlug,
     }
@@ -470,7 +470,7 @@ export async function createFoundPet(petData: any) {
       ...petData,
       user_id: userId,
       category: "found", // Add category field
-      status: "pending",
+      status: "approved",
       created_at: new Date().toISOString(),
       slug: baseSlug,
     }
@@ -1024,7 +1024,7 @@ export async function createPet(formData: FormData) {
           adoption_requirements,
           image_url,
           additional_images,
-          status: "pending",
+          status: "available",
           user_id: session.user.id,
           location,
           city,

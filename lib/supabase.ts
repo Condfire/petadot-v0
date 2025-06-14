@@ -87,8 +87,8 @@ export async function getPetsForAdoption(page = 1, pageSize = 12, filters = {}):
       .from("pets")
       .select(`*, ongs(id, name, logo_url, city)`, { count: "exact" })
       .eq("category", "adoption") // Filter for adoption pets
-      // Mostrar apenas pets aprovados
-      .eq("status", "approved")
+      // Mostrar apenas pets disponíveis
+      .eq("status", "available")
       .order("created_at", { ascending: false })
       .range(from, to)
 

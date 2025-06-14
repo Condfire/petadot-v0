@@ -76,7 +76,7 @@ export default function PetForm({ initialData, onSubmit, isSubmitting, type }: P
       is_vaccinated: false,
       is_special_needs: false,
       special_needs_description: "",
-      status: type === "adoption" ? "available" : "pending", // Default status based on type
+      status: type === "adoption" ? "available" : "approved", // Default status based on type
     },
   })
 

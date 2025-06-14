@@ -224,11 +224,6 @@ export default function PetCard({
                 <span className="font-medium">Gênero:</span> {genderDisplay}
               </p>
             )}
-            {isPending && isOwner && (
-              <p className="mt-2 text-yellow-400 text-xs">
-                Este pet está aguardando aprovação e só é visível para você.
-              </p>
-            )}
           </div>
         </CardContent>
         {isOwner && (

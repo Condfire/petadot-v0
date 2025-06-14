@@ -75,7 +75,7 @@ const defaultLostPetData: LostPetData = {
   good_with_dogs: false,
   is_vaccinated: false,
   is_neutered: false,
-  status: "pending",
+  status: "approved",
   state: "",
   city: "",
 }

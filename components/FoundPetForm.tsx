@@ -77,7 +77,7 @@ const defaultFoundPetData: FoundPetData = {
   good_with_dogs: false,
   is_vaccinated: false,
   is_neutered: false,
-  status: "pending",
+  status: "approved",
   state: "",
   city: "",
 }
@@ -257,7 +257,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
       const contentToCheck = `${petData.name || ""} ${petData.description || ""} ${petData.found_location || ""} ${petData.current_location || ""}`
       const { blocked, keyword } = await checkForBlockedKeywords(contentToCheck, supabase)
 
-      let finalStatus = "pending"
+      let finalStatus = "approved"
       let finalRejectionReason = null
 
       if (blocked && keyword) {
@@ -317,7 +317,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
       } else {
         toast({
           title: "Pet reportado",
-          description: "O pet encontrado foi reportado com sucesso e está aguardando aprovação!",
+          description: "O pet encontrado foi reportado com sucesso!",
         })
       }
 
@@ -344,7 +344,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
         <Alert className="bg-green-50 border-green-200 mb-4">
           <AlertCircle className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-700">
-            Pet reportado com sucesso! Aguardando aprovação da moderação. Você será redirecionado em instantes...
+            Pet reportado com sucesso! Você será redirecionado em instantes...
           </AlertDescription>
         </Alert>
       )}
