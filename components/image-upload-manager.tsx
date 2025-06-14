@@ -57,21 +57,31 @@ export function ImageUploadManager({
       setUploadProgress(0)
       setUploadError(null)
 
+      const controller = new AbortController()
+      let interval: NodeJS.Timeout | null = null
+
       try {
         // Simulate progress for demonstration
         let currentProgress = 0
-        const interval = setInterval(() => {
+        interval = setInterval(() => {
           currentProgress += 10
           if (currentProgress <= 90) {
             setUploadProgress(currentProgress)
-          } else {
+          } else if (interval) {
             clearInterval(interval)
           }
         }, 100)
 
-        const result: UploadResult = await uploadImage(file, category) // Call the upload function
+        const result: UploadResult = await uploadImage(
+          file,
+          category,
+          undefined,
+          undefined,
+          controller.signal,
+        ) // Call the upload function
 
-        clearInterval(interval) // Clear interval on completion
+        if (interval) clearInterval(interval)
+        controller.abort()
 
         if (result.success && result.url) {
           setPreviewUrl(result.url)
@@ -91,18 +101,30 @@ export function ImageUploadManager({
           })
           setUploadProgress(0)
         }
-      } catch (error: any) {
-        console.error("[ImageUploadManager] Erro no upload:", error)
-        setUploadError(error.message || "Erro inesperado durante o upload.")
-        toast({
-          title: "Erro Inesperado",
-          description: error.message || "Ocorreu um erro inesperado durante o upload.",
-          variant: "destructive",
-        })
-        setUploadProgress(0)
-      } finally {
-        setIsUploading(false)
-      }
+        } catch (error: any) {
+          console.error("[ImageUploadManager] Erro no upload:", error)
+          setUploadError(error.message || "Erro inesperado durante o upload.")
+          if (error.name === "TimeoutError") {
+            toast({
+              title: "Tempo esgotado",
+              description: "O envio da imagem demorou demais e foi cancelado.",
+              variant: "destructive",
+            })
+          } else {
+            toast({
+              title: "Erro Inesperado",
+              description: error.message || "Ocorreu um erro inesperado durante o upload.",
+              variant: "destructive",
+            })
+          }
+          setUploadProgress(0)
+          if (interval) clearInterval(interval)
+          controller.abort()
+        } finally {
+          if (interval) clearInterval(interval)
+          controller.abort()
+          setIsUploading(false)
+        }
     },
     [category, onChange, toast],
   )
