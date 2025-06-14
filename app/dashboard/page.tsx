@@ -250,7 +250,7 @@ function DashboardContent() {
             </CardContent>
             <CardFooter>
               <Button variant="outline" className="w-full" asChild>
-                <Link href="/dashboard/pets">
+                <Link href="/my-pets">
                   Ver Todos os Pets
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>

@@ -1,10 +1,5 @@
-const PetsPage = () => {
-  return (
-    <div>
-      <h1>Pets Dashboard</h1>
-      {/* Add your pet management UI here */}
-    </div>
-  )
-}
+import { redirect } from "next/navigation"
 
-export default PetsPage
+export default function DashboardPetsPage() {
+  redirect("/my-pets")
+}

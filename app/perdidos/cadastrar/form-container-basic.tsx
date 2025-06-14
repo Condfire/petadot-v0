@@ -184,7 +184,7 @@ export default function BasicFormContainer() {
       }
 
       alert("Pet reportado com sucesso!")
-      router.push("/dashboard/pets")
+      router.push("/my-pets")
       router.refresh()
     } catch (err: any) {
       console.error("Erro ao salvar pet perdido:", err)

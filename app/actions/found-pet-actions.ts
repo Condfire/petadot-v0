@@ -175,7 +175,7 @@ export async function createFoundPet(formData: FormData) {
 
     // Revalidar páginas
     revalidatePath("/encontrados")
-    revalidatePath("/dashboard/pets")
+    revalidatePath("/my-pets")
     revalidatePath("/admin/moderation")
 
     if (blocked) {

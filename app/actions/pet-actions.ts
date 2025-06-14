@@ -276,7 +276,7 @@ export async function createAdoptionPet(petData: any) {
       // Revalidar as páginas relacionadas
       revalidatePath("/adocao")
       revalidatePath(`/adocao/${petData.id}`)
-      revalidatePath("/dashboard/pets")
+      revalidatePath("/my-pets")
 
       return { success: true }
     }
@@ -355,7 +355,7 @@ export async function createAdoptionPet(petData: any) {
 
     // Revalidar as páginas relacionadas
     revalidatePath("/adocao")
-    revalidatePath("/dashboard/pets")
+    revalidatePath("/my-pets")
 
     return { success: true, data: insertedPet }
   } catch (error) {
