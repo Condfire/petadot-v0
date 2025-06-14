@@ -67,4 +67,3 @@ export default async function AdminEventDetailPage({ params }: { params: { id: s
     </div>
   )
 }
-

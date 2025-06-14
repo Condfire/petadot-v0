@@ -276,37 +276,61 @@ export async function uploadImage(
     console.log(`[Storage] Caminho final do arquivo para upload: ${filePath}`)
 
     // Fazer upload
-    console.log(`[Storage] Iniciando upload para Supabase Storage. Bucket: ${BUCKET_NAME}, Path: ${filePath}`)
-    const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, processedFile, {
-      contentType: processedFile.type, // Use processedFile.type
-      cacheControl: "3600",
-      upsert: true,
+    // console.log(`[Storage] Iniciando upload para Supabase Storage. Bucket: ${BUCKET_NAME}, Path: ${filePath}`)
+    // const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, processedFile, {
+    //   contentType: processedFile.type, // Use processedFile.type
+    //   cacheControl: "3600",
+    //   upsert: true,
+    // })
+
+    // Criar um FormData para enviar o arquivo e metadados para a API route
+    const formData = new FormData()
+    formData.append("file", processedFile)
+    formData.append("category", category)
+    if (userId) {
+      formData.append("userId", userId)
+    }
+
+    console.log(`[Storage] Enviando requisição de upload para a API route: /api/storage/upload`)
+    const response = await fetch("/api/storage/upload", {
+      method: "POST",
+      body: formData,
     })
 
-    if (error) {
-      console.error("[Storage] Erro no upload para Supabase:", error)
-      return { success: false, error: `Erro no upload: ${error.message}` }
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error("[Storage] Erro na API route de upload:", errorData.error)
+      return { success: false, error: errorData.error || `Erro no upload via API: ${response.statusText}` }
     }
 
-    console.log("[Storage] Upload para Supabase concluído com sucesso. Data:", data)
+    const result = await response.json()
+    console.log("[Storage] Upload via API route concluído com sucesso. Resultado:", result)
 
-    // Obter URL pública
-    console.log("[Storage] Obtendo URL pública...")
-    const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(data.path)
-    console.log(`[Storage] URL pública gerada:`, urlData)
-
-    if (!urlData || !urlData.publicUrl) {
-      console.error("[Storage] Erro ao gerar URL pública: urlData ou publicUrl é nulo/indefinido.")
-      return { success: false, error: "Erro ao gerar URL pública" }
-    }
-
-    console.log(`[Storage] Upload finalizado com sucesso. URL: ${urlData.publicUrl}`)
-
+    // A API route já retorna a URL pública e o path, então podemos usá-los diretamente
     return {
       success: true,
-      url: urlData.publicUrl,
-      path: data.path,
+      url: result.url,
+      path: result.path,
     }
+
+    // Remova a parte que obtém a URL pública diretamente do supabase.storage, pois a API route já faz isso.
+    // Ou seja, remova:
+    // console.log("[Storage] Obtendo URL pública...")
+    // const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(data.path)
+    // console.log(`[Storage] URL pública gerada:`, urlData)
+
+    // if (!urlData || !urlData.publicUrl) {
+    //   console.error("[Storage] Erro ao gerar URL pública: urlData ou publicUrl é nulo/indefinido.")
+    //   return { success: false, error: "Erro ao gerar URL pública" }
+    // }
+
+    // console.log(`[Storage] Upload finalizado com sucesso. URL: ${urlData.publicUrl}`)
+
+    // return {
+    //   success: true,
+    //   url: urlData.publicUrl,
+    //   path: data.path,
+    // }
   } catch (error: any) {
     console.error("[Storage] Erro inesperado durante o upload:", error)
     return { success: false, error: `Erro inesperado: ${error.message}` }
