@@ -16,21 +16,53 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, XCircle } from "lucide-react"
 import ImageUpload from "./ImageUpload" // Importação padrão
 import { SimpleLocationSelector } from "./simple-location-selector"
-import { useUser } from "@supabase/auth-helpers-react"
-import { animalSchema, type AnimalSchemaType, petSizeEnum, speciesEnum } from "@/lib/validators/animal" // Importações nomeadas
+import { useUser } from "@supabase/auth-helpers-react" // Importar useUser
+import { speciesEnum, petSizeEnum } from "@/lib/validators/animal" // Importar enums do validador
+
+interface FoundPetData {
+  id?: string
+  name?: string
+  species: string
+  species_other?: string
+  breed?: string
+  size: string
+  size_other?: string
+  gender: string
+  gender_other?: string
+  color: string
+  color_other?: string
+  description?: string
+  found_date: string
+  found_location: string
+  current_location?: string
+  contact: string
+  main_image_url: string // Alterado para main_image_url
+  is_special_needs: boolean
+  special_needs_description?: string
+  good_with_kids?: boolean
+  good_with_cats?: boolean
+  good_with_dogs?: boolean
+  is_vaccinated?: boolean
+  is_neutered?: boolean
+  status?: string
+  user_id?: string
+  state?: string
+  city?: string
+  category?: string
+  rejection_reason?: string
+}
 
 interface FoundPetFormProps {
-  initialData?: AnimalSchemaType // Usar AnimalSchemaType
+  initialData?: FoundPetData
   isEditing?: boolean
 }
 
-const defaultFoundPetData: AnimalSchemaType = {
+const defaultFoundPetData: FoundPetData = {
   name: "",
   species: speciesEnum.enum.dog, // Usar o enum corretamente
   species_other: "",
   breed: "",
-  age: "",
-  petSize: petSizeEnum.enum.medium, // Usar o enum corretamente
+  size: petSizeEnum.enum.medium, // Usar o enum corretamente
   size_other: "",
   gender: "male",
   gender_other: "",
@@ -41,7 +73,7 @@ const defaultFoundPetData: AnimalSchemaType = {
   found_location: "",
   current_location: "",
   contact: "",
-  image_url: "",
+  main_image_url: "", // Alterado para main_image_url
   is_special_needs: false,
   special_needs_description: "",
   good_with_kids: false,
@@ -49,13 +81,10 @@ const defaultFoundPetData: AnimalSchemaType = {
   good_with_dogs: false,
   is_vaccinated: false,
   is_neutered: false,
-  status: "pending",
-  user_id: "", // Será preenchido com o user.id
+  status: "pending", // Ajustado para "pending"
   state: "",
   city: "",
   category: "found",
-  main_image_url: "",
-  images: [],
 }
 
 // Função para verificar palavras-chave bloqueadas
@@ -98,7 +127,7 @@ async function checkForBlockedKeywords(
 }
 
 function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
-  const [petData, setPetData] = useState<AnimalSchemaType>(initialData || defaultFoundPetData)
+  const [petData, setPetData] = useState<FoundPetData>(initialData || defaultFoundPetData)
   const [loading, setLoading] = useState(false)
   const [imageUrl, setImageUrl] = useState(initialData?.main_image_url || "") // Usar main_image_url
   const [isSpecialNeeds, setIsSpecialNeeds] = useState(initialData?.is_special_needs || false)
@@ -147,7 +176,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
     }
 
     if (value !== "other") {
-      const otherFieldName = `${name}_other` as keyof AnimalSchemaType
+      const otherFieldName = `${name}_other` as keyof FoundPetData
       if (petData[otherFieldName]) {
         setPetData((prev) => ({ ...prev, [otherFieldName]: "" }))
       }
@@ -179,17 +208,22 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {}
 
-    // Validação usando Zod para os campos obrigatórios
-    const result = animalSchema.safeParse(petData)
-    if (!result.success) {
-      result.error.errors.forEach((err) => {
-        if (err.path[0]) {
-          errors[err.path[0]] = err.message
-        }
-      })
-    }
-
+    if (!petData.species) errors.species = "Espécie é obrigatória"
+    if (petData.species === "other" && !petData.species_other) errors.species_other = "Especifique a espécie"
+    if (!petData.size) errors.size = "Porte é obrigatório"
+    if (petData.size === "other" && !petData.size_other) errors.size_other = "Especifique o porte"
+    if (!petData.gender) errors.gender = "Gênero é obrigatório"
+    if (petData.gender === "other" && !petData.gender_other) errors.gender_other = "Especifique o gênero"
+    if (!petData.color) errors.color = "Cor é obrigatória"
+    if (petData.color === "other" && !petData.color_other) errors.color_other = "Especifique a cor"
+    if (!petData.found_date) errors.found_date = "Data em que foi encontrado é obrigatória"
+    if (!petData.found_location) errors.found_location = "Local onde foi encontrado é obrigatório"
+    if (!petData.contact) errors.contact = "Contato para informações é obrigatório"
     if (!imageUrl) errors.main_image_url = "Imagem do pet é obrigatória" // Ajustado para main_image_url
+
+    if (isSpecialNeeds && !petData.special_needs_description) {
+      errors.special_needs_description = "Descrição das necessidades especiais é obrigatória"
+    }
 
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -236,14 +270,14 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
       }
 
       // Preparar dados básicos para inserção
-      const newPetData: AnimalSchemaType = {
+      const newPetData: FoundPetData = {
         ...petData,
-        species: petData.species === "other" ? petData.species_other : petData.species,
-        petSize: petData.petSize === "other" ? petData.size_other : petData.petSize,
-        gender: petData.gender === "other" ? petData.gender_other : petData.gender,
-        color: petData.color === "other" ? petData.color_other : petData.color,
+        species: petData.species === "other" ? petData.species_other || "" : petData.species,
+        size: petData.size === "other" ? petData.size_other || "" : petData.size,
+        gender: petData.gender === "other" ? petData.gender_other || "" : petData.gender,
+        color: petData.color === "other" ? petData.color_other || "" : petData.color,
         main_image_url: imageUrl, // Usar imageUrl aqui
-        images: imageUrl ? [imageUrl] : [], // Adicionar à lista de imagens
+        is_special_needs: isSpecialNeeds,
         status: finalStatus,
         user_id: user.id,
         category: "found",
@@ -372,16 +406,16 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="petSize" className="flex">
+            <Label htmlFor="size" className="flex">
               Porte<span className="text-red-500 ml-1">*</span>
             </Label>
             <Select
-              name="petSize"
-              value={petData.petSize}
-              onValueChange={(value) => handleSelectChange("petSize", value)}
+              name="size"
+              value={petData.size}
+              onValueChange={(value) => handleSelectChange("size", value)}
               required
             >
-              <SelectTrigger className={formErrors.petSize ? "border-red-500" : ""}>
+              <SelectTrigger className={formErrors.size ? "border-red-500" : ""}>
                 <SelectValue placeholder="Selecione o porte" />
               </SelectTrigger>
               <SelectContent>
@@ -392,9 +426,9 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
                 ))}
               </SelectContent>
             </Select>
-            {formErrors.petSize && <p className="text-red-500 text-sm mt-1">{formErrors.petSize}</p>}
+            {formErrors.size && <p className="text-red-500 text-sm mt-1">{formErrors.size}</p>}
 
-            {petData.petSize === "other" && (
+            {petData.size === "other" && (
               <div className="mt-2">
                 <Label htmlFor="size_other" className="flex">
                   Especifique o porte<span className="text-red-500 ml-1">*</span>
@@ -405,7 +439,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
                   value={petData.size_other || ""}
                   onChange={handleChange}
                   className={formErrors.size_other ? "border-red-500" : ""}
-                  required={petData.petSize === "other"}
+                  required={petData.size === "other"}
                 />
                 {formErrors.size_other && <p className="text-red-500 text-sm mt-1">{formErrors.size_other}</p>}
               </div>
