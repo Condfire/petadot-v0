@@ -1,8 +1,17 @@
 import { createClient } from "@supabase/supabase-js"
 import { validate as isUuid } from "uuid"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  const missing: string[] = []
+  if (!supabaseUrl) missing.push("NEXT_PUBLIC_SUPABASE_URL")
+  if (!supabaseAnonKey) missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+  const message = `Missing Supabase configuration: ${missing.join(", ")}`
+  console.error(message)
+  throw new Error(message)
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
@@ -23,7 +32,7 @@ export interface PaginationResult<T> {
 
 // Função para criar um cliente Supabase (útil para server components)
 export function createSupabaseClient() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || "", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "")
+  return createClient(supabaseUrl, supabaseAnonKey)
 }
 
 // Função auxiliar para verificar se uma tabela existe
