@@ -249,7 +249,7 @@ export function LostPetForm({ initialData, isEditing = false }: LostPetFormProps
 
         // Aguardar 2 segundos antes de redirecionar
         setTimeout(() => {
-          router.push("/dashboard/pets")
+          router.push("/my-pets")
           router.refresh()
         }, 2000)
       } else {

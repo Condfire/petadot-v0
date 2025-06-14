@@ -497,7 +497,7 @@ export default function Navbar() {
                   <Link href="/dashboard">Dashboard</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/pets">Meus Pets</Link>
+                  <Link href="/my-pets">Meus Pets</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard/profile">Meu Perfil</Link>

@@ -76,7 +76,7 @@ function LostPetDetails({ id }: { id: string }) {
           title: "Pet excluído com sucesso",
           description: "O pet foi excluído permanentemente.",
         })
-        router.push("/dashboard/pets")
+        router.push("/my-pets")
       } else {
         toast({
           title: "Erro ao excluir pet",
@@ -107,7 +107,7 @@ function LostPetDetails({ id }: { id: string }) {
   return (
     <div className="container py-8">
       <Button variant="ghost" className="mb-6" asChild>
-        <Link href="/dashboard/pets">
+        <Link href="/my-pets">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar para Meus Pets
         </Link>

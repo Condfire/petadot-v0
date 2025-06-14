@@ -328,7 +328,7 @@ export async function createAdoptionPet(petData: any) {
 
     // Revalidar página de adoção
     revalidatePath("/adocao")
-    revalidatePath("/dashboard/pets")
+    revalidatePath("/my-pets")
 
     return { success: true, pet }
   } catch (error: any) {
@@ -418,7 +418,7 @@ export async function createLostPet(petData: any) {
 
     // Revalidar página de pets perdidos
     revalidatePath("/perdidos")
-    revalidatePath("/dashboard/pets")
+    revalidatePath("/my-pets")
 
     return { success: true, data }
   } catch (error: any) {
@@ -508,7 +508,7 @@ export async function createFoundPet(petData: any) {
 
     // Revalidar página de pets encontrados
     revalidatePath("/encontrados")
-    revalidatePath("/dashboard/pets")
+    revalidatePath("/my-pets")
 
     return { success: true, data }
   } catch (error: any) {
