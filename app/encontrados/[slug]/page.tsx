@@ -32,11 +32,10 @@ export async function generateMetadata({ params }: PetFoundDetailPageProps): Pro
     const idOrSlug = params.slug
     const isUuidValue = isUuid(idOrSlug)
 
-    // Query from 'pets' table with category 'found'
+    // Query based on whether it's a UUID or slug
     const { data: pet } = await supabase
-      .from("pets") // Changed from pets_found
-      .select("*")
-      .eq("category", "found") // Added category filter
+      .from("pets")
+      .eq("category", "found")
       .eq(isUuidValue ? "id" : "slug", idOrSlug)
       .maybeSingle()
 
@@ -68,7 +67,7 @@ export async function generateMetadata({ params }: PetFoundDetailPageProps): Pro
           : `${pet.name} - ${speciesDisplay} encontrado ${location ? `em ${location}` : ""}. Ajude a encontrar seu dono.`,
         images: [
           {
-            url: pet.main_image_url || "/placeholder.svg?key=p34o7", // Use main_image_url
+            url: pet.main_image_url || "/placeholder.svg?key=p34o7",
             width: 1200,
             height: 630,
             alt: pet.name || "Pet encontrado",
@@ -97,11 +96,10 @@ export default async function PetFoundDetailPage({ params }: PetFoundDetailPageP
     } = await supabase.auth.getSession()
     const userId = session?.user?.id
 
-    // Buscar o pet encontrado pelo ID ou slug na tabela 'pets'
+    // Buscar o pet encontrado pelo ID ou slug
     const { data: pet, error } = await supabase
-      .from("pets") // Changed from pets_found
-      .select("*")
-      .eq("category", "found") // Added category filter
+      .from("pets")
+      .eq("category", "found")
       .eq(isUuidValue ? "id" : "slug", idOrSlug)
       .maybeSingle()
 
