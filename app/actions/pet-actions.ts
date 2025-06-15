@@ -233,34 +233,31 @@ export async function createFoundPet(formData: FormData) {
 
 // Função para cadastrar um pet para adoção
 export async function createAdoptionPet(petData: any) {
-  console.log("createAdoptionPet chamado com:", petData)
+  console.log("[Server Action] createAdoptionPet chamado com:", petData.name)
 
   try {
-    // Usar o mesmo método de criação do cliente Supabase que as outras funções
     const supabase = createServerActionClient({ cookies })
-    console.log("Cliente Supabase criado")
+    console.log("[Server Action] Cliente Supabase criado")
 
-    // Verificar autenticação
+    console.log("[Server Action] Verificando autenticação...")
     const {
       data: { user },
     } = await supabase.auth.getUser()
-
-    console.log("Sessão verificada:", user ? "Autenticado" : "Não autenticado")
+    console.log("[Server Action] Usuário autenticado:", user ? user.id : "NÃO")
 
     if (!user) {
-      console.log("Usuário não autenticado")
+      console.error("[Server Action] Usuário não autenticado.")
       return { error: "Usuário não autenticado" }
     }
 
-    // Verificar se é uma edição ou criação
     const isEditing = petData.is_editing === true
+    console.log("[Server Action] É edição?", isEditing)
 
-    // Se for edição, atualizar o pet existente
     if (isEditing && petData.id) {
-      // Se o slug já existir, não o sobrescrever
+      console.log("[Server Action] Tentando atualizar pet com ID:", petData.id)
       const updateData = { ...petData }
       delete updateData.is_editing
-      delete updateData.slug // Não atualizar o slug se já existir
+      delete updateData.slug
 
       const { error: updateError } = await supabase
         .from("pets")
@@ -269,41 +266,41 @@ export async function createAdoptionPet(petData: any) {
         .eq("user_id", user.id)
 
       if (updateError) {
-        console.error("Erro ao atualizar pet:", updateError)
+        console.error("[Server Action] Erro ao atualizar pet:", updateError)
         return { error: `Erro ao atualizar pet: ${updateError.message}` }
       }
+      console.log("[Server Action] Pet atualizado com sucesso.")
 
-      // Revalidar as páginas relacionadas
       revalidatePath("/adocao")
       revalidatePath(`/adocao/${petData.id}`)
       revalidatePath("/my-pets")
+      console.log("[Server Action] Caminhos revalidados após atualização.")
 
       return { success: true }
     }
 
     // Caso contrário, criar um novo pet
-    // Preparar dados apenas com campos que existem na tabela
+    // Preparar dados com os valores já processados pelo cliente
     const newPet = {
       name: petData.name,
-      species: petData.species,
+      species: petData.species, // Usar o valor já processado do cliente
       species_other: petData.species_other,
       breed: petData.breed,
       age: petData.age,
-      size: petData.size,
+      size: petData.size, // Usar o valor já processado do cliente
       size_other: petData.size_other,
-      gender: petData.gender,
+      gender: petData.gender, // Usar o valor já processado do cliente
       gender_other: petData.gender_other,
-      color: petData.color,
+      color: petData.color, // Usar o valor já processado do cliente
       color_other: petData.color_other,
       description: petData.description,
-      main_image_url: petData.image_url, // Usar main_image_url em vez de image_url
+      main_image_url: petData.image_url,
       is_vaccinated: petData.is_vaccinated || false,
       is_neutered: petData.is_neutered || false,
       is_special_needs: petData.special_needs ? true : false,
       special_needs_description: petData.special_needs || null,
       temperament: petData.temperament,
       energy_level: petData.energy_level,
-      // Campos que podem existir na tabela pets
       good_with_kids: petData.good_with_kids || false,
       good_with_cats: petData.good_with_cats || false,
       good_with_dogs: petData.good_with_dogs || false,
@@ -317,22 +314,18 @@ export async function createAdoptionPet(petData: any) {
       created_at: new Date().toISOString(),
     }
 
-    console.log("Inserindo novo pet:", newPet)
-
+    console.log("[Server Action] Inserindo novo pet:", newPet.name)
     const { data: insertedPet, error: insertError } = await supabase.from("pets").insert(newPet).select().single()
-
-    console.log("Resultado da inserção:", insertedPet ? "Sucesso" : "Falha", insertError || "")
+    console.log("[Server Action] Resultado da inserção:", insertedPet ? "Sucesso" : "Falha", insertError || "")
 
     if (insertError) {
-      console.error("Erro ao cadastrar pet:", insertError)
+      console.error("[Server Action] Erro ao cadastrar pet (insert):", insertError)
       return { error: `Erro ao cadastrar pet: ${insertError.message}` }
     }
 
-    // Gerar slug com o ID obtido
     if (insertedPet) {
+      console.log("[Server Action] Gerando slug para o pet ID:", insertedPet.id)
       const petType = "adocao"
-
-      // Gerar slug base
       const baseSlug = await generatePetSlug(
         petData.name || "pet",
         petType,
@@ -341,25 +334,26 @@ export async function createAdoptionPet(petData: any) {
         insertedPet.id,
         "pets",
       )
-
-      // Garantir que o slug seja único
       const uniqueSlug = await generateUniqueSlug(baseSlug, "pets", insertedPet.id)
+      console.log("[Server Action] Slug gerado:", uniqueSlug)
 
-      // Atualizar o registro com o slug
+      console.log("[Server Action] Atualizando pet com slug...")
       const { error: updateError } = await supabase.from("pets").update({ slug: uniqueSlug }).eq("id", insertedPet.id)
 
       if (updateError) {
-        console.error("Erro ao atualizar slug do pet para adoção:", updateError)
+        console.error("[Server Action] Erro ao atualizar slug do pet para adoção:", updateError)
+        // Este erro não é crítico para a criação do pet, mas deve ser logado.
       }
+      console.log("[Server Action] Slug atualizado com sucesso (se aplicável).")
     }
 
-    // Revalidar as páginas relacionadas
     revalidatePath("/adocao")
     revalidatePath("/my-pets")
+    console.log("[Server Action] Caminhos revalidados após criação.")
 
     return { success: true, data: insertedPet }
   } catch (error) {
-    console.error("Erro ao cadastrar pet:", error)
+    console.error("[Server Action] Erro não tratado em createAdoptionPet:", error)
     return { error: `Erro ao cadastrar pet: ${error instanceof Error ? error.message : String(error)}` }
   }
 }

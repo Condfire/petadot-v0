@@ -173,16 +173,17 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Formulário enviado", formData)
+    console.log("[Client Form] Tentativa de envio do formulário.")
 
     // Validar formulário
     if (!validateForm()) {
-      console.log("Formulário inválido", formErrors)
+      console.log("[Client Form] Formulário inválido. Erros:", formErrors)
       onError?.("Por favor, preencha todos os campos obrigatórios.")
       return
     }
 
     setIsSubmitting(true)
+    setSubmitSuccess(false) // Reset success state on new submission attempt
 
     try {
       // Adicionar localização formatada
@@ -199,30 +200,34 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
         ong_id: ongId,
       }
 
-      console.log("Enviando dados para o servidor:", processedData)
+      console.log("[Client Form] Dados processados para envio:", processedData)
 
       // Enviar os dados para o servidor
       const result = await createAdoptionPet(processedData)
 
-      console.log("Resultado do cadastro:", result)
+      console.log("[Client Form] Resultado do cadastro recebido:", result)
 
       if (result.error) {
+        console.error("[Client Form] Erro no cadastro:", result.error)
         onError?.(result.error)
       } else {
+        console.log("[Client Form] Pet cadastrado com sucesso!")
         setSubmitSuccess(true)
         onSuccess?.()
 
         // Aguardar 2 segundos antes de redirecionar
         setTimeout(() => {
+          console.log("[Client Form] Redirecionando para /ongs/dashboard...")
           router.push("/ongs/dashboard")
           router.refresh()
         }, 2000)
       }
     } catch (error) {
-      console.error("Erro ao cadastrar pet:", error)
+      console.error("[Client Form] Erro inesperado durante o envio:", error)
       onError?.("Erro ao cadastrar pet: " + (error instanceof Error ? error.message : String(error)))
     } finally {
       setIsSubmitting(false)
+      console.log("[Client Form] isSubmitting resetado para false.")
     }
   }
 
