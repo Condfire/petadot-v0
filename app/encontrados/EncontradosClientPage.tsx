@@ -46,8 +46,9 @@ export default function EncontradosClientPage({
       setLoading(true)
       try {
         let query = supabase
-          .from("pets_found")
+          .from("pets")
           .select("*", { count: "exact" })
+          .eq("category", "found")
           .eq("status", "approved")
 
         // Aplicar filtros
