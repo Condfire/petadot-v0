@@ -35,9 +35,9 @@ export async function generateMetadata({ params }: PetLostDetailPageProps): Prom
     // Query based on whether it's a UUID or slug
     const { data: pet } = await supabase
       .from("pets")
-      .select("*") // Adicionado .select("*")
       .eq("category", "lost")
       .eq(isUuidValue ? "id" : "slug", slugOrId)
+      .select("*")
       .maybeSingle()
 
     if (!pet) {
@@ -106,9 +106,9 @@ export default async function PetLostDetailPage({ params }: PetLostDetailPagePro
     // Query based on whether it's a UUID or slug
     const { data: pet, error } = await supabase
       .from("pets")
-      .select("*") // Adicionado .select("*")
       .eq("category", "lost")
       .eq(isUUID ? "id" : "slug", params.slug)
+      .select("*")
       .maybeSingle()
 
     if (error) {
