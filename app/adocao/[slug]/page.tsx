@@ -50,7 +50,7 @@ export async function generateMetadata({ params }: PetAdoptionDetailPageProps): 
       .maybeSingle()
 
     if (error || !pet) {
-      console.error("Erro ao buscar pet para metadata:", error)
+      console.error("Erro ao buscar pet para metadata:", error?.message || "Pet não encontrado ou erro desconhecido.") // Mensagem de erro mais específica
       return {
         title: "Pet não encontrado | PetAdot",
         description: "O pet que você está procurando não foi encontrado.",
@@ -121,12 +121,12 @@ export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetai
       .maybeSingle()
 
     if (error) {
-      console.error("Erro ao buscar pet:", error)
+      console.error("Erro ao buscar pet:", error.message) // Mensagem de erro mais específica
       notFound()
     }
 
     if (!pet) {
-      console.error("Pet não encontrado")
+      console.error("Pet não encontrado para o slug/ID:", slugOrId) // Mensagem de erro mais específica
       notFound()
     }
 
@@ -136,6 +136,9 @@ export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetai
 
     // Se o pet não estiver aprovado e não pertencer ao usuário atual, retornar 404
     if (!isApproved && !isOwner) {
+      console.warn(
+        `Acesso negado para pet ${pet.id} (status: ${pet.status}, owner: ${pet.user_id}, current user: ${userId})`,
+      ) // Log de aviso
       notFound()
     }
 

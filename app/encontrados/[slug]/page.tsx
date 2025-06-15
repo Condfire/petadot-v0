@@ -35,6 +35,7 @@ export async function generateMetadata({ params }: PetFoundDetailPageProps): Pro
     // Query based on whether it's a UUID or slug
     const { data: pet } = await supabase
       .from("pets")
+      .select("*") // Adicionado .select("*")
       .eq("category", "found")
       .eq(isUuidValue ? "id" : "slug", idOrSlug)
       .maybeSingle()
@@ -99,6 +100,7 @@ export default async function PetFoundDetailPage({ params }: PetFoundDetailPageP
     // Buscar o pet encontrado pelo ID ou slug
     const { data: pet, error } = await supabase
       .from("pets")
+      .select("*") // Adicionado .select("*")
       .eq("category", "found")
       .eq(isUuidValue ? "id" : "slug", idOrSlug)
       .maybeSingle()
