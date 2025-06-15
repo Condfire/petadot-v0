@@ -59,7 +59,7 @@ export function ImageUploadManager({
 
       const controller = new AbortController()
       let interval: NodeJS.Timeout | null = null
-
+      
       try {
         // Simulate progress for demonstration
         let currentProgress = 0
@@ -104,20 +104,34 @@ export function ImageUploadManager({
         } catch (error: any) {
           console.error("[ImageUploadManager] Erro no upload:", error)
           setUploadError(error.message || "Erro inesperado durante o upload.")
-          if (error.name === "TimeoutError") {
+
+          const networkError =
+            error.name === "TimeoutError" ||
+            error.name === "AbortError" ||
+            error.message?.includes("Failed to fetch") ||
+            error.message?.includes("NetworkError")
+
+          if (networkError) {
             toast({
-              title: "Tempo esgotado",
-              description: "O envio da imagem demorou demais e foi cancelado.",
+              title: "Falha de Conexão",
+              description: "Não foi possível enviar a imagem. Verifique sua conexão.",
               variant: "destructive",
             })
           } else {
             toast({
-              title: "Erro Inesperado",
-              description: error.message || "Ocorreu um erro inesperado durante o upload.",
+              title: error.name === "TimeoutError" ? "Tempo esgotado" : "Erro Inesperado",
+              description:
+                error.name === "TimeoutError"
+                  ? "O envio da imagem demorou demais e foi cancelado."
+                  : error.message || "Ocorreu um erro inesperado durante o upload.",
               variant: "destructive",
             })
           }
+
           setUploadProgress(0)
+          setPreviewUrl(null)
+          onChange("")
+
           if (interval) clearInterval(interval)
           controller.abort()
         } finally {
