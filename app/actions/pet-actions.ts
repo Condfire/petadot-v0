@@ -296,7 +296,7 @@ export async function createAdoptionPet(petData: any) {
       color: petData.color,
       color_other: petData.color_other,
       description: petData.description,
-      main_image_url: petData.image_url,
+      main_image_url: petData.image_url, // Usar main_image_url em vez de image_url
       is_vaccinated: petData.is_vaccinated || false,
       is_neutered: petData.is_neutered || false,
       is_special_needs: petData.special_needs ? true : false,
@@ -311,7 +311,7 @@ export async function createAdoptionPet(petData: any) {
       state: petData.state,
       contact: petData.contact,
       user_id: user.id,
-      ong_id: petData.ong_id || null, // <-- MODIFICAÇÃO AQUI: Garante que ong_id seja null se não for fornecido
+      ong_id: petData.ong_id,
       status: "available",
       category: "adoption",
       created_at: new Date().toISOString(),

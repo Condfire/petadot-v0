@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs" // Ainda necessário para checkForBlockedKeywords
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -14,10 +14,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { toast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, XCircle } from "lucide-react"
-import ImageUpload from "./ImageUpload" // Importação padrão
+import ImageUpload from "./ImageUpload"
 import { SimpleLocationSelector } from "./simple-location-selector"
 import { useAuth } from "@/app/auth-provider"
-import { speciesEnum, petSizeEnum } from "@/lib/validators/animal" // Importar enums do validador
+import { speciesEnum, petSizeEnum } from "@/lib/validators/animal"
+import { useActionState } from "react" // Importar useActionState
+import { createFoundPet } from "@/app/actions/found-pet-actions" // Importar a Server Action
 
 interface FoundPetData {
   id?: string
@@ -36,7 +38,7 @@ interface FoundPetData {
   found_location: string
   current_location?: string
   contact: string
-  main_image_url: string // Alterado para main_image_url
+  main_image_url: string
   is_special_needs: boolean
   special_needs_description?: string
   good_with_kids?: boolean
@@ -59,10 +61,10 @@ interface FoundPetFormProps {
 
 const defaultFoundPetData: FoundPetData = {
   name: "",
-  species: speciesEnum.enum.dog, // Usar o enum corretamente
+  species: speciesEnum.enum.dog,
   species_other: "",
   breed: "",
-  size: petSizeEnum.enum.medium, // Usar o enum corretamente
+  size: petSizeEnum.enum.medium,
   size_other: "",
   gender: "male",
   gender_other: "",
@@ -73,7 +75,7 @@ const defaultFoundPetData: FoundPetData = {
   found_location: "",
   current_location: "",
   contact: "",
-  main_image_url: "", // Alterado para main_image_url
+  main_image_url: "",
   is_special_needs: false,
   special_needs_description: "",
   good_with_kids: false,
@@ -87,13 +89,12 @@ const defaultFoundPetData: FoundPetData = {
   category: "found",
 }
 
-// Função para verificar palavras-chave bloqueadas
+// Função para verificar palavras-chave bloqueadas (ainda necessária para validação client-side antes do submit)
 async function checkForBlockedKeywords(
   content: string,
   supabase: any,
 ): Promise<{ blocked: boolean; keyword?: string }> {
   try {
-    // Verificar se a moderação está habilitada
     const { data: setting } = await supabase
       .from("moderation_settings")
       .select("setting_value")
@@ -104,14 +105,12 @@ async function checkForBlockedKeywords(
       return { blocked: false }
     }
 
-    // Buscar palavras-chave ativas
     const { data: keywords } = await supabase.from("moderation_keywords").select("keyword").eq("is_active", true)
 
     if (!keywords || keywords.length === 0) {
       return { blocked: false }
     }
 
-    // Verificar se o conteúdo contém alguma palavra bloqueada
     const lowerContent = content.toLowerCase()
     for (const kw of keywords) {
       if (lowerContent.includes(kw.keyword.toLowerCase())) {
@@ -127,17 +126,64 @@ async function checkForBlockedKeywords(
 }
 
 function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
+  const router = useRouter()
+  const supabase = createClientComponentClient() // Ainda necessário para checkForBlockedKeywords
+  const { user } = useAuth()
+
   const [petData, setPetData] = useState<FoundPetData>(initialData || defaultFoundPetData)
-  const [loading, setLoading] = useState(false)
-  const [imageUrl, setImageUrl] = useState(initialData?.main_image_url || "") // Usar main_image_url
+  const [imageUrl, setImageUrl] = useState(initialData?.main_image_url || "")
   const [isSpecialNeeds, setIsSpecialNeeds] = useState(initialData?.is_special_needs || false)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
-  const [submitSuccess, setSubmitSuccess] = useState(false)
-  const [rejectedByModeration, setRejectedByModeration] = useState(false)
-  const [rejectionReason, setRejectionReason] = useState("")
-  const router = useRouter()
-  const supabase = createClientComponentClient()
-  const { user } = useAuth()
+
+  // useActionState para gerenciar o estado da submissão
+  const [state, formAction, isPending] = useActionState(
+    async (prevState: any, formData: FormData) => {
+      // Adicionar user_id e main_image_url ao formData antes de passar para a Server Action
+      if (user?.id) {
+        formData.append("user_id", user.id)
+      }
+      formData.append("main_image_url", imageUrl)
+      formData.append("is_special_needs", String(isSpecialNeeds))
+      formData.append("category", "found") // Garantir que a categoria é 'found'
+
+      // Ajustar valores 'other' para a Server Action
+      if (petData.species === "other" && petData.species_other) {
+        formData.set("species", petData.species_other)
+      }
+      if (petData.size === "other" && petData.size_other) {
+        formData.set("size", petData.size_other)
+      }
+      if (petData.gender === "other" && petData.gender_other) {
+        formData.set("gender", petData.gender_other)
+      }
+      if (petData.color === "other" && petData.color_other) {
+        formData.set("color", petData.color_other)
+      }
+
+      // A Server Action já faz a validação de moderação e inserção no DB
+      const result = await createFoundPet(formData)
+
+      if (result.success) {
+        toast({
+          title: "Pet reportado",
+          description: result.warning || "O pet encontrado foi reportado com sucesso!",
+        })
+        // Redirecionar após 3 segundos
+        setTimeout(() => {
+          router.push("/encontrados")
+          router.refresh()
+        }, 3000)
+      } else {
+        toast({
+          title: "Erro",
+          description: result.error || "Ocorreu um erro ao salvar o pet encontrado. Tente novamente.",
+          variant: "destructive",
+        })
+      }
+      return result
+    },
+    { success: false, error: null, warning: null },
+  ) // Estado inicial do useActionState
 
   useEffect(() => {
     if (initialData) {
@@ -205,7 +251,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
     }
   }
 
-  const validateForm = (): boolean => {
+  const validateForm = async (): Promise<boolean> => {
     const errors: Record<string, string> = {}
 
     if (!petData.species) errors.species = "Espécie é obrigatória"
@@ -219,116 +265,51 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
     if (!petData.found_date) errors.found_date = "Data em que foi encontrado é obrigatória"
     if (!petData.found_location) errors.found_location = "Local onde foi encontrado é obrigatório"
     if (!petData.contact) errors.contact = "Contato para informações é obrigatório"
-    if (!imageUrl) errors.main_image_url = "Imagem do pet é obrigatória" // Ajustado para main_image_url
+    if (!imageUrl) errors.main_image_url = "Imagem do pet é obrigatória"
 
     if (isSpecialNeeds && !petData.special_needs_description) {
       errors.special_needs_description = "Descrição das necessidades especiais é obrigatória"
+    }
+
+    // Client-side moderation check before submission
+    const contentToCheck = `${petData.name || ""} ${petData.description || ""} ${petData.found_location || ""} ${petData.current_location || ""}`
+    const { blocked, keyword } = await checkForBlockedKeywords(contentToCheck, supabase)
+    if (blocked) {
+      errors.moderation = `Conteúdo contém palavra proibida: "${keyword}". Por favor, revise.`
     }
 
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+  const handleSubmit = async (formData: FormData) => {
+    if (!user) {
+      toast({
+        title: "Erro",
+        description: "Você precisa estar logado para reportar um pet encontrado.",
+        variant: "destructive",
+      })
+      router.push("/login")
+      return
+    }
 
-    if (!validateForm()) {
+    const isValid = await validateForm()
+    if (!isValid) {
       toast({
         title: "Erro no formulário",
-        description: "Por favor, preencha todos os campos obrigatórios.",
+        description: "Por favor, preencha todos os campos obrigatórios e revise o conteúdo.",
         variant: "destructive",
       })
       return
     }
 
-    setLoading(true)
-
-    try {
-      if (!user) {
-        toast({
-          title: "Erro",
-          description: "Você precisa estar logado para reportar um pet encontrado.",
-          variant: "destructive",
-        })
-        router.push("/login")
-        return
-      }
-
-      // Verificar moderação por palavras-chave
-      const contentToCheck = `${petData.name || ""} ${petData.description || ""} ${petData.found_location || ""} ${petData.current_location || ""}`
-      const { blocked, keyword } = await checkForBlockedKeywords(contentToCheck, supabase)
-
-      let finalStatus = "approved"
-      let finalRejectionReason = null
-
-      if (blocked && keyword) {
-        finalStatus = "rejected"
-        finalRejectionReason = `Rejeitado automaticamente: palavra-chave proibida "${keyword}"`
-        setRejectedByModeration(true)
-        setRejectionReason(finalRejectionReason)
-      }
-
-      // Preparar dados básicos para inserção
-      const newPetData: FoundPetData = {
-        ...petData,
-        species: petData.species === "other" ? petData.species_other || "" : petData.species,
-        size: petData.size === "other" ? petData.size_other || "" : petData.size,
-        gender: petData.gender === "other" ? petData.gender_other || "" : petData.gender,
-        color: petData.color === "other" ? petData.color_other || "" : petData.color,
-        main_image_url: imageUrl, // Usar imageUrl aqui
-        is_special_needs: isSpecialNeeds,
-        status: finalStatus,
-        user_id: user.id,
-        category: "found",
-      }
-
-      // Adicionar rejection_reason apenas se o pet foi rejeitado
-      if (finalStatus === "rejected" && finalRejectionReason) {
-        newPetData.rejection_reason = finalRejectionReason
-      }
-
-      const response = await supabase.from("pets").insert([newPetData])
-
-      if (response.error) {
-        throw response.error
-      }
-
-      setSubmitSuccess(true)
-
-      if (blocked) {
-        toast({
-          title: "Pet cadastrado mas rejeitado",
-          description: `Pet foi rejeitado automaticamente devido à palavra-chave proibida: "${keyword}". Entre em contato com o suporte se isso foi um erro.`,
-          variant: "destructive",
-        })
-      } else {
-        toast({
-          title: "Pet reportado",
-          description: "O pet encontrado foi reportado com sucesso!",
-        })
-      }
-
-      // Redirecionar após 3 segundos
-      setTimeout(() => {
-        router.push("/encontrados")
-        router.refresh()
-      }, 3000)
-    } catch (error) {
-      console.error("Erro ao salvar pet encontrado:", error)
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao salvar o pet encontrado. Tente novamente.",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
+    // Chamar a Server Action através do formAction
+    formAction(formData)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
-      {submitSuccess && !rejectedByModeration && (
+    <form action={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
+      {state?.success && !state?.warning && (
         <Alert className="bg-green-50 border-green-200 mb-4">
           <AlertCircle className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-700">
@@ -337,15 +318,31 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
         </Alert>
       )}
 
-      {submitSuccess && rejectedByModeration && (
+      {state?.success && state?.warning && (
+        <Alert className="bg-yellow-50 border-yellow-200 mb-4">
+          <AlertCircle className="h-4 w-4 text-yellow-600" />
+          <AlertDescription className="text-yellow-700">
+            <strong>Aviso:</strong> {state.warning}
+            <br />
+            <em>Entre em contato com o suporte se isso foi um erro.</em>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {state?.error && (
         <Alert className="bg-red-50 border-red-200 mb-4">
           <XCircle className="h-4 w-4 text-red-600" />
           <AlertDescription className="text-red-700">
-            <strong>Pet rejeitado automaticamente!</strong>
-            <br />
-            {rejectionReason}
-            <br />
-            <em>Entre em contato com o suporte se isso foi um erro.</em>
+            <strong>Erro ao cadastrar:</strong> {state.error}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {formErrors.moderation && (
+        <Alert className="bg-red-50 border-red-200 mb-4">
+          <XCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-700">
+            <strong>Erro de Moderação:</strong> {formErrors.moderation}
           </AlertDescription>
         </Alert>
       )}
@@ -726,8 +723,8 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
         <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={loading}>
-          {loading ? "Salvando..." : "Reportar Pet Encontrado"}
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Salvando..." : "Reportar Pet Encontrado"}
         </Button>
       </div>
     </form>

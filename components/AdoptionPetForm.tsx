@@ -18,8 +18,8 @@ import { createAdoptionPet } from "@/app/actions/pet-actions"
 import { SimpleLocationSelector } from "@/components/simple-location-selector"
 
 interface AdoptionPetFormProps {
-  ongId?: string // Modificado para opcional
-  ongName?: string // Modificado para opcional
+  ongId: string
+  ongName: string
   onSuccess?: () => void
   onError?: (message: string) => void
 }
@@ -183,7 +183,6 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
     }
 
     setIsSubmitting(true)
-    setSubmitSuccess(false) // Reset success state on new submission
 
     try {
       // Adicionar localização formatada
@@ -197,7 +196,7 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
         gender: formData.gender === "other" ? formData.gender_other : formData.gender,
         color: formData.color === "other" ? formData.color_other : formData.color,
         location,
-        ong_id: ongId || null, // <-- MODIFICAÇÃO AQUI: Garante que ong_id seja null se não for fornecido
+        ong_id: ongId,
       }
 
       console.log("Enviando dados para o servidor:", processedData)
@@ -215,7 +214,7 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
 
         // Aguardar 2 segundos antes de redirecionar
         setTimeout(() => {
-          router.push("/adocao") // Redireciona para /adocao em vez de /ongs/dashboard para usuários comuns
+          router.push("/ongs/dashboard")
           router.refresh()
         }, 2000)
       }
@@ -223,7 +222,7 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
       console.error("Erro ao cadastrar pet:", error)
       onError?.("Erro ao cadastrar pet: " + (error instanceof Error ? error.message : String(error)))
     } finally {
-      setIsSubmitting(false) // Sempre redefine o estado de envio, mesmo em erro
+      setIsSubmitting(false)
     }
   }
 
@@ -234,20 +233,6 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
           <CheckCircle className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-700">
             Pet cadastrado com sucesso! Você será redirecionado em instantes...
-          </AlertDescription>
-        </Alert>
-      )}
-      {formErrors.general && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription>{formErrors.general}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Adicione um aviso para ONG se ongId e ongName forem passados */}
-      {ongName && (
-        <Alert className="bg-blue-50 border-blue-200 mb-4">
-          <AlertDescription className="text-blue-700">
-            Você está cadastrando este pet em nome da ONG: **{ongName}**.
           </AlertDescription>
         </Alert>
       )}
