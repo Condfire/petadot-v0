@@ -290,7 +290,7 @@ export async function createAdoptionPet(petData: any) {
       ...petData,
       user_id: userId,
       category: "adoption", // Add category field
-      status: ongData ? "approved" : "pending", // Se for ONG, aprova automaticamente
+      status: "approved",
       created_at: new Date().toISOString(),
       slug: baseSlug,
     }

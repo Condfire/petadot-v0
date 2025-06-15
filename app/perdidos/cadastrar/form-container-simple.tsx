@@ -100,7 +100,7 @@ export default function SimpleFormContainer() {
         city,
         image_url: imageUrl,
         user_id: user.id,
-        status: "pending",
+        status: "approved",
       }
 
       // Inserir o pet e obter o ID

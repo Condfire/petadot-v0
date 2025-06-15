@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const newPet = {
       ...petData,
       user_id: session.user.id,
-      status: "pending",
+      status: "approved",
       created_at: new Date().toISOString(),
     }
 

@@ -81,7 +81,7 @@ const defaultFoundPetData: FoundPetData = {
   good_with_dogs: false,
   is_vaccinated: false,
   is_neutered: false,
-  status: "pending", // Ajustado para "pending"
+  status: "approved",
   state: "",
   city: "",
   category: "found",
@@ -259,7 +259,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
       const contentToCheck = `${petData.name || ""} ${petData.description || ""} ${petData.found_location || ""} ${petData.current_location || ""}`
       const { blocked, keyword } = await checkForBlockedKeywords(contentToCheck, supabase)
 
-      let finalStatus = "pending" // Status padrão é pending
+      let finalStatus = "approved"
       let finalRejectionReason = null
 
       if (blocked && keyword) {

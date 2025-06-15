@@ -162,7 +162,7 @@ export default function BasicFormContainer() {
         city,
         image_url: publicUrl,
         user_id: user.id,
-        status: "pending",
+        status: "approved",
       }
 
       // Inserir o pet e obter o ID
