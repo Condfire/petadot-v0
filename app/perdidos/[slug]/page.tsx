@@ -32,10 +32,11 @@ export async function generateMetadata({ params }: PetLostDetailPageProps): Prom
     const slugOrId = params.slug
     const isUuidValue = isUuid(slugOrId)
 
-    // Query based on whether it's a UUID or slug
+    // Query from 'pets' table with category 'lost'
     const { data: pet } = await supabase
-      .from("pets_lost")
+      .from("pets") // Changed from pets_lost
       .select("*")
+      .eq("category", "lost") // Added category filter
       .eq(isUuidValue ? "id" : "slug", slugOrId)
       .maybeSingle()
 
@@ -67,7 +68,7 @@ export async function generateMetadata({ params }: PetLostDetailPageProps): Prom
           : `${pet.name} - ${speciesDisplay} perdido ${location ? `em ${location}` : ""}. Ajude a encontrá-lo.`,
         images: [
           {
-            url: pet.main_image_url || pet.image_url || "/placeholder.svg?key=p34o7",
+            url: pet.main_image_url || "/placeholder.svg?key=p34o7", // Use main_image_url
             width: 1200,
             height: 630,
             alt: pet.name || "Pet perdido",
@@ -102,10 +103,11 @@ export default async function PetLostDetailPage({ params }: PetLostDetailPagePro
     // Determine if the slug is a UUID or a slug
     const isUUID = isUuid(params.slug)
 
-    // Query based on whether it's a UUID or slug
+    // Query from 'pets' table with category 'lost'
     const { data: pet, error } = await supabase
-      .from("pets_lost")
+      .from("pets") // Changed from pets_lost
       .select("*")
+      .eq("category", "lost") // Added category filter
       .eq(isUUID ? "id" : "slug", params.slug)
       .maybeSingle()
 
@@ -133,7 +135,7 @@ export default async function PetLostDetailPage({ params }: PetLostDetailPagePro
 
     // Preparar as imagens
     const images = []
-    const imageUrl = pet.main_image_url || pet.image_url
+    const imageUrl = pet.main_image_url // Use main_image_url
     if (imageUrl) images.push(imageUrl)
     if (pet.additional_images && Array.isArray(pet.additional_images)) {
       images.push(...pet.additional_images)
