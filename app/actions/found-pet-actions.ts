@@ -111,7 +111,7 @@ export async function createFoundPet(formData: FormData) {
     const contentToCheck = `${name || ""} ${description || ""} ${found_location || ""} ${current_location || ""}`
     const { blocked, keyword } = await checkContentForBlockedKeywords(contentToCheck, supabase)
 
-    let status = "pending"
+    let status = "approved"
     let rejection_reason = null
 
     if (blocked) {

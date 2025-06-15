@@ -1006,7 +1006,7 @@ export async function createTestPet(userId: string) {
           location_details: "Rua de Teste, 123",
           contact_email: "teste@exemplo.com",
           main_image_url: "/golden-retriever-park.png",
-          status: "pending",
+          status: "approved",
           category: "lost",
           user_id: userId,
         },
