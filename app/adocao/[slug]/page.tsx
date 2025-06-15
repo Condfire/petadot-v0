@@ -45,8 +45,8 @@ export async function generateMetadata({ params }: PetAdoptionDetailPageProps): 
     // Query based on whether it's a UUID or slug
     const { data: pet, error } = await supabase
       .from("pets")
-      .select("*")
       .eq(isUuidValue ? "id" : "slug", slugOrId)
+      .select("*")
       .maybeSingle()
 
     if (error || !pet) {
@@ -116,8 +116,8 @@ export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetai
     // Get pet details using slug or UUID
     const { data: pet, error } = await supabase
       .from("pets")
-      .select("*")
       .eq(isUuidValue ? "id" : "slug", slugOrId)
+      .select("*")
       .maybeSingle()
 
     if (error) {

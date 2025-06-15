@@ -47,9 +47,9 @@ export default function EncontradosClientPage({
       try {
         let query = supabase
           .from("pets")
-          .select("*", { count: "exact" })
           .eq("category", "found")
           .eq("status", "approved")
+          .select("*", { count: "exact" })
 
         // Aplicar filtros
         if (filters.species && filters.species !== "all") {
