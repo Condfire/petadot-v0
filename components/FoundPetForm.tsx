@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs" // Ainda necessário para checkForBlockedKeywords
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -18,8 +18,8 @@ import ImageUpload from "./ImageUpload"
 import { SimpleLocationSelector } from "./simple-location-selector"
 import { useAuth } from "@/app/auth-provider"
 import { speciesEnum, petSizeEnum } from "@/lib/validators/animal"
-import { useActionState } from "react" // Importar useActionState
-import { createFoundPet } from "@/app/actions/found-pet-actions" // Importar a Server Action
+import { useActionState } from "react"
+import { createFoundPet } from "@/app/actions/found-pet-actions"
 
 interface FoundPetData {
   id?: string
@@ -89,7 +89,6 @@ const defaultFoundPetData: FoundPetData = {
   category: "found",
 }
 
-// Função para verificar palavras-chave bloqueadas (ainda necessária para validação client-side antes do submit)
 async function checkForBlockedKeywords(
   content: string,
   supabase: any,
@@ -127,7 +126,7 @@ async function checkForBlockedKeywords(
 
 function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
   const router = useRouter()
-  const supabase = createClientComponentClient() // Ainda necessário para checkForBlockedKeywords
+  const supabase = createClientComponentClient()
   const { user } = useAuth()
 
   const [petData, setPetData] = useState<FoundPetData>(initialData || defaultFoundPetData)
@@ -135,16 +134,22 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
   const [isSpecialNeeds, setIsSpecialNeeds] = useState(initialData?.is_special_needs || false)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
-  // useActionState para gerenciar o estado da submissão
   const [state, formAction, isPending] = useActionState(
     async (prevState: any, formData: FormData) => {
-      // Adicionar user_id e main_image_url ao formData antes de passar para a Server Action
       if (user?.id) {
         formData.append("user_id", user.id)
       }
       formData.append("main_image_url", imageUrl)
       formData.append("is_special_needs", String(isSpecialNeeds))
-      formData.append("category", "found") // Garantir que a categoria é 'found'
+      formData.append("category", "found")
+
+      // Anexar todos os campos booleanos e de texto relacionados a necessidades especiais/compatibilidade
+      formData.append("good_with_kids", String(petData.good_with_kids))
+      formData.append("good_with_cats", String(petData.good_with_cats))
+      formData.append("good_with_dogs", String(petData.good_with_dogs))
+      formData.append("is_vaccinated", String(petData.is_vaccinated))
+      formData.append("is_neutered", String(petData.is_neutered))
+      formData.append("special_needs_description", petData.special_needs_description || "")
 
       // Ajustar valores 'other' para a Server Action
       if (petData.species === "other" && petData.species_other) {
@@ -160,7 +165,6 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
         formData.set("color", petData.color_other)
       }
 
-      // A Server Action já faz a validação de moderação e inserção no DB
       const result = await createFoundPet(formData)
 
       if (result.success) {
@@ -168,7 +172,6 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
           title: "Pet reportado",
           description: result.warning || "O pet encontrado foi reportado com sucesso!",
         })
-        // Redirecionar após 3 segundos
         setTimeout(() => {
           router.push("/encontrados")
           router.refresh()
@@ -183,7 +186,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
       return result
     },
     { success: false, error: null, warning: null },
-  ) // Estado inicial do useActionState
+  )
 
   useEffect(() => {
     if (initialData) {
@@ -271,7 +274,6 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
       errors.special_needs_description = "Descrição das necessidades especiais é obrigatória"
     }
 
-    // Client-side moderation check before submission
     const contentToCheck = `${petData.name || ""} ${petData.description || ""} ${petData.found_location || ""} ${petData.current_location || ""}`
     const { blocked, keyword } = await checkForBlockedKeywords(contentToCheck, supabase)
     if (blocked) {
@@ -282,7 +284,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
     return Object.keys(errors).length === 0
   }
 
-  const handleSubmit = async (formData: FormData) => {
+  const handleFormSubmit = async (formData: FormData) => {
     if (!user) {
       toast({
         title: "Erro",
@@ -303,12 +305,11 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
       return
     }
 
-    // Chamar a Server Action através do formAction
     formAction(formData)
   }
 
   return (
-    <form action={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
+    <form action={handleFormSubmit} className="space-y-6 max-w-2xl mx-auto">
       {state?.success && !state?.warning && (
         <Alert className="bg-green-50 border-green-200 mb-4">
           <AlertCircle className="h-4 w-4 text-green-600" />
@@ -621,7 +622,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
             <Checkbox
               id="good_with_dogs"
               checked={petData.good_with_dogs}
-              onCheckedChange={(checked) => handleCheckboxChange("good_with_dogs", checked === true)}
+              onCheckedChange={(checked) => handleCheckboxChange("good_dogs", checked === true)}
             />
             <Label htmlFor="good_with_dogs" className="cursor-pointer">
               Parece bom com cães
