@@ -26,10 +26,7 @@ export async function POST(request: NextRequest) {
     console.error(
       "[API/Upload] Supabase credentials are not configured. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
     )
-    return NextResponse.json(
-      { error: "Supabase credentials are not configured" },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Supabase credentials are not configured" }, { status: 500 })
   }
   try {
     // Obter o formulário com a imagem
@@ -87,11 +84,30 @@ export async function POST(request: NextRequest) {
 
     // Fazer o upload usando a chave de serviço (ignora RLS)
     console.log(`[API/Upload] Iniciando upload para Supabase Storage. Bucket: ${BUCKET_NAME}, Path: ${filePath}`)
+
+    const controller = new AbortController()
+    let timeoutTriggered = false
+    const timeoutId = setTimeout(() => {
+      timeoutTriggered = true
+      controller.abort()
+    }, 60000)
+
+    if (request.signal) {
+      if (request.signal.aborted) {
+        clearTimeout(timeoutId)
+        throw request.signal.reason || new Error("Upload abortado")
+      }
+      request.signal.addEventListener("abort", () => controller.abort(), { once: true })
+    }
+
     const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, buffer, {
       contentType: file.type,
       cacheControl: "3600",
       upsert: true,
+      signal: controller.signal,
     })
+
+    clearTimeout(timeoutId)
 
     if (error) {
       console.error("[API/Upload] Erro no upload para Supabase:", error)
