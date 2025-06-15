@@ -12,58 +12,68 @@ if (!supabaseUrl || !supabaseServiceKey) {
   )
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    persistSession: false,
+  },
+})
 
 const BUCKET_NAME = "petadot-images"
 
-// Define max size for events, matching client-side config for events
-const MAX_EVENT_IMAGE_SIZE = 20 * 1024 * 1024 // 20MB (temporariamente para teste)
+// Configurações de tamanho por categoria
+const CATEGORY_LIMITS = {
+  pets: 5 * 1024 * 1024, // 5MB
+  events: 8 * 1024 * 1024, // 8MB
+  avatars: 2 * 1024 * 1024, // 2MB
+  ongs: 3 * 1024 * 1024, // 3MB
+  temp: 10 * 1024 * 1024, // 10MB
+} as const
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
   console.log("[API/Upload] Recebendo requisição de upload...")
 
   if (!supabaseUrl || !supabaseServiceKey) {
     console.error(
       "[API/Upload] Supabase credentials are not configured. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
     )
-    return NextResponse.json({ error: "Supabase credentials are not configured" }, { status: 500 })
+    return NextResponse.json({ error: "Configuração do servidor incompleta" }, { status: 500 })
   }
+
   try {
-    // Obter o formulário com a imagem
-    console.log("[API/Upload] Processando formData...")
-    const formData = await request.formData()
+    // Timeout para processamento do FormData
+    const formDataPromise = request.formData()
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Timeout ao processar dados")), 10000)
+    })
+
+    const formData = (await Promise.race([formDataPromise, timeoutPromise])) as FormData
+
     const file = formData.get("file") as File
-    const category = (formData.get("category") as string) || "pets" // Default to 'pets' if not provided
-    const userId = (formData.get("userId") as string) || "public" // Recebe o userId do cliente
+    const category = (formData.get("category") as string) || "pets"
+    const userId = (formData.get("userId") as string) || "public"
+
+    console.log(`[API/Upload] Processamento FormData: ${Date.now() - startTime}ms`)
 
     if (!file) {
       console.error("[API/Upload] Nenhum arquivo enviado.")
       return NextResponse.json({ error: "Nenhum arquivo enviado" }, { status: 400 })
     }
 
-    console.log(`[API/Upload] Arquivo recebido: ${file.name}, tipo: ${file.type}, tamanho: ${file.size} bytes`)
-    console.log(`[API/Upload] Categoria: ${category}, User ID: ${userId}`) // Log do userId recebido
+    console.log(`[API/Upload] Arquivo: ${file.name}, tipo: ${file.type}, tamanho: ${(file.size / 1024).toFixed(1)}KB`)
 
-    // Validar o arquivo
+    // Validações rápidas
     if (!file.type.startsWith("image/")) {
-      console.error("[API/Upload] Validação falhou: Apenas imagens são permitidas.")
       return NextResponse.json({ error: "Apenas imagens são permitidas" }, { status: 400 })
     }
 
-    // Use the appropriate max size based on category if possible, or a general safe max.
-    // For simplicity, since the issue is with event upload, we'll use MAX_EVENT_IMAGE_SIZE here.
-    // A more robust solution would involve passing the category's max size from client or having a shared config.
-    if (file.size > MAX_EVENT_IMAGE_SIZE) {
-      console.error(
-        `[API/Upload] Validação falhou: Arquivo muito grande (máx. ${MAX_EVENT_IMAGE_SIZE / (1024 * 1024)}MB).`,
-      )
-      return NextResponse.json(
-        { error: `Arquivo muito grande (máx. ${MAX_EVENT_IMAGE_SIZE / (1024 * 1024)}MB)` },
-        { status: 400 },
-      )
+    const maxSize = CATEGORY_LIMITS[category as keyof typeof CATEGORY_LIMITS] || CATEGORY_LIMITS.pets
+    if (file.size > maxSize) {
+      const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(1)
+      return NextResponse.json({ error: `Arquivo muito grande. Máximo: ${maxSizeMB}MB` }, { status: 400 })
     }
 
-    // Gerar um nome de arquivo único
+    // Gerar caminho otimizado
     const timestamp = Date.now()
     const uuid = uuidv4().substring(0, 8)
     const extension = file.name.split(".").pop()?.toLowerCase() || "jpg"
@@ -71,70 +81,80 @@ export async function POST(request: NextRequest) {
       .replace(/\.[^/.]+$/, "")
       .replace(/[^a-zA-Z0-9]/g, "-")
       .toLowerCase()
-      .substring(0, 20)
+      .substring(0, 15) // Reduzido para melhor performance
 
     const filePath = `${category}/${userId}/${cleanName}-${timestamp}-${uuid}.${extension}`
-    console.log(`[API/Upload] Caminho gerado para upload: ${filePath}`)
 
-    // Converter o arquivo para um ArrayBuffer
-    console.log("[API/Upload] Convertendo arquivo para ArrayBuffer...")
+    console.log(`[API/Upload] Preparação: ${Date.now() - startTime}ms`)
+
+    // Converter arquivo de forma otimizada
     const arrayBuffer = await file.arrayBuffer()
     const buffer = new Uint8Array(arrayBuffer)
-    console.log(`[API/Upload] Conversão para ArrayBuffer concluída. Tamanho do buffer: ${buffer.byteLength} bytes.`)
 
-    // Fazer o upload usando a chave de serviço (ignora RLS)
-    console.log(`[API/Upload] Iniciando upload para Supabase Storage. Bucket: ${BUCKET_NAME}, Path: ${filePath}`)
+    console.log(`[API/Upload] Conversão buffer: ${Date.now() - startTime}ms`)
 
-    const controller = new AbortController()
-    let timeoutTriggered = false
-    const timeoutId = setTimeout(() => {
-      timeoutTriggered = true
-      controller.abort()
-    }, 60000)
-
-    if (request.signal) {
-      if (request.signal.aborted) {
-        clearTimeout(timeoutId)
-        throw request.signal.reason || new Error("Upload abortado")
-      }
-      request.signal.addEventListener("abort", () => controller.abort(), { once: true })
-    }
+    // Upload com timeout otimizado
+    const uploadStartTime = Date.now()
 
     const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, buffer, {
       contentType: file.type,
-      cacheControl: "3600",
+      cacheControl: "31536000", // 1 ano
       upsert: true,
-      signal: controller.signal,
     })
 
-    clearTimeout(timeoutId)
+    console.log(`[API/Upload] Upload Supabase: ${Date.now() - uploadStartTime}ms`)
 
     if (error) {
-      console.error("[API/Upload] Erro no upload para Supabase:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error("[API/Upload] Erro no upload:", error.message)
+      return NextResponse.json(
+        {
+          error: `Erro no upload: ${error.message}`,
+        },
+        { status: 500 },
+      )
     }
 
-    console.log("[API/Upload] Upload para Supabase concluído com sucesso. Data:", data)
-
-    // Obter a URL pública
-    console.log("[API/Upload] Obtendo URL pública...")
+    // Obter URL pública (operação rápida)
     const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(data.path)
-    console.log(`[API/Upload] URL pública gerada:`, urlData)
 
-    if (!urlData || !urlData.publicUrl) {
-      console.error("[API/Upload] Erro ao gerar URL pública: urlData ou publicUrl é nulo/indefinido.")
+    if (!urlData?.publicUrl) {
+      console.error("[API/Upload] Erro ao gerar URL pública")
       return NextResponse.json({ error: "Erro ao gerar URL pública" }, { status: 500 })
     }
 
-    console.log(`[API/Upload] Upload finalizado com sucesso. URL: ${urlData.publicUrl}`)
+    const totalTime = Date.now() - startTime
+    console.log(`[API/Upload] ✅ Upload concluído em ${totalTime}ms - URL: ${urlData.publicUrl}`)
 
     return NextResponse.json({
       success: true,
       url: urlData.publicUrl,
       path: data.path,
+      processingTime: totalTime,
     })
   } catch (error: any) {
-    console.error("[API/Upload] Erro inesperado na requisição:", error)
-    return NextResponse.json({ error: error.message || "Erro interno do servidor" }, { status: 500 })
+    const totalTime = Date.now() - startTime
+    console.error(`[API/Upload] ❌ Erro após ${totalTime}ms:`, error.message)
+
+    // Mensagens de erro mais específicas
+    let errorMessage = "Erro interno do servidor"
+
+    if (error.message.includes("Timeout")) {
+      errorMessage = "O servidor demorou a responder. Tente novamente com uma imagem menor."
+    } else if (error.message.includes("network") || error.message.includes("fetch")) {
+      errorMessage = "Erro de conexão. Verifique sua internet e tente novamente."
+    } else if (error.message.includes("size") || error.message.includes("large")) {
+      errorMessage = "Imagem muito grande. Tente com uma imagem menor."
+    }
+
+    return NextResponse.json(
+      {
+        error: errorMessage,
+        details: process.env.NODE_ENV === "development" ? error.message : undefined,
+      },
+      { status: 500 },
+    )
   }
 }
+
+// Configurar timeout para a função
+export const maxDuration = 60 // 60 segundos

@@ -4,18 +4,17 @@ import { ImageUploadManager } from "./image-upload-manager"
 import type { ImageCategory } from "@/lib/storage-manager"
 
 interface ImageUploadProps {
-  value: string // A URL da imagem atual
-  onChange: (url: string) => void // Callback para quando a imagem muda
+  value: string
+  onChange: (url: string) => void
   required?: boolean
   folder?: string
   className?: string
   label?: string
   description?: string
-  userId?: string // Adicionando a prop userId
+  userId?: string
 }
 
 export function ImageUpload({
-  // Exportação nomeada restaurada
   value,
   onChange,
   required = false,
@@ -23,7 +22,7 @@ export function ImageUpload({
   className = "",
   label = "Imagem",
   description,
-  userId, // Destruturando userId
+  userId,
 }: ImageUploadProps) {
   // Mapear folder para categoria
   const getCategoryFromFolder = (folder: string): ImageCategory => {
@@ -43,15 +42,15 @@ export function ImageUpload({
   return (
     <ImageUploadManager
       category={getCategoryFromFolder(folder)}
-      value={value} // Passa o 'value' recebido para o ImageUploadManager
-      onChange={onChange} // Passa o 'onChange' recebido para o ImageUploadManager
+      value={value}
+      onChange={onChange}
       label={label}
-      description={description}
+      description={description || "Selecione uma imagem de boa qualidade. Ela será otimizada automaticamente."}
       required={required}
       className={className}
-      userId={userId} // Passando o userId para o ImageUploadManager
+      userId={userId}
     />
   )
 }
 
-export default ImageUpload // Exportação padrão mantida
+export default ImageUpload
