@@ -18,8 +18,8 @@ import { createAdoptionPet } from "@/app/actions/pet-actions"
 import { SimpleLocationSelector } from "@/components/simple-location-selector"
 
 interface AdoptionPetFormProps {
-  ongId: string
-  ongName: string
+  ongId?: string // Modificado para opcional
+  ongName?: string // Modificado para opcional
   onSuccess?: () => void
   onError?: (message: string) => void
 }
@@ -173,17 +173,17 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("[Client Form] Tentativa de envio do formulário.")
+    console.log("Formulário enviado", formData)
 
     // Validar formulário
     if (!validateForm()) {
-      console.log("[Client Form] Formulário inválido. Erros:", formErrors)
+      console.log("Formulário inválido", formErrors)
       onError?.("Por favor, preencha todos os campos obrigatórios.")
       return
     }
 
     setIsSubmitting(true)
-    setSubmitSuccess(false) // Reset success state on new submission attempt
+    setSubmitSuccess(false) // Reset success state on new submission
 
     try {
       // Adicionar localização formatada
@@ -197,37 +197,33 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
         gender: formData.gender === "other" ? formData.gender_other : formData.gender,
         color: formData.color === "other" ? formData.color_other : formData.color,
         location,
-        ong_id: ongId,
+        ong_id: ongId || null, // <-- MODIFICAÇÃO AQUI: Garante que ong_id seja null se não for fornecido
       }
 
-      console.log("[Client Form] Dados processados para envio:", processedData)
+      console.log("Enviando dados para o servidor:", processedData)
 
       // Enviar os dados para o servidor
       const result = await createAdoptionPet(processedData)
 
-      console.log("[Client Form] Resultado do cadastro recebido:", result)
+      console.log("Resultado do cadastro:", result)
 
       if (result.error) {
-        console.error("[Client Form] Erro no cadastro:", result.error)
         onError?.(result.error)
       } else {
-        console.log("[Client Form] Pet cadastrado com sucesso!")
         setSubmitSuccess(true)
         onSuccess?.()
 
         // Aguardar 2 segundos antes de redirecionar
         setTimeout(() => {
-          console.log("[Client Form] Redirecionando para /ongs/dashboard...")
-          router.push("/ongs/dashboard")
+          router.push("/adocao") // Redireciona para /adocao em vez de /ongs/dashboard para usuários comuns
           router.refresh()
         }, 2000)
       }
     } catch (error) {
-      console.error("[Client Form] Erro inesperado durante o envio:", error)
+      console.error("Erro ao cadastrar pet:", error)
       onError?.("Erro ao cadastrar pet: " + (error instanceof Error ? error.message : String(error)))
     } finally {
-      setIsSubmitting(false)
-      console.log("[Client Form] isSubmitting resetado para false.")
+      setIsSubmitting(false) // Sempre redefine o estado de envio, mesmo em erro
     }
   }
 
@@ -238,6 +234,20 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
           <CheckCircle className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-700">
             Pet cadastrado com sucesso! Você será redirecionado em instantes...
+          </AlertDescription>
+        </Alert>
+      )}
+      {formErrors.general && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>{formErrors.general}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Adicione um aviso para ONG se ongId e ongName forem passados */}
+      {ongName && (
+        <Alert className="bg-blue-50 border-blue-200 mb-4">
+          <AlertDescription className="text-blue-700">
+            Você está cadastrando este pet em nome da ONG: **{ongName}**.
           </AlertDescription>
         </Alert>
       )}
