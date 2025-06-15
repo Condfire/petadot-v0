@@ -72,13 +72,24 @@ export function ImageUploadManager({
           }
         }, 100)
 
-        const result: UploadResult = await uploadImage(
-          file,
-          category,
-          undefined,
-          undefined,
-          controller.signal,
-        ) // Call the upload function
+        // Race the upload with a timeout so we can abort if the
+        // request hangs and provide feedback to the user.
+        const timeoutMs = 15000
+        const timeoutPromise = new Promise<UploadResult>((_, reject) => {
+          setTimeout(() => {
+            controller.abort()
+            const err: any = new Error(
+              "O servidor demorou a responder. Tente novamente mais tarde.",
+            )
+            err.name = "TimeoutError"
+            reject(err)
+          }, timeoutMs)
+        })
+
+        const result: UploadResult = await Promise.race([
+          uploadImage(file, category, undefined, undefined, controller.signal),
+          timeoutPromise,
+        ])
 
         if (interval) clearInterval(interval)
         controller.abort()
