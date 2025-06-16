@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
@@ -26,12 +28,12 @@ interface ReportPetModalProps {
 const REPORT_REASONS = [
   {
     value: "inappropriate_content",
-    label: "Conteúdo inapropriado",
+    label: "Conteúdo Inapropriado",
     description: "Imagens ou descrições inadequadas",
   },
   {
     value: "fake_listing",
-    label: "Anúncio falso",
+    label: "Anúncio Falso",
     description: "Suspeita de anúncio fraudulento",
   },
   {
@@ -46,18 +48,18 @@ const REPORT_REASONS = [
   },
   {
     value: "incorrect_information",
-    label: "Informações incorretas",
-    description: "Dados falsos sobre o animal",
+    label: "Informações Incorretas",
+    description: "Dados falsos sobre o pet ou localização",
   },
   {
     value: "already_adopted",
-    label: "Já foi adotado",
-    description: "Animal já encontrou um lar",
+    label: "Já Adotado",
+    description: "Pet já foi adotado mas anúncio continua ativo",
   },
   {
     value: "other",
-    label: "Outro motivo",
-    description: "Especifique nos detalhes",
+    label: "Outro",
+    description: "Outro motivo não listado acima",
   },
 ]
 
@@ -67,7 +69,9 @@ export function ReportPetModal({ isOpen, onClose, petId, petName }: ReportPetMod
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
     if (!selectedReason) {
       toast({
         title: "Erro",
@@ -100,7 +104,7 @@ export function ReportPetModal({ isOpen, onClose, petId, petName }: ReportPetMod
 
       toast({
         title: "Denúncia enviada",
-        description: "Sua denúncia foi registrada e será analisada pela nossa equipe.",
+        description: "Sua denúncia foi recebida e será analisada pela nossa equipe.",
       })
 
       // Reset form and close modal
@@ -140,64 +144,53 @@ export function ReportPetModal({ isOpen, onClose, petId, petName }: ReportPetMod
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div>
-            <Label className="text-base font-medium">Motivo da denúncia</Label>
-            <RadioGroup value={selectedReason} onValueChange={setSelectedReason} className="mt-2">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-3">
+            <Label htmlFor="reason">Motivo da denúncia *</Label>
+            <RadioGroup value={selectedReason} onValueChange={setSelectedReason} className="space-y-2">
               {REPORT_REASONS.map((reason) => (
                 <div key={reason.value} className="flex items-start space-x-2">
                   <RadioGroupItem value={reason.value} id={reason.value} className="mt-1" />
-                  <div className="grid gap-1.5 leading-none">
-                    <Label
-                      htmlFor={reason.value}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
+                  <div className="flex-1">
+                    <Label htmlFor={reason.value} className="font-medium cursor-pointer">
                       {reason.label}
                     </Label>
-                    <p className="text-xs text-muted-foreground">{reason.description}</p>
+                    <p className="text-sm text-muted-foreground">{reason.description}</p>
                   </div>
                 </div>
               ))}
             </RadioGroup>
           </div>
 
-          <div>
-            <Label htmlFor="details" className="text-base font-medium">
-              Detalhes adicionais (opcional)
-            </Label>
+          <div className="space-y-2">
+            <Label htmlFor="details">Detalhes adicionais (opcional)</Label>
             <Textarea
               id="details"
               placeholder="Forneça mais informações sobre sua denúncia..."
               value={details}
               onChange={(e) => setDetails(e.target.value)}
-              className="mt-2"
               rows={3}
               maxLength={500}
             />
-            <p className="text-xs text-muted-foreground mt-1">{details.length}/500 caracteres</p>
+            <p className="text-xs text-muted-foreground">{details.length}/500 caracteres</p>
           </div>
-        </div>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
-            Cancelar
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isSubmitting || !selectedReason}
-            className="bg-red-600 hover:bg-red-700"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Enviando...
-              </>
-            ) : (
-              "Enviar Denúncia"
-            )}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSubmitting || !selectedReason} className="bg-red-600 hover:bg-red-700">
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                "Enviar Denúncia"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

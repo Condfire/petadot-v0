@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        message: "Denúncia registrada com sucesso.",
+        message: "Denúncia enviada com sucesso.",
         reportId: report.id,
       },
       { status: 201 },

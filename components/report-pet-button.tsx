@@ -10,8 +10,8 @@ interface ReportPetButtonProps {
   petId: string
   petName: string
   className?: string
-  variant?: "default" | "outline" | "ghost"
-  size?: "default" | "sm" | "lg"
+  variant?: "default" | "outline" | "ghost" | "link" | "destructive" | "secondary"
+  size?: "default" | "sm" | "lg" | "icon"
 }
 
 export function ReportPetButton({
@@ -25,13 +25,8 @@ export function ReportPetButton({
 
   return (
     <>
-      <Button
-        variant={variant}
-        size={size}
-        onClick={() => setIsModalOpen(true)}
-        className={cn("text-red-600 hover:text-red-700 hover:bg-red-50", className)}
-      >
-        <Flag className="mr-2 h-4 w-4" />
+      <Button variant={variant} size={size} onClick={() => setIsModalOpen(true)} className={cn("gap-2", className)}>
+        <Flag className="h-4 w-4" />
         Denunciar
       </Button>
 
