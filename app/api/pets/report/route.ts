@@ -1,23 +1,21 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
+import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = createRouteHandlerClient({ cookies })
 
     // Check if user is authenticated
     const {
       data: { session },
-      error: authError,
     } = await supabase.auth.getSession()
 
-    if (authError || !session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "Você precisa estar logado para denunciar um pet." }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { petId, reason, details } = body
+    const { petId, reason, details } = await request.json()
 
     // Validate required fields
     if (!petId || !reason) {
@@ -36,7 +34,14 @@ export async function POST(request: NextRequest) {
     ]
 
     if (!validReasons.includes(reason)) {
-      return NextResponse.json({ error: "Motivo inválido." }, { status: 400 })
+      return NextResponse.json({ error: "Motivo da denúncia inválido." }, { status: 400 })
+    }
+
+    // Check if pet exists
+    const { data: pet, error: petError } = await supabase.from("pets").select("id").eq("id", petId).single()
+
+    if (petError || !pet) {
+      return NextResponse.json({ error: "Pet não encontrado." }, { status: 404 })
     }
 
     // Check if user already reported this pet
@@ -45,17 +50,10 @@ export async function POST(request: NextRequest) {
       .select("id")
       .eq("pet_id", petId)
       .eq("user_id", session.user.id)
-      .maybeSingle()
+      .single()
 
     if (existingReport) {
       return NextResponse.json({ error: "Você já denunciou este pet." }, { status: 409 })
-    }
-
-    // Verify pet exists
-    const { data: pet, error: petError } = await supabase.from("pets").select("id, name").eq("id", petId).maybeSingle()
-
-    if (petError || !pet) {
-      return NextResponse.json({ error: "Pet não encontrado." }, { status: 404 })
     }
 
     // Create the report
@@ -67,14 +65,13 @@ export async function POST(request: NextRequest) {
         reason,
         details: details || null,
         status: "pending",
-        created_at: new Date().toISOString(),
       })
       .select()
       .single()
 
     if (reportError) {
       console.error("Erro ao criar denúncia:", reportError)
-      return NextResponse.json({ error: "Erro interno do servidor." }, { status: 500 })
+      return NextResponse.json({ error: "Erro ao enviar denúncia. Tente novamente." }, { status: 500 })
     }
 
     return NextResponse.json(

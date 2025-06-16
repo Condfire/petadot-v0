@@ -4,29 +4,20 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Flag } from "lucide-react"
 import { ReportPetModal } from "./report-pet-modal"
-import { cn } from "@/lib/utils"
 
 interface ReportPetButtonProps {
   petId: string
   petName: string
   className?: string
-  variant?: "default" | "outline" | "ghost" | "link" | "destructive" | "secondary"
-  size?: "default" | "sm" | "lg" | "icon"
 }
 
-export function ReportPetButton({
-  petId,
-  petName,
-  className,
-  variant = "outline",
-  size = "default",
-}: ReportPetButtonProps) {
+export function ReportPetButton({ petId, petName, className }: ReportPetButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   return (
     <>
-      <Button variant={variant} size={size} onClick={() => setIsModalOpen(true)} className={cn("gap-2", className)}>
-        <Flag className="h-4 w-4" />
+      <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)} className={className}>
+        <Flag className="h-4 w-4 mr-2" />
         Denunciar
       </Button>
 
