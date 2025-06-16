@@ -10,7 +10,7 @@ import { PetResolvedAlert } from "@/components/pet-resolved-alert"
 import { PetRecognitionModal } from "@/components/pet-recognition-modal"
 import { ShareButton } from "@/components/share-button"
 import { formatDate } from "@/lib/utils"
-import { mapPetSpecies, mapPetSize, mapPetGender, mapPetColor } from "@/lib/utils" // Importar de lib/utils
+import { mapPetSpecies, mapPetSize, mapPetGender, mapPetColor } from "@/lib/utils"
 import JsonLd from "@/components/json-ld"
 import { generateFoundPetSchema } from "@/lib/structured-data"
 import type { Metadata } from "next"
@@ -32,20 +32,25 @@ export async function generateMetadata({ params }: PetFoundDetailPageProps): Pro
     const idOrSlug = params.slug
     const isUuidValue = isUuid(idOrSlug)
 
-    // Query based on whether it's a UUID or slug
+    console.log(`[FoundMetadata] Buscando pet encontrado: ${idOrSlug}, isUuid: ${isUuidValue}`)
+
+    // Query for found pets from unified pets table
     const { data: pet } = await supabase
       .from("pets")
+      .select("*")
       .eq("category", "found")
       .eq(isUuidValue ? "id" : "slug", idOrSlug)
-      .select("*")
       .maybeSingle()
 
     if (!pet) {
+      console.log("[FoundMetadata] Pet encontrado não encontrado para slug/ID:", idOrSlug)
       return {
         title: "Pet não encontrado | PetAdot",
         description: "O pet encontrado que você está procurando não foi encontrado.",
       }
     }
+
+    console.log("[FoundMetadata] Pet encontrado:", pet.name, "Status:", pet.status)
 
     const location = pet.location || (pet.city && pet.state ? `${pet.city}, ${pet.state}` : "")
     const speciesDisplay = mapPetSpecies(pet.species, pet.species_other)
@@ -78,6 +83,7 @@ export async function generateMetadata({ params }: PetFoundDetailPageProps): Pro
       },
     }
   } catch (error) {
+    console.error("[FoundMetadata] Erro ao gerar metadata:", error)
     return {
       title: "Pet encontrado | PetAdot",
       description: "Ajude a encontrar o dono de pets encontrados na plataforma PetAdot",
@@ -87,9 +93,13 @@ export async function generateMetadata({ params }: PetFoundDetailPageProps): Pro
 
 export default async function PetFoundDetailPage({ params }: PetFoundDetailPageProps) {
   try {
+    console.log(`[FoundDetail] Iniciando busca para slug: ${params.slug}`)
+
     const supabase = createServerComponentClient({ cookies })
     const idOrSlug = params.slug
     const isUuidValue = isUuid(idOrSlug)
+
+    console.log(`[FoundDetail] Parâmetros: slug=${idOrSlug}, isUuid=${isUuidValue}`)
 
     // Verificar se o usuário está autenticado
     const {
@@ -97,16 +107,21 @@ export default async function PetFoundDetailPage({ params }: PetFoundDetailPageP
     } = await supabase.auth.getSession()
     const userId = session?.user?.id
 
-    // Buscar o pet encontrado pelo ID ou slug
+    console.log(`[FoundDetail] Usuário autenticado: ${userId ? "Sim" : "Não"}`)
+
+    // Buscar o pet encontrado pelo ID ou slug from unified pets table
     const { data: pet, error } = await supabase
       .from("pets")
+      .select("*")
       .eq("category", "found")
       .eq(isUuidValue ? "id" : "slug", idOrSlug)
-      .select("*")
       .maybeSingle()
 
+    console.log(`[FoundDetail] Query executada. Erro:`, error)
+    console.log(`[FoundDetail] Pet encontrado:`, pet ? `${pet.name} (${pet.id})` : "Nenhum")
+
     if (error || !pet) {
-      console.error("Erro ao buscar pet encontrado:", error)
+      console.error("[FoundDetail] Erro ao buscar pet encontrado:", error)
       notFound()
     }
 
@@ -114,8 +129,13 @@ export default async function PetFoundDetailPage({ params }: PetFoundDetailPageP
     const isApproved = pet.status === "approved" || pet.status === "aprovado" || pet.status === null
     const isOwner = userId && pet.user_id === userId
 
+    console.log(`[FoundDetail] Status do pet: ${pet.status}, Aprovado: ${isApproved}, É dono: ${isOwner}`)
+
     // Se o pet não estiver aprovado e não pertencer ao usuário atual, retornar 404
     if (!isApproved && !isOwner) {
+      console.warn(
+        `[FoundDetail] Acesso negado para pet ${pet.id} (status: ${pet.status}, owner: ${pet.user_id}, current user: ${userId})`,
+      )
       notFound()
     }
 
@@ -142,6 +162,8 @@ export default async function PetFoundDetailPage({ params }: PetFoundDetailPageP
     const structuredData = generateFoundPetSchema(pet, {
       baseUrl: process.env.NEXT_PUBLIC_APP_URL || "https://www.petadot.com.br",
     })
+
+    console.log(`[FoundDetail] Renderizando página para pet: ${pet.name}`)
 
     return (
       <main className="container mx-auto px-4 py-8">
@@ -231,7 +253,7 @@ export default async function PetFoundDetailPage({ params }: PetFoundDetailPageP
       </main>
     )
   } catch (error) {
-    console.error("Erro não tratado:", error)
+    console.error("[FoundDetail] Erro não tratado:", error)
     return (
       <div className="container mx-auto px-4 py-8">
         <Alert variant="destructive">

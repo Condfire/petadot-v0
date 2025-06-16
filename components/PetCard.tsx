@@ -3,7 +3,7 @@ import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AlertTriangle } from "lucide-react"
-import { mapPetSpecies, mapPetSize, mapPetGender } from "@/lib/utils" // Importar de lib/utils
+import { mapPetSpecies, mapPetSize, mapPetGender } from "@/lib/utils"
 
 interface PetCardProps {
   id: string
@@ -19,14 +19,16 @@ interface PetCardProps {
   gender?: string
   gender_other?: string
   location?: string
+  city?: string
+  state?: string
   status?: string
   type: "adoption" | "lost" | "found"
   isSpecialNeeds?: boolean
   slug?: string
+  category?: string // Add category field for debugging
 }
 
 export default function PetCard({
-  // Revertido para default export
   id,
   name,
   image,
@@ -40,10 +42,13 @@ export default function PetCard({
   gender,
   gender_other,
   location,
+  city,
+  state,
   status,
   type,
   isSpecialNeeds,
   slug,
+  category,
 }: PetCardProps) {
   // Determinar a URL de destino com base no tipo de pet
   const getDetailUrl = () => {
@@ -54,7 +59,14 @@ export default function PetCard({
     }[type]
 
     // Usar slug se disponível, caso contrário usar id
-    return `${baseUrl}${slug || id}`
+    const identifier = slug || id
+    const url = `${baseUrl}${identifier}`
+
+    console.log(
+      `[PetCard] Gerando URL: ${url} para pet ${name} (id: ${id}, slug: ${slug}, type: ${type}, category: ${category})`,
+    )
+
+    return url
   }
 
   // Função para obter a imagem com fallback
@@ -67,6 +79,9 @@ export default function PetCard({
     }
     return "/placeholder.svg?height=300&width=300"
   }
+
+  // Preparar localização
+  const displayLocation = location || (city && state ? `${city}, ${state}` : city || state || "")
 
   const speciesText = mapPetSpecies(species, species_other)
   const sizeText = mapPetSize(size, size_other)
@@ -142,9 +157,9 @@ export default function PetCard({
                 <span className="font-medium">Gênero:</span> {genderText}
               </p>
             )}
-            {location && (
+            {displayLocation && (
               <p>
-                <span className="font-medium">Localização:</span> {location}
+                <span className="font-medium">Localização:</span> {displayLocation}
               </p>
             )}
           </div>

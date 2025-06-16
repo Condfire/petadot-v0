@@ -11,11 +11,11 @@ import { AdoptionInterestModal } from "@/components/adoption-interest-modal"
 import { ShareButton } from "@/components/share-button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
-import { formatDate } from "@/lib/utils" // Importar formatDate de lib/utils
+import { formatDate } from "@/lib/utils"
 import { isUuid } from "@/lib/slug-utils"
 import JsonLd from "@/components/json-ld"
 import { generateAdoptionPetSchema } from "@/lib/structured-data"
-import { mapPetSpecies, mapPetSize, mapPetGender } from "@/lib/utils" // Importar de lib/utils
+import { mapPetSpecies, mapPetSize, mapPetGender } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
@@ -42,20 +42,33 @@ export async function generateMetadata({ params }: PetAdoptionDetailPageProps): 
     const slugOrId = params.slug
     const isUuidValue = isUuid(slugOrId)
 
-    // Query based on whether it's a UUID or slug
+    console.log(`[Metadata] Buscando pet para adoção: ${slugOrId}, isUuid: ${isUuidValue}`)
+
+    // Query for adoption pets from unified pets table
     const { data: pet, error } = await supabase
       .from("pets")
-      .eq(isUuidValue ? "id" : "slug", slugOrId)
       .select("*")
+      .eq("category", "adoption")
+      .eq(isUuidValue ? "id" : "slug", slugOrId)
       .maybeSingle()
 
-    if (error || !pet) {
-      console.error("Erro ao buscar pet para metadata:", error?.message || "Pet não encontrado ou erro desconhecido.") // Mensagem de erro mais específica
+    if (error) {
+      console.error("[Metadata] Erro ao buscar pet para metadata:", error)
       return {
         title: "Pet não encontrado | PetAdot",
         description: "O pet que você está procurando não foi encontrado.",
       }
     }
+
+    if (!pet) {
+      console.log("[Metadata] Pet não encontrado para slug/ID:", slugOrId)
+      return {
+        title: "Pet não encontrado | PetAdot",
+        description: "O pet que você está procurando não foi encontrado.",
+      }
+    }
+
+    console.log("[Metadata] Pet encontrado:", pet.name, "Status:", pet.status)
 
     const location = pet.city && pet.state ? `${pet.city}, ${pet.state}` : null
 
@@ -87,7 +100,7 @@ export async function generateMetadata({ params }: PetAdoptionDetailPageProps): 
       },
     }
   } catch (error) {
-    console.error("Erro ao gerar metadata:", error)
+    console.error("[Metadata] Erro ao gerar metadata:", error)
     return {
       title: "Pet para adoção | PetAdot",
       description: "Encontre o pet ideal para adoção na plataforma PetAdot",
@@ -97,9 +110,11 @@ export async function generateMetadata({ params }: PetAdoptionDetailPageProps): 
 
 export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetailPageProps) {
   try {
+    console.log(`[AdoptionDetail] Iniciando busca para slug: ${params.slug}`)
+
     // Verificar se o slug é um slug reservado
     if (RESERVED_SLUGS.includes(params.slug)) {
-      // Em vez de redirecionar, mostrar uma página de "não encontrado"
+      console.log(`[AdoptionDetail] Slug reservado detectado: ${params.slug}`)
       notFound()
     }
 
@@ -107,38 +122,49 @@ export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetai
     const slugOrId = params.slug
     const isUuidValue = isUuid(slugOrId)
 
+    console.log(`[AdoptionDetail] Parâmetros: slug=${slugOrId}, isUuid=${isUuidValue}`)
+
     // Verificar se o usuário está autenticado
     const {
       data: { session },
     } = await supabase.auth.getSession()
     const userId = session?.user?.id
 
-    // Get pet details using slug or UUID
+    console.log(`[AdoptionDetail] Usuário autenticado: ${userId ? "Sim" : "Não"}`)
+
+    // Get pet details using slug or UUID from unified pets table
     const { data: pet, error } = await supabase
       .from("pets")
-      .eq(isUuidValue ? "id" : "slug", slugOrId)
       .select("*")
+      .eq("category", "adoption")
+      .eq(isUuidValue ? "id" : "slug", slugOrId)
       .maybeSingle()
 
+    console.log(`[AdoptionDetail] Query executada. Erro:`, error)
+    console.log(`[AdoptionDetail] Pet encontrado:`, pet ? `${pet.name} (${pet.id})` : "Nenhum")
+
     if (error) {
-      console.error("Erro ao buscar pet:", error.message) // Mensagem de erro mais específica
+      console.error("[AdoptionDetail] Erro ao buscar pet:", error)
       notFound()
     }
 
     if (!pet) {
-      console.error("Pet não encontrado para o slug/ID:", slugOrId) // Mensagem de erro mais específica
+      console.error("[AdoptionDetail] Pet não encontrado para slug/ID:", slugOrId)
       notFound()
     }
 
     // Verificar se o pet está aprovado ou pertence ao usuário atual
-    const isApproved = pet.status === "approved" || pet.status === "aprovado" || pet.status === null
+    // Para pets de adoção, verificar status "available", "approved" ou null
+    const isApproved = pet.status === "approved" || pet.status === "available" || pet.status === null
     const isOwner = userId && pet.user_id === userId
+
+    console.log(`[AdoptionDetail] Status do pet: ${pet.status}, Aprovado: ${isApproved}, É dono: ${isOwner}`)
 
     // Se o pet não estiver aprovado e não pertencer ao usuário atual, retornar 404
     if (!isApproved && !isOwner) {
       console.warn(
-        `Acesso negado para pet ${pet.id} (status: ${pet.status}, owner: ${pet.user_id}, current user: ${userId})`,
-      ) // Log de aviso
+        `[AdoptionDetail] Acesso negado para pet ${pet.id} (status: ${pet.status}, owner: ${pet.user_id}, current user: ${userId})`,
+      )
       notFound()
     }
 
@@ -152,16 +178,18 @@ export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetai
       images.push(...pet.additional_images)
     }
 
-    // Informações de contato da ONG
+    // Informações de contato
     const location = pet.city && pet.state ? `${pet.city}, ${pet.state}` : null
 
-    // Obter o número de telefone para contato (pode estar em phone ou contact)
-    const contactPhone = pet.contact || null
+    // Obter o número de telefone para contato
+    const contactPhone = pet.contact || pet.contact_phone || null
 
     // Gerar dados estruturados
     const structuredData = generateAdoptionPetSchema(pet, {
       baseUrl: process.env.NEXT_PUBLIC_APP_URL || "https://www.petadot.com.br",
     })
+
+    console.log(`[AdoptionDetail] Renderizando página para pet: ${pet.name}`)
 
     return (
       <main className="container mx-auto px-4 py-8">
@@ -209,11 +237,11 @@ export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetai
 
               <TabsContent value="info" className="space-y-4 pt-4">
                 <PetInfoCard
-                  species={mapPetSpecies(pet.species, pet.species_other)} // Usar mapPetSpecies
+                  species={mapPetSpecies(pet.species, pet.species_other)}
                   breed={pet.breed}
                   age={pet.age}
-                  gender={mapPetGender(pet.gender, pet.gender_other)} // Usar mapPetGender
-                  size={mapPetSize(pet.size, pet.size_other)} // Usar mapPetSize
+                  gender={mapPetGender(pet.gender, pet.gender_other)}
+                  size={mapPetSize(pet.size, pet.size_other)}
                   color={pet.color}
                   location={location}
                 />
@@ -242,7 +270,7 @@ export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetai
       </main>
     )
   } catch (error) {
-    console.error("Erro ao buscar ou exibir detalhes do pet:", error)
+    console.error("[AdoptionDetail] Erro não tratado:", error)
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />

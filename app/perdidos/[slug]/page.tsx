@@ -11,7 +11,7 @@ import { PetSightingModal } from "@/components/pet-sighting-modal"
 import { ShareButton } from "@/components/share-button"
 import { formatDate } from "@/lib/utils"
 import { isUuid } from "@/lib/slug-utils"
-import { mapPetSpecies, mapPetSize, mapPetGender, mapPetColor } from "@/lib/utils" // Importar de lib/utils
+import { mapPetSpecies, mapPetSize, mapPetGender, mapPetColor } from "@/lib/utils"
 import JsonLd from "@/components/json-ld"
 import { generateLostPetSchema } from "@/lib/structured-data"
 import type { Metadata } from "next"
@@ -32,20 +32,25 @@ export async function generateMetadata({ params }: PetLostDetailPageProps): Prom
     const slugOrId = params.slug
     const isUuidValue = isUuid(slugOrId)
 
-    // Query based on whether it's a UUID or slug
+    console.log(`[LostMetadata] Buscando pet perdido: ${slugOrId}, isUuid: ${isUuidValue}`)
+
+    // Query for lost pets from unified pets table
     const { data: pet } = await supabase
       .from("pets")
+      .select("*")
       .eq("category", "lost")
       .eq(isUuidValue ? "id" : "slug", slugOrId)
-      .select("*")
       .maybeSingle()
 
     if (!pet) {
+      console.log("[LostMetadata] Pet perdido não encontrado para slug/ID:", slugOrId)
       return {
         title: "Pet não encontrado | PetAdot",
         description: "O pet perdido que você está procurando não foi encontrado.",
       }
     }
+
+    console.log("[LostMetadata] Pet perdido encontrado:", pet.name, "Status:", pet.status)
 
     const location = pet.location || (pet.city && pet.state ? `${pet.city}, ${pet.state}` : "")
     const speciesDisplay = mapPetSpecies(pet.species, pet.species_other)
@@ -78,6 +83,7 @@ export async function generateMetadata({ params }: PetLostDetailPageProps): Prom
       },
     }
   } catch (error) {
+    console.error("[LostMetadata] Erro ao gerar metadata:", error)
     return {
       title: "Pet perdido | PetAdot",
       description: "Ajude a encontrar pets perdidos na plataforma PetAdot",
@@ -87,9 +93,12 @@ export async function generateMetadata({ params }: PetLostDetailPageProps): Prom
 
 export default async function PetLostDetailPage({ params }: PetLostDetailPageProps) {
   try {
+    console.log(`[LostDetail] Iniciando busca para slug: ${params.slug}`)
+
     // Check if this is a special route like "cadastrar"
     if (params.slug === "cadastrar") {
-      notFound() // This will trigger the not-found.tsx file
+      console.log(`[LostDetail] Slug reservado detectado: ${params.slug}`)
+      notFound()
     }
 
     const supabase = createServerComponentClient({ cookies })
@@ -100,24 +109,31 @@ export default async function PetLostDetailPage({ params }: PetLostDetailPagePro
     } = await supabase.auth.getSession()
     const userId = session?.user?.id
 
+    console.log(`[LostDetail] Usuário autenticado: ${userId ? "Sim" : "Não"}`)
+
     // Determine if the slug is a UUID or a slug
     const isUUID = isUuid(params.slug)
 
-    // Query based on whether it's a UUID or slug
+    console.log(`[LostDetail] Parâmetros: slug=${params.slug}, isUuid=${isUUID}`)
+
+    // Query for lost pets from unified pets table
     const { data: pet, error } = await supabase
       .from("pets")
+      .select("*")
       .eq("category", "lost")
       .eq(isUUID ? "id" : "slug", params.slug)
-      .select("*")
       .maybeSingle()
 
+    console.log(`[LostDetail] Query executada. Erro:`, error)
+    console.log(`[LostDetail] Pet encontrado:`, pet ? `${pet.name} (${pet.id})` : "Nenhum")
+
     if (error) {
-      console.error("Erro ao buscar pet perdido:", error)
+      console.error("[LostDetail] Erro ao buscar pet perdido:", error)
       notFound()
     }
 
     if (!pet) {
-      console.error("Pet perdido não encontrado")
+      console.error("[LostDetail] Pet perdido não encontrado para slug/ID:", params.slug)
       notFound()
     }
 
@@ -125,8 +141,13 @@ export default async function PetLostDetailPage({ params }: PetLostDetailPagePro
     const isApproved = pet.status === "approved" || pet.status === "aprovado" || pet.status === null
     const isOwner = userId && pet.user_id === userId
 
+    console.log(`[LostDetail] Status do pet: ${pet.status}, Aprovado: ${isApproved}, É dono: ${isOwner}`)
+
     // Se o pet não estiver aprovado e não pertencer ao usuário atual, retornar 404
     if (!isApproved && !isOwner) {
+      console.warn(
+        `[LostDetail] Acesso negado para pet ${pet.id} (status: ${pet.status}, owner: ${pet.user_id}, current user: ${userId})`,
+      )
       notFound()
     }
 
@@ -154,6 +175,8 @@ export default async function PetLostDetailPage({ params }: PetLostDetailPagePro
     const structuredData = generateLostPetSchema(pet, {
       baseUrl: process.env.NEXT_PUBLIC_APP_URL || "https://www.petadot.com.br",
     })
+
+    console.log(`[LostDetail] Renderizando página para pet: ${pet.name}`)
 
     return (
       <main className="container mx-auto px-4 py-8">
@@ -244,7 +267,7 @@ export default async function PetLostDetailPage({ params }: PetLostDetailPagePro
       </main>
     )
   } catch (error) {
-    console.error("Erro não tratado:", error)
+    console.error("[LostDetail] Erro não tratado:", error)
     return (
       <div className="container mx-auto px-4 py-8">
         <Alert variant="destructive">
