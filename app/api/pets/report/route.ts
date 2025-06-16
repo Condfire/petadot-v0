@@ -1,10 +1,10 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = createServerComponentClient({ cookies })
 
     // Check if user is authenticated
     const {
@@ -13,66 +13,79 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getSession()
 
     if (authError || !session?.user) {
-      return NextResponse.json({ error: "Você precisa estar logado para fazer uma denúncia" }, { status: 401 })
+      return NextResponse.json({ error: "Você precisa estar logado para denunciar um pet." }, { status: 401 })
     }
 
-    const { petId, reason, details } = await request.json()
+    const body = await request.json()
+    const { petId, reason, details } = body
 
     // Validate required fields
     if (!petId || !reason) {
-      return NextResponse.json({ error: "Pet ID e motivo são obrigatórios" }, { status: 400 })
+      return NextResponse.json({ error: "Pet ID e motivo são obrigatórios." }, { status: 400 })
     }
 
-    // Check if pet exists
-    const { data: pet, error: petError } = await supabase.from("pets").select("id, name").eq("id", petId).single()
+    // Validate reason
+    const validReasons = [
+      "inappropriate_content",
+      "fake_listing",
+      "spam",
+      "animal_abuse",
+      "incorrect_information",
+      "already_adopted",
+      "other",
+    ]
 
-    if (petError || !pet) {
-      return NextResponse.json({ error: "Pet não encontrado" }, { status: 404 })
+    if (!validReasons.includes(reason)) {
+      return NextResponse.json({ error: "Motivo inválido." }, { status: 400 })
     }
 
-    // Check if user has already reported this pet
-    const { data: existingReport, error: checkError } = await supabase
+    // Check if user already reported this pet
+    const { data: existingReport } = await supabase
       .from("pet_reports")
       .select("id")
       .eq("pet_id", petId)
       .eq("user_id", session.user.id)
-      .single()
-
-    if (checkError && checkError.code !== "PGRST116") {
-      console.error("Error checking existing report:", checkError)
-      return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
-    }
+      .maybeSingle()
 
     if (existingReport) {
-      return NextResponse.json({ error: "Você já denunciou este pet anteriormente" }, { status: 409 })
+      return NextResponse.json({ error: "Você já denunciou este pet." }, { status: 409 })
+    }
+
+    // Verify pet exists
+    const { data: pet, error: petError } = await supabase.from("pets").select("id, name").eq("id", petId).maybeSingle()
+
+    if (petError || !pet) {
+      return NextResponse.json({ error: "Pet não encontrado." }, { status: 404 })
     }
 
     // Create the report
-    const { data: report, error: insertError } = await supabase
+    const { data: report, error: reportError } = await supabase
       .from("pet_reports")
       .insert({
         pet_id: petId,
         user_id: session.user.id,
         reason,
-        details,
+        details: details || null,
         status: "pending",
         created_at: new Date().toISOString(),
       })
       .select()
       .single()
 
-    if (insertError) {
-      console.error("Error creating report:", insertError)
-      return NextResponse.json({ error: "Erro ao criar denúncia" }, { status: 500 })
+    if (reportError) {
+      console.error("Erro ao criar denúncia:", reportError)
+      return NextResponse.json({ error: "Erro interno do servidor." }, { status: 500 })
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Denúncia criada com sucesso",
-      reportId: report.id,
-    })
+    return NextResponse.json(
+      {
+        message: "Denúncia registrada com sucesso.",
+        reportId: report.id,
+      },
+      { status: 201 },
+    )
   } catch (error) {
-    console.error("Error in report API:", error)
-    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
+    console.error("Erro na API de denúncia:", error)
+    return NextResponse.json({ error: "Erro interno do servidor." }, { status: 500 })
   }
 }

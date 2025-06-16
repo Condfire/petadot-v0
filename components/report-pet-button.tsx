@@ -2,15 +2,15 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ReportPetModal } from "@/components/report-pet-modal"
 import { Flag } from "lucide-react"
+import { ReportPetModal } from "./report-pet-modal"
 import { cn } from "@/lib/utils"
 
 interface ReportPetButtonProps {
   petId: string
   petName: string
   className?: string
-  variant?: "default" | "outline" | "ghost" | "link"
+  variant?: "default" | "outline" | "ghost"
   size?: "default" | "sm" | "lg"
 }
 
@@ -29,7 +29,7 @@ export function ReportPetButton({
         variant={variant}
         size={size}
         onClick={() => setIsModalOpen(true)}
-        className={cn("text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300", className)}
+        className={cn("text-red-600 hover:text-red-700 hover:bg-red-50", className)}
       >
         <Flag className="mr-2 h-4 w-4" />
         Denunciar

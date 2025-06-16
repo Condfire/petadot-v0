@@ -32,7 +32,7 @@ const REPORT_REASONS = [
   {
     value: "fake_listing",
     label: "Anúncio falso",
-    description: "Pet não existe ou informações falsas",
+    description: "Suspeita de anúncio fraudulento",
   },
   {
     value: "spam",
@@ -41,18 +41,18 @@ const REPORT_REASONS = [
   },
   {
     value: "animal_abuse",
-    label: "Suspeita de maus-tratos",
-    description: "Evidências de negligência ou abuso",
+    label: "Maus-tratos",
+    description: "Suspeita de maus-tratos ao animal",
+  },
+  {
+    value: "incorrect_information",
+    label: "Informações incorretas",
+    description: "Dados falsos sobre o animal",
   },
   {
     value: "already_adopted",
-    label: "Pet já foi adotado",
-    description: "Anúncio desatualizado",
-  },
-  {
-    value: "commercial_breeding",
-    label: "Criação comercial",
-    description: "Venda disfarçada de adoção",
+    label: "Já foi adotado",
+    description: "Animal já encontrou um lar",
   },
   {
     value: "other",
@@ -100,7 +100,7 @@ export function ReportPetModal({ isOpen, onClose, petId, petName }: ReportPetMod
 
       toast({
         title: "Denúncia enviada",
-        description: "Sua denúncia foi recebida e será analisada pela nossa equipe.",
+        description: "Sua denúncia foi registrada e será analisada pela nossa equipe.",
       })
 
       // Reset form and close modal
@@ -147,11 +147,14 @@ export function ReportPetModal({ isOpen, onClose, petId, petName }: ReportPetMod
               {REPORT_REASONS.map((reason) => (
                 <div key={reason.value} className="flex items-start space-x-2">
                   <RadioGroupItem value={reason.value} id={reason.value} className="mt-1" />
-                  <div className="flex-1">
-                    <Label htmlFor={reason.value} className="font-medium cursor-pointer">
+                  <div className="grid gap-1.5 leading-none">
+                    <Label
+                      htmlFor={reason.value}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
                       {reason.label}
                     </Label>
-                    <p className="text-sm text-muted-foreground">{reason.description}</p>
+                    <p className="text-xs text-muted-foreground">{reason.description}</p>
                   </div>
                 </div>
               ))}
@@ -176,10 +179,11 @@ export function ReportPetModal({ isOpen, onClose, petId, petName }: ReportPetMod
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
+          <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
             Cancelar
           </Button>
           <Button
+            type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || !selectedReason}
             className="bg-red-600 hover:bg-red-700"
