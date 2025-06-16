@@ -4,7 +4,7 @@ import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PetCharacteristics } from "@/components/pet-characteristics"
-import { PetInfoCard } from "@/components/pet-info-card"
+import { PetInfoCardSafe } from "@/components/pet-info-card-safe"
 import { PetImageGallery } from "@/components/pet-image-gallery"
 import { PetResolvedAlert } from "@/components/pet-resolved-alert"
 import { AdoptionInterestModal } from "@/components/adoption-interest-modal"
@@ -16,6 +16,7 @@ import { isUuid } from "@/lib/slug-utils"
 import JsonLd from "@/components/json-ld"
 import { generateAdoptionPetSchema } from "@/lib/structured-data"
 import { mapPetSpecies, mapPetSize, mapPetGender } from "@/lib/utils"
+import { DebugPetData } from "@/components/debug-pet-data"
 
 export const dynamic = "force-dynamic"
 
@@ -149,14 +150,8 @@ export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetai
       notFound()
     }
 
-    if (!pet) {
-      console.error("[AdoptionDetail] Pet não encontrado para slug/ID:", slugOrId)
-      notFound()
-    }
-
-    // Add additional validation for required fields
-    if (!pet.id) {
-      console.error("[AdoptionDetail] Pet data is missing required fields:", pet)
+    if (!pet || !pet.id) {
+      console.error("[AdoptionDetail] Pet não encontrado ou dados inválidos para slug/ID:", slugOrId)
       notFound()
     }
 
@@ -203,87 +198,80 @@ export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetai
         {/* JSON-LD para dados estruturados */}
         <JsonLd data={structuredData} />
 
-        {pet ? (
-          <div className="grid gap-6 md:grid-cols-2">
-            <div>
-              <PetImageGallery images={images} alt={pet.name || "Pet para adoção"} className="mb-4" />
+        {/* Debug component - only shows in development */}
+        <DebugPetData pet={pet} title="Pet Data Debug" />
 
-              <div className="flex flex-wrap gap-2 mb-4">
-                <ShareButton
-                  url={`${process.env.NEXT_PUBLIC_APP_URL}/adocao/${pet.slug || pet.id}`}
-                  title={`Adote ${pet.name || "este pet"}!`}
-                  description={`${pet.name} está disponível para adoção. Conheça mais sobre este pet.`}
-                  className="w-full sm:w-auto"
-                />
+        <div className="grid gap-6 md:grid-cols-2">
+          <div>
+            <PetImageGallery images={images} alt={pet.name || "Pet para adoção"} className="mb-4" />
 
-                <AdoptionInterestModal
-                  petId={pet.id}
-                  petName={pet.name}
-                  ongId={pet.ong_id}
-                  contactPhone={contactPhone}
-                  ongName={pet.ong_name}
-                  className="w-full sm:w-auto sm:flex-1"
-                />
-              </div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <ShareButton
+                url={`${process.env.NEXT_PUBLIC_APP_URL}/adocao/${pet.slug || pet.id}`}
+                title={`Adote ${pet.name || "este pet"}!`}
+                description={`${pet.name} está disponível para adoção. Conheça mais sobre este pet.`}
+                className="w-full sm:w-auto"
+              />
 
-              {pet.is_resolved && <PetResolvedAlert type="adoption" resolvedAt={pet.resolved_at} className="mb-4" />}
+              <AdoptionInterestModal
+                petId={pet.id}
+                petName={pet.name}
+                ongId={pet.ong_id}
+                contactPhone={contactPhone}
+                ongName={pet.ong_name}
+                className="w-full sm:w-auto sm:flex-1"
+              />
             </div>
 
-            <div className="space-y-6">
-              <div>
-                <h1 className="text-3xl font-bold mb-2">{pet.name || "Pet para Adoção"}</h1>
-                <p className="text-muted-foreground">Disponível desde {formattedDate}</p>
-                {location && <p className="text-muted-foreground">Localização: {location}</p>}
-              </div>
-
-              <Tabs defaultValue="info" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="info">Informações</TabsTrigger>
-                  <TabsTrigger value="characteristics">Características</TabsTrigger>
-                  <TabsTrigger value="description">Descrição</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="info" className="space-y-4 pt-4">
-                  <PetInfoCard
-                    species={mapPetSpecies(pet.species, pet.species_other)}
-                    breed={pet.breed}
-                    age={pet.age}
-                    gender={mapPetGender(pet.gender, pet.gender_other)}
-                    size={mapPetSize(pet.size, pet.size_other)}
-                    color={pet.color}
-                    location={location}
-                  />
-                </TabsContent>
-
-                <TabsContent value="characteristics" className="space-y-4 pt-4">
-                  <PetCharacteristics
-                    temperament={pet.temperament}
-                    energy_level={pet.energy_level}
-                    isVaccinated={pet.is_vaccinated}
-                    isNeutered={pet.is_neutered}
-                    isSpecialNeeds={pet.is_special_needs}
-                    specialNeedsDescription={pet.special_needs_description}
-                    goodWithKids={pet.good_with_kids}
-                    goodWithCats={pet.good_with_cats}
-                    goodWithDogs={pet.good_with_dogs}
-                  />
-                </TabsContent>
-
-                <TabsContent value="description" className="space-y-4 pt-4">
-                  <p>{pet.description || "Nenhuma descrição fornecida."}</p>
-                </TabsContent>
-              </Tabs>
-            </div>
+            {pet.is_resolved && <PetResolvedAlert type="adoption" resolvedAt={pet.resolved_at} className="mb-4" />}
           </div>
-        ) : (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Pet não encontrado</AlertTitle>
-            <AlertDescription>
-              O pet que você está procurando não foi encontrado ou não está disponível.
-            </AlertDescription>
-          </Alert>
-        )}
+
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">{pet.name || "Pet para Adoção"}</h1>
+              <p className="text-muted-foreground">Disponível desde {formattedDate}</p>
+              {location && <p className="text-muted-foreground">Localização: {location}</p>}
+            </div>
+
+            <Tabs defaultValue="info" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="info">Informações</TabsTrigger>
+                <TabsTrigger value="characteristics">Características</TabsTrigger>
+                <TabsTrigger value="description">Descrição</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="info" className="space-y-4 pt-4">
+                <PetInfoCardSafe
+                  species={mapPetSpecies(pet.species, pet.species_other)}
+                  breed={pet.breed}
+                  age={pet.age}
+                  gender={mapPetGender(pet.gender, pet.gender_other)}
+                  size={mapPetSize(pet.size, pet.size_other)}
+                  color={pet.color}
+                  location={location}
+                />
+              </TabsContent>
+
+              <TabsContent value="characteristics" className="space-y-4 pt-4">
+                <PetCharacteristics
+                  temperament={pet.temperament}
+                  energy_level={pet.energy_level}
+                  isVaccinated={pet.is_vaccinated}
+                  isNeutered={pet.is_neutered}
+                  isSpecialNeeds={pet.is_special_needs}
+                  specialNeedsDescription={pet.special_needs_description}
+                  goodWithKids={pet.good_with_kids}
+                  goodWithCats={pet.good_with_cats}
+                  goodWithDogs={pet.good_with_dogs}
+                />
+              </TabsContent>
+
+              <TabsContent value="description" className="space-y-4 pt-4">
+                <p>{pet.description || "Nenhuma descrição fornecida."}</p>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
       </main>
     )
   } catch (error) {
@@ -294,6 +282,12 @@ export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetai
         <AlertTitle>Erro!</AlertTitle>
         <AlertDescription>
           Ocorreu um erro ao carregar os detalhes deste pet. Por favor, tente novamente mais tarde.
+          {process.env.NODE_ENV === "development" && (
+            <details className="mt-2">
+              <summary>Detalhes do erro (desenvolvimento)</summary>
+              <pre className="text-xs mt-1">{error?.toString()}</pre>
+            </details>
+          )}
         </AlertDescription>
       </Alert>
     )
