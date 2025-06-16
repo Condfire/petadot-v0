@@ -9,6 +9,7 @@ import { PetContactInfo } from "@/components/pet-contact-info"
 import { PetResolvedAlert } from "@/components/pet-resolved-alert"
 import { PetRecognitionModal } from "@/components/pet-recognition-modal"
 import { ShareButton } from "@/components/share-button"
+import { ReportPetButton } from "@/components/report-pet-button"
 import { formatDate } from "@/lib/utils"
 import { mapPetSpecies, mapPetSize, mapPetGender, mapPetColor } from "@/lib/utils"
 import JsonLd from "@/components/json-ld"
@@ -185,6 +186,11 @@ export default async function PetFoundDetailPage({ params }: PetFoundDetailPageP
               <PetRecognitionModal
                 petId={pet.id}
                 petName={pet.name || "Pet encontrado"}
+                className="w-full sm:w-auto sm:flex-1"
+              />
+
+              <ReportPetButton
+                petId={pet.id}
                 className="w-full sm:w-auto sm:flex-1"
               />
             </div>

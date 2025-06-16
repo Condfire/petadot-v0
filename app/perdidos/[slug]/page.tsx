@@ -9,6 +9,7 @@ import { PetContactInfo } from "@/components/pet-contact-info"
 import { PetResolvedAlert } from "@/components/pet-resolved-alert"
 import { PetSightingModal } from "@/components/pet-sighting-modal"
 import { ShareButton } from "@/components/share-button"
+import { ReportPetButton } from "@/components/report-pet-button"
 import { formatDate } from "@/lib/utils"
 import { isUuid } from "@/lib/slug-utils"
 import { mapPetSpecies, mapPetSize, mapPetGender, mapPetColor } from "@/lib/utils"
@@ -199,6 +200,11 @@ export default async function PetLostDetailPage({ params }: PetLostDetailPagePro
                 petId={pet.id}
                 petName={pet.name || "Pet perdido"}
                 petType="lost"
+                className="w-full sm:w-auto sm:flex-1"
+              />
+
+              <ReportPetButton
+                petId={pet.id}
                 className="w-full sm:w-auto sm:flex-1"
               />
             </div>

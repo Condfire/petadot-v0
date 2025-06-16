@@ -9,6 +9,7 @@ import { PetImageGallery } from "@/components/pet-image-gallery"
 import { PetResolvedAlert } from "@/components/pet-resolved-alert"
 import { AdoptionInterestModal } from "@/components/adoption-interest-modal"
 import { ShareButton } from "@/components/share-button"
+import { ReportPetButton } from "@/components/report-pet-button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { formatDate } from "@/lib/utils"
@@ -221,6 +222,11 @@ export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetai
                   ongId={pet.ong_id}
                   contactPhone={contactPhone}
                   ongName={pet.ong_name}
+                  className="w-full sm:w-auto sm:flex-1"
+                />
+
+                <ReportPetButton
+                  petId={pet.id}
                   className="w-full sm:w-auto sm:flex-1"
                 />
               </div>
