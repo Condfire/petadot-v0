@@ -15,7 +15,6 @@ import { formatDate } from "@/lib/utils"
 import { isUuid } from "@/lib/slug-utils"
 import JsonLd from "@/components/json-ld"
 import { generateAdoptionPetSchema } from "@/lib/structured-data"
-import { mapPetSpecies, mapPetSize, mapPetGender } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
@@ -244,15 +243,7 @@ export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetai
                 </TabsList>
 
                 <TabsContent value="info" className="space-y-4 pt-4">
-                  <PetInfoCard
-                    species={mapPetSpecies(pet.species, pet.species_other)}
-                    breed={pet.breed}
-                    age={pet.age}
-                    gender={mapPetGender(pet.gender, pet.gender_other)}
-                    size={mapPetSize(pet.size, pet.size_other)}
-                    color={pet.color}
-                    location={location}
-                  />
+                  <PetInfoCard pet={pet} />
                 </TabsContent>
 
                 <TabsContent value="characteristics" className="space-y-4 pt-4">
