@@ -36,5 +36,10 @@ When setting up a new Supabase project, run the SQL files inside the `db` folder
 \`\`\`bash
 supabase db execute ./db/create-events-table.sql
 \`\`\`
+To add the pet reports table, run:
+
+```bash
+supabase db execute ./db/create-pet-reports-table.sql
+```
 
 Ensure the Supabase CLI is linked to your project before running the command.
