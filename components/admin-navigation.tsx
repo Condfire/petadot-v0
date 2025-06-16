@@ -1,3 +1,8 @@
+"use client"
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { cn } from "@/lib/utils"
 import {
   Users,
   PawPrint,
@@ -13,36 +18,11 @@ import {
   AlertTriangle,
 } from "lucide-react"
 
-export const adminNavItems = [
+const adminNavItems = [
   {
     title: "Dashboard",
     href: "/admin",
     icon: Home,
-  },
-  {
-    title: "Usuários",
-    href: "/admin/users",
-    icon: Users,
-  },
-  {
-    title: "Pets",
-    href: "/admin/pets",
-    icon: PawPrint,
-  },
-  {
-    title: "Agendamentos",
-    href: "/admin/appointments",
-    icon: Calendar,
-  },
-  {
-    title: "Organizações",
-    href: "/admin/organizations",
-    icon: Building2,
-  },
-  {
-    title: "Estatísticas",
-    href: "/admin/statistics",
-    icon: BarChart3,
   },
   {
     title: "Moderação",
@@ -55,19 +35,44 @@ export const adminNavItems = [
     icon: AlertTriangle,
   },
   {
-    title: "Conteúdo Educacional",
-    href: "/admin/educational-content",
+    title: "Histórias",
+    href: "/admin/historias",
     icon: BookOpen,
   },
   {
-    title: "Parcerias",
-    href: "/admin/partnerships",
+    title: "SEO",
+    href: "/admin/seo",
+    icon: Search,
+  },
+  {
+    title: "Usuários",
+    href: "/admin/users",
+    icon: Users,
+  },
+  {
+    title: "ONGs",
+    href: "/admin/ongs",
+    icon: Building2,
+  },
+  {
+    title: "Pets",
+    href: "/admin/pets",
+    icon: PawPrint,
+  },
+  {
+    title: "Eventos",
+    href: "/admin/events",
+    icon: Calendar,
+  },
+  {
+    title: "Parceiros",
+    href: "/admin/partners",
     icon: Handshake,
   },
   {
-    title: "Busca",
-    href: "/admin/search",
-    icon: Search,
+    title: "Estatísticas",
+    href: "/admin/stats",
+    icon: BarChart3,
   },
   {
     title: "Configurações",
@@ -75,3 +80,29 @@ export const adminNavItems = [
     icon: Settings,
   },
 ]
+
+export function AdminNavigation() {
+  const pathname = usePathname()
+
+  return (
+    <div className="space-y-1">
+      {adminNavItems.map((item) => {
+        const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent",
+              isActive ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground",
+            )}
+          >
+            <item.icon className="h-4 w-4" />
+            {item.title}
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
