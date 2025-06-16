@@ -38,8 +38,8 @@ supabase db execute ./db/create-events-table.sql
 \`\`\`
 To add the pet reports table, run:
 
-```bash
+\`\`\`bash
 supabase db execute ./db/create-pet-reports-table.sql
-```
+\`\`\`
 
 Ensure the Supabase CLI is linked to your project before running the command.
