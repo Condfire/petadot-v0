@@ -2,34 +2,26 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { ReportPetModal } from "@/components/report-pet-modal"
 import { Flag } from "lucide-react"
-import { ReportPetModal } from "./report-pet-modal"
-import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 interface ReportPetButtonProps {
   petId: string
   petName: string
-  variant?: "default" | "outline" | "ghost"
-  size?: "default" | "sm" | "lg"
   className?: string
+  variant?: "default" | "outline" | "ghost" | "link"
+  size?: "default" | "sm" | "lg"
 }
 
 export function ReportPetButton({
   petId,
   petName,
+  className,
   variant = "outline",
-  size = "sm",
-  className = "",
+  size = "default",
 }: ReportPetButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const { toast } = useToast()
-
-  const handleReportSubmitted = () => {
-    toast({
-      title: "Denúncia enviada",
-      description: "Sua denúncia foi enviada com sucesso. Nossa equipe irá analisar.",
-    })
-  }
 
   return (
     <>
@@ -37,19 +29,13 @@ export function ReportPetButton({
         variant={variant}
         size={size}
         onClick={() => setIsModalOpen(true)}
-        className={`text-red-600 hover:text-red-700 hover:bg-red-50 ${className}`}
+        className={cn("text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300", className)}
       >
-        <Flag className="h-4 w-4 mr-1" />
+        <Flag className="mr-2 h-4 w-4" />
         Denunciar
       </Button>
 
-      <ReportPetModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        petId={petId}
-        petName={petName}
-        onReportSubmitted={handleReportSubmitted}
-      />
+      <ReportPetModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} petId={petId} petName={petName} />
     </>
   )
 }

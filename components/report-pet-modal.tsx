@@ -1,72 +1,85 @@
 "use client"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertTriangle, Flag } from "lucide-react"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/hooks/use-toast"
+import { AlertTriangle, Loader2 } from "lucide-react"
 
 interface ReportPetModalProps {
   isOpen: boolean
   onClose: () => void
   petId: string
   petName: string
-  onReportSubmitted?: () => void
 }
 
 const REPORT_REASONS = [
   {
-    id: "inappropriate_content",
-    label: "Conteúdo Inapropriado",
+    value: "inappropriate_content",
+    label: "Conteúdo inapropriado",
     description: "Imagens ou descrições inadequadas",
   },
   {
-    id: "false_information",
-    label: "Informações Falsas",
-    description: "Dados incorretos ou enganosos sobre o pet",
+    value: "fake_listing",
+    label: "Anúncio falso",
+    description: "Pet não existe ou informações falsas",
   },
   {
-    id: "spam_duplicate",
-    label: "Spam ou Duplicata",
-    description: "Anúncio repetido ou spam",
+    value: "spam",
+    label: "Spam",
+    description: "Anúncio repetitivo ou promocional",
   },
   {
-    id: "pet_not_available",
-    label: "Pet Não Disponível",
-    description: "Pet já foi adotado/encontrado mas anúncio continua ativo",
+    value: "animal_abuse",
+    label: "Suspeita de maus-tratos",
+    description: "Evidências de negligência ou abuso",
   },
   {
-    id: "suspicious_activity",
-    label: "Atividade Suspeita",
-    description: "Comportamento suspeito ou possível golpe",
+    value: "already_adopted",
+    label: "Pet já foi adotado",
+    description: "Anúncio desatualizado",
   },
   {
-    id: "other",
-    label: "Outro",
-    description: "Outro motivo não listado acima",
+    value: "commercial_breeding",
+    label: "Criação comercial",
+    description: "Venda disfarçada de adoção",
+  },
+  {
+    value: "other",
+    label: "Outro motivo",
+    description: "Especifique nos detalhes",
   },
 ]
 
-export function ReportPetModal({ isOpen, onClose, petId, petName, onReportSubmitted }: ReportPetModalProps) {
+export function ReportPetModal({ isOpen, onClose, petId, petName }: ReportPetModalProps) {
   const [selectedReason, setSelectedReason] = useState("")
-  const [additionalDetails, setAdditionalDetails] = useState("")
+  const [details, setDetails] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
+  const { toast } = useToast()
 
   const handleSubmit = async () => {
     if (!selectedReason) {
-      setError("Por favor, selecione um motivo para a denúncia")
+      toast({
+        title: "Erro",
+        description: "Por favor, selecione um motivo para a denúncia.",
+        variant: "destructive",
+      })
       return
     }
 
-    try {
-      setIsSubmitting(true)
-      setError(null)
+    setIsSubmitting(true)
 
+    try {
       const response = await fetch("/api/pets/report", {
         method: "POST",
         headers: {
@@ -75,7 +88,7 @@ export function ReportPetModal({ isOpen, onClose, petId, petName, onReportSubmit
         body: JSON.stringify({
           petId,
           reason: selectedReason,
-          additionalDetails: additionalDetails.trim() || null,
+          details: details.trim() || null,
         }),
       })
 
@@ -85,18 +98,22 @@ export function ReportPetModal({ isOpen, onClose, petId, petName, onReportSubmit
         throw new Error(data.error || "Erro ao enviar denúncia")
       }
 
-      setSuccess(true)
-      onReportSubmitted?.()
+      toast({
+        title: "Denúncia enviada",
+        description: "Sua denúncia foi recebida e será analisada pela nossa equipe.",
+      })
 
-      setTimeout(() => {
-        onClose()
-        setSuccess(false)
-        setSelectedReason("")
-        setAdditionalDetails("")
-      }, 2000)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao enviar denúncia")
-      console.error("Erro ao enviar denúncia:", err)
+      // Reset form and close modal
+      setSelectedReason("")
+      setDetails("")
+      onClose()
+    } catch (error) {
+      console.error("Erro ao enviar denúncia:", error)
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Erro ao enviar denúncia. Tente novamente.",
+        variant: "destructive",
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -104,100 +121,79 @@ export function ReportPetModal({ isOpen, onClose, petId, petName, onReportSubmit
 
   const handleClose = () => {
     if (!isSubmitting) {
-      onClose()
       setSelectedReason("")
-      setAdditionalDetails("")
-      setError(null)
-      setSuccess(false)
+      setDetails("")
+      onClose()
     }
   }
 
-  const selectedReasonData = REPORT_REASONS.find((r) => r.id === selectedReason)
-
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Flag className="h-5 w-5 text-red-500" />
-            Denunciar {petName}
+            <AlertTriangle className="h-5 w-5 text-orange-500" />
+            Denunciar Pet
           </DialogTitle>
+          <DialogDescription>
+            Você está denunciando <strong>{petName}</strong>. Por favor, selecione o motivo da denúncia.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          {error && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {success ? (
-            <Alert>
-              <AlertDescription>Denúncia enviada com sucesso! Nossa equipe irá analisar.</AlertDescription>
-            </Alert>
-          ) : (
-            <>
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Motivo da denúncia*</Label>
-                <RadioGroup value={selectedReason} onValueChange={setSelectedReason}>
-                  {REPORT_REASONS.map((reason) => (
-                    <div key={reason.id} className="flex items-start space-x-2">
-                      <RadioGroupItem value={reason.id} id={reason.id} className="mt-1" />
-                      <div className="grid gap-1.5 leading-none">
-                        <Label
-                          htmlFor={reason.id}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                        >
-                          {reason.label}
-                        </Label>
-                        <p className="text-xs text-muted-foreground">{reason.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </RadioGroup>
-              </div>
-
-              {selectedReason && (
-                <div className="space-y-2">
-                  <Label htmlFor="details" className="text-sm font-medium">
-                    Detalhes adicionais {selectedReason === "other" ? "*" : "(opcional)"}
-                  </Label>
-                  <Textarea
-                    id="details"
-                    placeholder={
-                      selectedReason === "other"
-                        ? "Por favor, descreva o motivo da denúncia..."
-                        : "Forneça mais detalhes sobre o problema (opcional)..."
-                    }
-                    value={additionalDetails}
-                    onChange={(e) => setAdditionalDetails(e.target.value)}
-                    rows={3}
-                    className="resize-none"
-                  />
-                  {selectedReasonData && (
-                    <p className="text-xs text-muted-foreground">Motivo selecionado: {selectedReasonData.label}</p>
-                  )}
+        <div className="space-y-4">
+          <div>
+            <Label className="text-base font-medium">Motivo da denúncia</Label>
+            <RadioGroup value={selectedReason} onValueChange={setSelectedReason} className="mt-2">
+              {REPORT_REASONS.map((reason) => (
+                <div key={reason.value} className="flex items-start space-x-2">
+                  <RadioGroupItem value={reason.value} id={reason.value} className="mt-1" />
+                  <div className="flex-1">
+                    <Label htmlFor={reason.value} className="font-medium cursor-pointer">
+                      {reason.label}
+                    </Label>
+                    <p className="text-sm text-muted-foreground">{reason.description}</p>
+                  </div>
                 </div>
-              )}
+              ))}
+            </RadioGroup>
+          </div>
 
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={
-                    isSubmitting || !selectedReason || (selectedReason === "other" && !additionalDetails.trim())
-                  }
-                  className="bg-red-600 hover:bg-red-700"
-                >
-                  {isSubmitting ? "Enviando..." : "Enviar Denúncia"}
-                </Button>
-              </div>
-            </>
-          )}
+          <div>
+            <Label htmlFor="details" className="text-base font-medium">
+              Detalhes adicionais (opcional)
+            </Label>
+            <Textarea
+              id="details"
+              placeholder="Forneça mais informações sobre sua denúncia..."
+              value={details}
+              onChange={(e) => setDetails(e.target.value)}
+              className="mt-2"
+              rows={3}
+              maxLength={500}
+            />
+            <p className="text-xs text-muted-foreground mt-1">{details.length}/500 caracteres</p>
+          </div>
         </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting || !selectedReason}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Enviando...
+              </>
+            ) : (
+              "Enviar Denúncia"
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
