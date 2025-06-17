@@ -9,13 +9,14 @@ import { PetImageGallery } from "@/components/pet-image-gallery"
 import { PetResolvedAlert } from "@/components/pet-resolved-alert"
 import { mapPetStatus } from "@/lib/utils"
 import type { PetDB } from "@/lib/types"
+import { MessageCircleMore } from "lucide-react" // Importar ícone do WhatsApp
 
 interface PetDetailsProps {
   pet: PetDB
   isOwner?: boolean
   onMarkAsResolved?: (petId: string, status: "adopted" | "reunited") => void
   onDelete?: (petId: string) => void
-  type: "lost" | "found" | "adoption" // Adicionado a propriedade 'type'
+  type: "lost" | "found" | "adoption"
 }
 
 export default function PetDetails({ pet, isOwner, onMarkAsResolved, onDelete, type }: PetDetailsProps) {
@@ -48,29 +49,46 @@ export default function PetDetails({ pet, isOwner, onMarkAsResolved, onDelete, t
           )}
         </CardHeader>
         <CardContent className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {" "}
-            {/* Grid principal para conteúdo */}
-            {/* Coluna Esquerda: Informações Básicas e Descrição */}
-            <div className="space-y-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+            <div>
               <CardTitle className="text-4xl font-bold text-primary">{pet.name}</CardTitle>
               <p className="text-lg text-muted-foreground mt-1">Status: {mapPetStatus(pet.status)}</p>
+            </div>
+            {isOwner && !isResolved && (
+              <div className="flex flex-wrap gap-2">
+                {type === "adoption" && (
+                  <Button onClick={() => onMarkAsResolved?.(pet.id!, "adopted")} variant="outline">
+                    Marcar como Adotado
+                  </Button>
+                )}
+                {type === "lost" && (
+                  <Button onClick={() => onMarkAsResolved?.(pet.id!, "reunited")} variant="outline">
+                    Marcar como Reunido
+                  </Button>
+                )}
+                <Button onClick={() => onDelete?.(pet.id!)} variant="destructive">
+                  Excluir
+                </Button>
+              </div>
+            )}
+          </div>
 
-              {isResolved && (
-                <PetResolvedAlert
-                  status={pet.status!}
-                  resolvedAt={pet.resolved_at}
-                  resolutionDetails={pet.resolution_details}
-                />
-              )}
+          {isResolved && (
+            <PetResolvedAlert
+              status={pet.status!}
+              resolvedAt={pet.resolved_at}
+              resolutionDetails={pet.resolution_details}
+            />
+          )}
 
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Coluna Principal (2/3 de largura em telas grandes) */}
+            <div className="lg:col-span-2 space-y-6">
               <div className="space-y-2">
                 <h3 className="text-2xl font-semibold text-primary">Sobre {pet.name}</h3>
                 <p className="text-muted-foreground leading-relaxed">{pet.description}</p>
               </div>
-            </div>
-            {/* Coluna Direita: Características e Contato */}
-            <div className="space-y-6">
+
               <div className="space-y-2">
                 <h3 className="text-2xl font-semibold text-primary">Características</h3>
                 <PetInfo
@@ -90,38 +108,27 @@ export default function PetDetails({ pet, isOwner, onMarkAsResolved, onDelete, t
                   special_needs_description={pet.special_needs_description}
                 />
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <h3 className="text-2xl font-semibold text-primary">Informações de Contato</h3>
+            {/* Coluna de Contato (1/3 de largura em telas grandes) */}
+            <div className="lg:col-span-1 space-y-6">
+              <Card className="p-4 bg-secondary/20 border-secondary rounded-lg shadow-md">
+                <h3 className="text-2xl font-semibold text-primary mb-3">Informações de Contato</h3>
                 <PetContactInfo
                   contact={pet.whatsapp_contact}
                   location={
                     pet.city && pet.state ? `${pet.city}, ${pet.state}` : pet.city || pet.state || "Não informado"
                   }
                 />
-              </div>
+                {pet.whatsapp_contact && (
+                  <Button asChild className="w-full mt-4">
+                    <a href={`https://wa.me/${pet.whatsapp_contact}`} target="_blank" rel="noopener noreferrer">
+                      <MessageCircleMore className="mr-2 h-4 w-4" /> Contatar via WhatsApp
+                    </a>
+                  </Button>
+                )}
+              </Card>
             </div>
-          </div>
-
-          {/* Botões de Ação - movidos para fora do grid principal para largura total */}
-          <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
-            {isOwner && !isResolved && (
-              <>
-                {type === "adoption" && (
-                  <Button onClick={() => onMarkAsResolved?.(pet.id!, "adopted")} variant="outline">
-                    Marcar como Adotado
-                  </Button>
-                )}
-                {type === "lost" && (
-                  <Button onClick={() => onMarkAsResolved?.(pet.id!, "reunited")} variant="outline">
-                    Marcar como Reunido
-                  </Button>
-                )}
-                <Button onClick={() => onDelete?.(pet.id!)} variant="destructive">
-                  Excluir
-                </Button>
-              </>
-            )}
           </div>
         </CardContent>
       </Card>
