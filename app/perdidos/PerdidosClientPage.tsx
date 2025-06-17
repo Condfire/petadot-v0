@@ -1,34 +1,31 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { Card, CardContent } from "@/components/ui/card"
+import PetCard from "@/components/PetCard"
+import { PetFilters } from "@/components/pet-filters"
+import { Pagination } from "@/components/pagination"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MapPin, Calendar, Phone } from "lucide-react"
-import Image from "next/image"
+import { Plus } from "lucide-react"
 import Link from "next/link"
 
 interface Pet {
   id: string
-  name: string
-  species: string
-  breed: string
-  color: string
-  description: string
-  city: string
-  state: string
-  contact_name: string
-  contact_phone: string
-  contact_whatsapp: string
-  created_at: string
-  slug: string
+  name?: string
+  species?: string
+  species_other?: string
+  breed?: string
+  age?: string
+  size?: string
+  size_other?: string
+  gender?: string
+  gender_other?: string
+  city?: string
+  state?: string
+  status?: string
   main_image_url?: string
-  pet_images?: Array<{
-    url: string
-    position: number
-  }>
+  slug?: string
+  category?: string
+  pet_images?: Array<{ url: string; position: number }>
 }
 
 interface PerdidosClientPageProps {
@@ -37,230 +34,128 @@ interface PerdidosClientPageProps {
 
 export default function PerdidosClientPage({ initialPets }: PerdidosClientPageProps) {
   const [pets, setPets] = useState<Pet[]>(initialPets)
-  const [loading, setLoading] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedState, setSelectedState] = useState("")
-  const [selectedCity, setSelectedCity] = useState("")
-  const [selectedSpecies, setSelectedSpecies] = useState("")
+  const [filteredPets, setFilteredPets] = useState<Pet[]>(initialPets)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [filters, setFilters] = useState({
+    species: "",
+    city: "",
+    state: "",
+    size: "",
+    gender: "",
+  })
 
-  const supabase = createClient()
-
-  const fetchPets = async () => {
-    setLoading(true)
-
-    let query = supabase
-      .from("pets")
-      .select(`
-        *,
-        pet_images (
-          url,
-          position
-        )
-      `)
-      .eq("category", "lost")
-      .eq("status", "approved")
-
-    if (searchTerm) {
-      query = query.or(`name.ilike.%${searchTerm}%,breed.ilike.%${searchTerm}%,color.ilike.%${searchTerm}%`)
-    }
-
-    if (selectedState) {
-      query = query.eq("state", selectedState)
-    }
-
-    if (selectedCity) {
-      query = query.eq("city", selectedCity)
-    }
-
-    if (selectedSpecies) {
-      query = query.eq("species", selectedSpecies)
-    }
-
-    query = query.order("created_at", { ascending: false })
-
-    const { data, error } = await query
-
-    if (error) {
-      console.error("Erro ao buscar pets perdidos:", error)
-    } else {
-      setPets(data || [])
-    }
-
-    setLoading(false)
-  }
+  const petsPerPage = 12
 
   useEffect(() => {
-    fetchPets()
-  }, [searchTerm, selectedState, selectedCity, selectedSpecies])
+    let filtered = pets
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("pt-BR")
-  }
-
-  const getMainImage = (pet: Pet) => {
-    if (pet.main_image_url) return pet.main_image_url
-    if (pet.pet_images && pet.pet_images.length > 0) {
-      return pet.pet_images.sort((a, b) => a.position - b.position)[0].url
+    if (filters.species) {
+      filtered = filtered.filter(
+        (pet) =>
+          pet.species === filters.species ||
+          (pet.species === "other" && pet.species_other?.toLowerCase().includes(filters.species.toLowerCase())),
+      )
     }
-    return "/placeholder.svg?height=300&width=300&text=Sem+foto"
-  }
 
-  const formatWhatsApp = (phone: string) => {
-    const cleanPhone = phone.replace(/\D/g, "")
-    return `https://wa.me/55${cleanPhone}`
-  }
+    if (filters.city) {
+      filtered = filtered.filter((pet) => pet.city?.toLowerCase().includes(filters.city.toLowerCase()))
+    }
+
+    if (filters.state) {
+      filtered = filtered.filter((pet) => pet.state === filters.state)
+    }
+
+    if (filters.size) {
+      filtered = filtered.filter(
+        (pet) =>
+          pet.size === filters.size ||
+          (pet.size === "other" && pet.size_other?.toLowerCase().includes(filters.size.toLowerCase())),
+      )
+    }
+
+    if (filters.gender) {
+      filtered = filtered.filter((pet) => pet.gender === filters.gender)
+    }
+
+    setFilteredPets(filtered)
+    setCurrentPage(1)
+  }, [filters, pets])
+
+  const totalPages = Math.ceil(filteredPets.length / petsPerPage)
+  const startIndex = (currentPage - 1) * petsPerPage
+  const currentPets = filteredPets.slice(startIndex, startIndex + petsPerPage)
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Pets Perdidos</h1>
-            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Ajude a reunir famílias! Veja os pets que estão perdidos e compartilhe para aumentar as chances de
-              reencontro.
-            </p>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto py-8 px-4">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Pets Perdidos</h1>
+              <p className="text-muted-foreground">
+                Ajude estes pets a voltarem para casa. {filteredPets.length} pets perdidos.
+              </p>
+            </div>
+            <Link href="/perdidos/cadastrar">
+              <Button className="flex items-center gap-2">
+                <Plus size={20} />
+                Cadastrar Pet Perdido
+              </Button>
+            </Link>
           </div>
+
+          {/* Filters */}
+          <div className="mb-8">
+            <PetFilters filters={filters} onFiltersChange={setFilters} pets={pets} />
+          </div>
+
+          {/* Results */}
+          {currentPets.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground text-lg mb-4">Nenhum pet encontrado com os filtros selecionados.</p>
+              <Button
+                variant="outline"
+                onClick={() => setFilters({ species: "", city: "", state: "", size: "", gender: "" })}
+              >
+                Limpar Filtros
+              </Button>
+            </div>
+          ) : (
+            <>
+              {/* Pet Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+                {currentPets.map((pet) => (
+                  <PetCard
+                    key={pet.id}
+                    id={pet.id}
+                    name={pet.name}
+                    main_image_url={pet.main_image_url}
+                    species={pet.species}
+                    species_other={pet.species_other}
+                    breed={pet.breed}
+                    age={pet.age}
+                    size={pet.size}
+                    size_other={pet.size_other}
+                    gender={pet.gender}
+                    gender_other={pet.gender_other}
+                    city={pet.city}
+                    state={pet.state}
+                    status={pet.status}
+                    type="lost"
+                    slug={pet.slug}
+                    category={pet.category}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+              )}
+            </>
+          )}
         </div>
-      </div>
-
-      {/* Filters */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Input
-              placeholder="Buscar por nome, raça ou cor..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full"
-            />
-
-            <Select value={selectedSpecies} onValueChange={setSelectedSpecies}>
-              <SelectTrigger>
-                <SelectValue placeholder="Espécie" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as espécies</SelectItem>
-                <SelectItem value="dog">Cachorro</SelectItem>
-                <SelectItem value="cat">Gato</SelectItem>
-                <SelectItem value="other">Outro</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={selectedState} onValueChange={setSelectedState}>
-              <SelectTrigger>
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os estados</SelectItem>
-                <SelectItem value="SP">São Paulo</SelectItem>
-                <SelectItem value="RJ">Rio de Janeiro</SelectItem>
-                <SelectItem value="MG">Minas Gerais</SelectItem>
-                <SelectItem value="RS">Rio Grande do Sul</SelectItem>
-                <SelectItem value="PR">Paraná</SelectItem>
-                <SelectItem value="SC">Santa Catarina</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Input placeholder="Cidade" value={selectedCity} onChange={(e) => setSelectedCity(e.target.value)} />
-          </div>
-        </div>
-
-        {/* Results */}
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-300">Carregando pets perdidos...</p>
-          </div>
-        ) : pets.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-xl text-gray-600 dark:text-gray-300 mb-4">
-              Nenhum pet perdido encontrado com os filtros selecionados.
-            </p>
-            <Button
-              onClick={() => {
-                setSearchTerm("")
-                setSelectedState("")
-                setSelectedCity("")
-                setSelectedSpecies("")
-              }}
-              variant="outline"
-            >
-              Limpar filtros
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {pets.map((pet) => (
-              <Card key={pet.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="relative h-64">
-                  <Image src={getMainImage(pet) || "/placeholder.svg"} alt={pet.name} fill className="object-cover" />
-                  <div className="absolute top-4 left-4">
-                    <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium">PERDIDO</span>
-                  </div>
-                </div>
-
-                <CardContent className="p-6">
-                  <div className="mb-4">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{pet.name}</h3>
-                    <div className="flex items-center text-gray-600 dark:text-gray-300 mb-2">
-                      <MapPin className="h-4 w-4 mr-1" />
-                      <span className="text-sm">
-                        {pet.city}, {pet.state}
-                      </span>
-                    </div>
-                    <div className="flex items-center text-gray-600 dark:text-gray-300 mb-3">
-                      <Calendar className="h-4 w-4 mr-1" />
-                      <span className="text-sm">Perdido em {formatDate(pet.created_at)}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Espécie:</span>
-                      <span className="text-sm font-medium">
-                        {pet.species === "dog" ? "Cachorro" : pet.species === "cat" ? "Gato" : "Outro"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Raça:</span>
-                      <span className="text-sm font-medium">{pet.breed}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">Cor:</span>
-                      <span className="text-sm font-medium">{pet.color}</span>
-                    </div>
-                  </div>
-
-                  <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-3">{pet.description}</p>
-
-                  <div className="space-y-2">
-                    <Link href={`/perdidos/${pet.slug}`}>
-                      <Button className="w-full" variant="outline">
-                        Ver detalhes
-                      </Button>
-                    </Link>
-
-                    {pet.contact_whatsapp && (
-                      <a
-                        href={formatWhatsApp(pet.contact_whatsapp)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block"
-                      >
-                        <Button className="w-full bg-green-600 hover:bg-green-700">
-                          <Phone className="h-4 w-4 mr-2" />
-                          Entrar em contato
-                        </Button>
-                      </a>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )

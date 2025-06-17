@@ -1,14 +1,15 @@
-import Link from "next/link"
+"use client"
+
 import Image from "next/image"
+import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle } from "lucide-react"
-import { mapPetSpecies, mapPetSize, mapPetGender } from "@/lib/utils"
+import { MapPin, Heart, Calendar } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface PetCardProps {
   id: string
   name?: string
-  image?: string
   main_image_url?: string
   species?: string
   species_other?: string
@@ -18,20 +19,19 @@ interface PetCardProps {
   size_other?: string
   gender?: string
   gender_other?: string
-  location?: string
   city?: string
   state?: string
   status?: string
-  type: "adoption" | "lost" | "found"
-  isSpecialNeeds?: boolean
+  type: "lost" | "found" | "adoption"
   slug?: string
-  category?: string // Add category field for debugging
+  category?: string
+  isSpecialNeeds?: boolean
+  created_at?: string
 }
 
 export default function PetCard({
   id,
   name,
-  image,
   main_image_url,
   species,
   species_other,
@@ -41,134 +41,156 @@ export default function PetCard({
   size_other,
   gender,
   gender_other,
-  location,
   city,
   state,
   status,
   type,
-  isSpecialNeeds,
   slug,
   category,
+  isSpecialNeeds,
+  created_at,
 }: PetCardProps) {
-  // No início do componente, após as props, adicionar:
-  const petType =
-    type ||
-    (category === "adoption" ? "adoption" : category === "lost" ? "lost" : category === "found" ? "found" : "adoption")
-  // Determinar a URL de destino com base no tipo de pet
+  // Função para gerar a URL de detalhes
   const getDetailUrl = () => {
-    const baseUrl = {
-      adoption: "/adocao/",
-      lost: "/perdidos/",
-      found: "/encontrados/",
-    }[petType]
-
-    // Usar slug se disponível, caso contrário usar id
     const identifier = slug || id
-    const url = `${baseUrl}${identifier}`
+    console.log(`[PetCard] Gerando URL para pet ${id}, slug: ${slug}, type: ${type}, identifier: ${identifier}`)
 
-    console.log(
-      `[PetCard] Gerando URL: ${url} para pet ${name} (id: ${id}, slug: ${slug}, type: ${petType}, category: ${category})`,
-    )
-
-    return url
+    switch (type) {
+      case "adoption":
+        return `/adocao/${identifier}`
+      case "lost":
+        return `/perdidos/${identifier}`
+      case "found":
+        return `/encontrados/${identifier}`
+      default:
+        return `/${type}/${identifier}`
+    }
   }
 
-  // Função para obter a imagem com fallback
-  const getImageSrc = () => {
-    if (main_image_url && main_image_url.trim() !== "") {
-      return main_image_url
-    }
-    if (image && image.trim() !== "") {
-      return image
-    }
-    return "/placeholder.svg?height=300&width=300"
+  // Função para formatar espécie
+  const getSpeciesDisplay = () => {
+    if (species === "dog") return "Cachorro"
+    if (species === "cat") return "Gato"
+    if (species === "other" && species_other) return species_other
+    return species || "Não informado"
   }
 
-  // Preparar localização
-  const displayLocation = location || (city && state ? `${city}, ${state}` : city || state || "")
-
-  const speciesText = mapPetSpecies(species, species_other)
-  const sizeText = mapPetSize(size, size_other)
-  const genderText = mapPetGender(gender, gender_other)
-
-  // Mapear status para texto legível
-  const getStatusText = () => {
-    const statusMap: Record<string, { text: string; color: string }> = {
-      available: { text: "Disponível", color: "bg-green-500" },
-      pending: { text: "Pendente", color: "bg-yellow-500" },
-      adopted: { text: "Adotado", color: "bg-blue-500" },
-      approved: { text: "Aprovado", color: "bg-green-500" },
-      rejected: { text: "Rejeitado", color: "bg-red-500" },
-      resolved: { text: "Encontrado", color: "bg-blue-500" },
-      reunited: { text: "Reunido", color: "bg-blue-500" },
-    }
-
-    return statusMap[status || ""] || { text: status || "Desconhecido", color: "bg-gray-500" }
+  // Função para formatar tamanho
+  const getSizeDisplay = () => {
+    if (size === "small") return "Pequeno"
+    if (size === "medium") return "Médio"
+    if (size === "large") return "Grande"
+    if (size === "other" && size_other) return size_other
+    return size || "Não informado"
   }
 
-  const statusInfo = getStatusText()
-  const imageSrc = getImageSrc()
+  // Função para formatar gênero
+  const getGenderDisplay = () => {
+    if (gender === "male") return "Macho"
+    if (gender === "female") return "Fêmea"
+    if (gender === "other" && gender_other) return gender_other
+    return gender || "Não informado"
+  }
+
+  // Função para obter a cor do badge baseado no tipo
+  const getBadgeVariant = () => {
+    switch (type) {
+      case "lost":
+        return "destructive"
+      case "found":
+        return "secondary"
+      case "adoption":
+        return "default"
+      default:
+        return "default"
+    }
+  }
+
+  // Função para obter o texto do badge
+  const getBadgeText = () => {
+    switch (type) {
+      case "lost":
+        return "PERDIDO"
+      case "found":
+        return "ENCONTRADO"
+      case "adoption":
+        return "ADOÇÃO"
+      default:
+        return type?.toUpperCase()
+    }
+  }
+
+  const detailUrl = getDetailUrl()
+  const location = city && state ? `${city}, ${state}` : city || state || "Localização não informada"
 
   return (
-    <Link href={getDetailUrl()}>
-      <Card className="overflow-hidden h-full flex flex-col hover:shadow-md transition-shadow">
-        <div className="relative aspect-square">
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300 bg-card border">
+      <div className="relative">
+        <div className="relative h-48 w-full">
           <Image
-            src={imageSrc || "/placeholder.svg"}
+            src={main_image_url || "/placeholder.svg?height=200&width=300&text=Sem+foto"}
             alt={name || "Pet"}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            priority={false}
-            unoptimized={imageSrc.includes("placeholder.svg")}
           />
-          {isSpecialNeeds && (
-            <div className="absolute top-2 right-2 bg-amber-500 text-white p-1 rounded-full">
-              <AlertTriangle size={16} />
+        </div>
+        <div className="absolute top-2 left-2">
+          <Badge variant={getBadgeVariant()} className="font-semibold">
+            {getBadgeText()}
+          </Badge>
+        </div>
+        {isSpecialNeeds && (
+          <div className="absolute top-2 right-2">
+            <Badge variant="outline" className="bg-background/80">
+              <Heart className="h-3 w-3 mr-1" />
+              Especial
+            </Badge>
+          </div>
+        )}
+      </div>
+
+      <CardContent className="p-4 space-y-3">
+        <div>
+          <h3 className="font-bold text-lg text-foreground line-clamp-1">{name || "Pet sem nome"}</h3>
+          <div className="flex items-center text-muted-foreground text-sm mt-1">
+            <MapPin className="h-3 w-3 mr-1" />
+            <span className="line-clamp-1">{location}</span>
+          </div>
+        </div>
+
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Espécie:</span>
+            <span className="font-medium text-foreground">{getSpeciesDisplay()}</span>
+          </div>
+          {breed && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Raça:</span>
+              <span className="font-medium text-foreground line-clamp-1">{breed}</span>
             </div>
           )}
-          {status && (
-            <Badge
-              className={`absolute top-2 left-2 ${statusInfo.color} hover:${statusInfo.color} text-white border-none`}
-            >
-              {statusInfo.text}
-            </Badge>
-          )}
-        </div>
-        <CardContent className="flex-grow p-4">
-          <h3 className="font-bold text-lg mb-2 truncate">{name || "Pet sem nome"}</h3>
-          <div className="space-y-1 text-sm text-muted-foreground">
-            <p>
-              <span className="font-medium">Espécie:</span> {speciesText}
-            </p>
-            {breed && (
-              <p>
-                <span className="font-medium">Raça:</span> {breed}
-              </p>
-            )}
-            {age && (
-              <p>
-                <span className="font-medium">Idade:</span> {age}
-              </p>
-            )}
-            {size && (
-              <p>
-                <span className="font-medium">Porte:</span> {sizeText}
-              </p>
-            )}
-            {gender && (
-              <p>
-                <span className="font-medium">Gênero:</span> {genderText}
-              </p>
-            )}
-            {displayLocation && (
-              <p>
-                <span className="font-medium">Localização:</span> {displayLocation}
-              </p>
-            )}
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Tamanho:</span>
+            <span className="font-medium text-foreground">{getSizeDisplay()}</span>
           </div>
-        </CardContent>
-      </Card>
-    </Link>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Gênero:</span>
+            <span className="font-medium text-foreground">{getGenderDisplay()}</span>
+          </div>
+        </div>
+
+        {created_at && (
+          <div className="flex items-center text-muted-foreground text-xs">
+            <Calendar className="h-3 w-3 mr-1" />
+            <span>Publicado em {new Date(created_at).toLocaleDateString("pt-BR")}</span>
+          </div>
+        )}
+
+        <Link href={detailUrl} className="block">
+          <Button className="w-full mt-3">Ver Detalhes</Button>
+        </Link>
+      </CardContent>
+    </Card>
   )
 }
