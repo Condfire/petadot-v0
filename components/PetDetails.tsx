@@ -9,7 +9,7 @@ import { PetImageGallery } from "@/components/pet-image-gallery"
 import { PetResolvedAlert } from "@/components/pet-resolved-alert"
 import { mapPetStatus } from "@/lib/utils"
 import type { PetDB } from "@/lib/types"
-import { MessageCircleMore } from "lucide-react" // Importar ícone do WhatsApp
+import { MessageCircleMore } from "lucide-react"
 
 interface PetDetailsProps {
   pet: PetDB
@@ -21,45 +21,73 @@ interface PetDetailsProps {
 
 export default function PetDetails({ pet, isOwner, onMarkAsResolved, onDelete, type }: PetDetailsProps) {
   if (!pet) {
-    return <p>Pet não encontrado.</p>
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Card className="shadow-lg rounded-2xl">
+          <CardContent className="p-6">
+            <p className="text-center text-muted-foreground">Pet não encontrado.</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   const isResolved = pet.status === "adopted" || pet.status === "reunited" || pet.status === "resolved"
 
-  // Determina o array de imagens correto para passar para a galeria
-  const imagesToDisplay =
-    pet.images && pet.images.length > 0 ? pet.images : pet.main_image_url ? [pet.main_image_url] : []
+  // Processar imagens - usar main_image_url ou images array
+  const imagesToDisplay = []
+
+  if (pet.main_image_url) {
+    imagesToDisplay.push(pet.main_image_url)
+  }
+
+  if (pet.images && Array.isArray(pet.images)) {
+    pet.images.forEach((img) => {
+      if (typeof img === "string" && !imagesToDisplay.includes(img)) {
+        imagesToDisplay.push(img)
+      }
+    })
+  }
+
+  console.log(`[PetDetails] Pet: ${pet.name}, Images:`, imagesToDisplay)
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <Card className="shadow-lg rounded-2xl overflow-hidden">
+      <Card className="shadow-lg rounded-2xl overflow-hidden bg-card border">
         <CardContent className="p-6 space-y-6">
-          {/* Seção principal: Imagem à esquerda, Informações básicas e descrição à direita */}
+          {/* Grid principal: Imagem à esquerda, informações à direita */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Coluna Esquerda: Galeria de Imagens */}
+            {/* Coluna da Imagem */}
             <div className="md:col-span-1 lg:col-span-1">
               {imagesToDisplay.length > 0 ? (
                 <PetImageGallery images={imagesToDisplay} name={pet.name || "Pet"} />
               ) : (
-                <div className="relative w-full h-64 bg-gray-200 flex items-center justify-center rounded-lg overflow-hidden">
+                <div className="relative w-full h-64 bg-muted flex items-center justify-center rounded-lg overflow-hidden">
                   <Image
-                    src="/placeholder.svg?height=256&width=512"
-                    alt="Placeholder"
-                    width={512}
+                    src="/placeholder.svg?height=256&width=256&text=Sem+foto"
+                    alt="Sem foto disponível"
+                    width={256}
                     height={256}
-                    className="object-cover"
+                    className="object-cover opacity-50"
                   />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <p className="text-muted-foreground text-sm">Sem foto disponível</p>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Coluna Direita: Nome, Status, Descrição e Características */}
+            {/* Coluna das Informações */}
             <div className="md:col-span-1 lg:col-span-2 space-y-6">
+              {/* Nome e Status */}
               <div>
-                <CardTitle className="text-4xl font-bold text-primary">{pet.name}</CardTitle>
+                <CardTitle className="text-3xl md:text-4xl font-bold text-foreground">
+                  {pet.name || "Pet sem nome"}
+                </CardTitle>
                 <p className="text-lg text-muted-foreground mt-1">Status: {mapPetStatus(pet.status)}</p>
               </div>
 
+              {/* Alerta de Resolvido */}
               {isResolved && (
                 <PetResolvedAlert
                   status={pet.status!}
@@ -68,13 +96,17 @@ export default function PetDetails({ pet, isOwner, onMarkAsResolved, onDelete, t
                 />
               )}
 
-              <div className="space-y-2">
-                <h3 className="text-2xl font-semibold text-primary">Sobre {pet.name}</h3>
-                <p className="text-muted-foreground leading-relaxed">{pet.description}</p>
-              </div>
+              {/* Descrição */}
+              {pet.description && (
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold text-foreground">Sobre {pet.name || "este pet"}</h3>
+                  <p className="text-muted-foreground leading-relaxed">{pet.description}</p>
+                </div>
+              )}
 
+              {/* Características */}
               <div className="space-y-2">
-                <h3 className="text-2xl font-semibold text-primary">Características</h3>
+                <h3 className="text-xl font-semibold text-foreground">Características</h3>
                 <PetInfo
                   species={pet.species}
                   species_other={pet.species_other}
@@ -95,9 +127,9 @@ export default function PetDetails({ pet, isOwner, onMarkAsResolved, onDelete, t
             </div>
           </div>
 
-          {/* Botões de Ação do Proprietário (abaixo do grid principal) */}
+          {/* Botões de Ação do Proprietário */}
           {isOwner && !isResolved && (
-            <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
+            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
               {type === "adoption" && (
                 <Button onClick={() => onMarkAsResolved?.(pet.id!, "adopted")} variant="outline">
                   Marcar como Adotado
@@ -114,10 +146,10 @@ export default function PetDetails({ pet, isOwner, onMarkAsResolved, onDelete, t
             </div>
           )}
 
-          {/* Informações de Contato (card separado e proeminente) */}
-          <div className="mt-8">
-            <Card className="p-4 bg-secondary/20 border-secondary rounded-lg shadow-md">
-              <h3 className="text-2xl font-semibold text-primary mb-3">Informações de Contato</h3>
+          {/* Informações de Contato */}
+          <div className="pt-6 border-t">
+            <Card className="p-4 bg-secondary/20 border-secondary rounded-lg">
+              <h3 className="text-xl font-semibold text-foreground mb-3">Informações de Contato</h3>
               <PetContactInfo
                 contact={pet.whatsapp_contact}
                 location={
@@ -126,8 +158,13 @@ export default function PetDetails({ pet, isOwner, onMarkAsResolved, onDelete, t
               />
               {pet.whatsapp_contact && (
                 <Button asChild className="w-full mt-4">
-                  <a href={`https://wa.me/${pet.whatsapp_contact}`} target="_blank" rel="noopener noreferrer">
-                    <MessageCircleMore className="mr-2 h-4 w-4" /> Contatar via WhatsApp
+                  <a
+                    href={`https://wa.me/${pet.whatsapp_contact.replace(/\D/g, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <MessageCircleMore className="mr-2 h-4 w-4" />
+                    Contatar via WhatsApp
                   </a>
                 </Button>
               )}

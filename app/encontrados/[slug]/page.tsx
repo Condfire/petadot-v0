@@ -14,102 +14,56 @@ type Props = {
 }
 
 async function getPetBySlugOrId(slugOrId: string) {
+  // Validar o parâmetro
+  if (!slugOrId || slugOrId === "{}" || slugOrId === "%7B%7D" || slugOrId === "undefined" || slugOrId === "null") {
+    console.log(`[Encontrados] Parâmetro inválido: ${slugOrId}`)
+    return null
+  }
+
   const supabase = createClient()
 
-  console.log(`[Encontrados] Iniciando busca para: ${slugOrId}`)
+  console.log(`[Encontrados] Buscando pet: ${slugOrId}`)
 
   try {
-    // Verificar se é UUID ou slug
     const isUuidValue = isUuid(slugOrId)
     console.log(`[Encontrados] É UUID: ${isUuidValue}`)
 
-    // Primeira tentativa: buscar pelo identificador fornecido
-    let query = supabase
-      .from("pets")
-      .select(`
-        *,
-        pet_images (
-          url,
-          position
-        )
-      `)
-      .eq("category", "found")
+    // Buscar por slug primeiro, depois por ID
+    let pet = null
 
-    // Não filtrar por status para debug
-    if (isUuidValue) {
-      query = query.eq("id", slugOrId)
-    } else {
-      query = query.eq("slug", slugOrId)
+    if (!isUuidValue) {
+      // Tentar buscar por slug
+      const { data: slugData, error: slugError } = await supabase
+        .from("pets")
+        .select("*")
+        .eq("category", "found")
+        .eq("slug", slugOrId)
+        .maybeSingle()
+
+      console.log(`[Encontrados] Busca por slug:`, { slugData, slugError })
+
+      if (!slugError && slugData) {
+        pet = slugData
+      }
     }
 
-    let { data: pet, error } = await query.single()
-
-    console.log(`[Encontrados] Primeira busca - Pet:`, pet)
-    console.log(`[Encontrados] Primeira busca - Erro:`, error)
-
-    // Se não encontrou por slug, tentar por ID
-    if (error && !isUuidValue) {
-      console.log(`[Encontrados] Tentando busca por ID: ${slugOrId}`)
-
-      const { data: petById, error: errorById } = await supabase
+    // Se não encontrou por slug ou é UUID, buscar por ID
+    if (!pet) {
+      const { data: idData, error: idError } = await supabase
         .from("pets")
-        .select(`
-          *,
-          pet_images (
-            url,
-            position
-          )
-        `)
+        .select("*")
         .eq("category", "found")
         .eq("id", slugOrId)
-        .single()
+        .maybeSingle()
 
-      console.log(`[Encontrados] Segunda busca - Pet:`, petById)
-      console.log(`[Encontrados] Segunda busca - Erro:`, errorById)
+      console.log(`[Encontrados] Busca por ID:`, { idData, idError })
 
-      if (!errorById && petById) {
-        pet = petById
-        error = null
+      if (!idError && idData) {
+        pet = idData
       }
     }
 
-    // Se ainda não encontrou, tentar buscar sem filtro de categoria para debug
-    if (error) {
-      console.log(`[Encontrados] Tentando busca sem filtro de categoria`)
-
-      const { data: petAny, error: errorAny } = await supabase
-        .from("pets")
-        .select(`
-          *,
-          pet_images (
-            url,
-            position
-          )
-        `)
-        .eq(isUuidValue ? "id" : "slug", slugOrId)
-        .single()
-
-      console.log(`[Encontrados] Busca sem filtro - Pet:`, petAny)
-      console.log(`[Encontrados] Busca sem filtro - Erro:`, errorAny)
-
-      if (!errorAny && petAny) {
-        console.log(`[Encontrados] Pet encontrado mas com categoria: ${petAny.category}`)
-      }
-    }
-
-    if (error || !pet) {
-      console.error(`[Encontrados] Erro final ao buscar pet:`, error)
-      return null
-    }
-
-    console.log(`[Encontrados] Pet encontrado com sucesso:`, {
-      id: pet.id,
-      name: pet.name,
-      category: pet.category,
-      status: pet.status,
-      slug: pet.slug,
-    })
-
+    console.log(`[Encontrados] Pet encontrado:`, pet)
     return pet
   } catch (err) {
     console.error(`[Encontrados] Erro na função getPetBySlugOrId:`, err)
@@ -127,8 +81,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const location = pet.city && pet.state ? `${pet.city}, ${pet.state}` : pet.city || pet.state || ""
-  const imageUrl =
-    pet.main_image_url || (pet.pet_images && pet.pet_images[0]?.url) || "/placeholder.svg?height=400&width=400"
 
   return {
     title: `Pet encontrado em ${location} - Petadot`,
@@ -136,7 +88,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title: `Pet encontrado em ${location}!`,
       description: `Ajude a encontrar o dono deste pet. ${pet.description || ""}`,
-      images: [imageUrl],
+      images: [pet.main_image_url || "/placeholder.svg?height=400&width=400"],
       url: `${process.env.NEXT_PUBLIC_APP_URL}/encontrados/${params.slug}`,
     },
   }

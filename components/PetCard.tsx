@@ -29,7 +29,7 @@ interface PetCardProps {
   created_at?: string
 }
 
-export default function PetCard({
+function PetCard({
   id,
   name,
   main_image_url,
@@ -50,6 +50,15 @@ export default function PetCard({
   isSpecialNeeds,
   created_at,
 }: PetCardProps) {
+  // Debug logs
+  console.log(`[PetCard] Pet ${id}:`, {
+    name,
+    main_image_url,
+    type,
+    slug,
+    category,
+  })
+
   // Função para gerar a URL de detalhes
   const getDetailUrl = () => {
     const identifier = slug || id
@@ -123,16 +132,26 @@ export default function PetCard({
   const detailUrl = getDetailUrl()
   const location = city && state ? `${city}, ${state}` : city || state || "Localização não informada"
 
+  // Melhor tratamento da imagem
+  const imageUrl = main_image_url || "/placeholder.svg?height=200&width=300&text=Sem+foto"
+  console.log(`[PetCard] Imagem para pet ${id}:`, imageUrl)
+
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300 bg-card border">
       <div className="relative">
         <div className="relative h-48 w-full">
           <Image
-            src={main_image_url || "/placeholder.svg?height=200&width=300&text=Sem+foto"}
+            src={imageUrl || "/placeholder.svg"}
             alt={name || "Pet"}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            onError={(e) => {
+              console.error(`[PetCard] Erro ao carregar imagem para pet ${id}:`, e)
+            }}
+            onLoad={() => {
+              console.log(`[PetCard] Imagem carregada com sucesso para pet ${id}`)
+            }}
           />
         </div>
         <div className="absolute top-2 left-2">
@@ -194,3 +213,9 @@ export default function PetCard({
     </Card>
   )
 }
+
+// Named export
+export { PetCard }
+
+// Default export
+export default PetCard

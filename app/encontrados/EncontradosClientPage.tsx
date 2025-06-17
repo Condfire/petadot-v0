@@ -26,6 +26,7 @@ interface Pet {
   slug?: string
   category?: string
   pet_images?: Array<{ url: string; position: number }>
+  created_at?: string
 }
 
 interface EncontradosClientPageProps {
@@ -45,6 +46,18 @@ export default function EncontradosClientPage({ initialPets }: EncontradosClient
   })
 
   const petsPerPage = 12
+
+  // Debug log dos pets recebidos
+  console.log(
+    "[EncontradosClientPage] Pets recebidos:",
+    pets?.map((pet) => ({
+      id: pet.id,
+      name: pet.name,
+      main_image_url: pet.main_image_url,
+      slug: pet.slug,
+      category: pet.category,
+    })),
+  )
 
   useEffect(() => {
     let filtered = pets
@@ -145,6 +158,7 @@ export default function EncontradosClientPage({ initialPets }: EncontradosClient
                     type="found"
                     slug={pet.slug}
                     category={pet.category}
+                    created_at={pet.created_at}
                   />
                 ))}
               </div>

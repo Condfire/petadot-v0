@@ -14,81 +14,81 @@ type Props = {
 }
 
 async function getPetBySlugOrId(slugOrId: string) {
-  const supabase = createClient()
-
-  console.log(`[Adoção] Buscando pet com identificador: ${slugOrId}`)
-
-  // Verificar se é UUID ou slug
-  const isUuidValue = isUuid(slugOrId)
-  console.log(`[Adoção] É UUID: ${isUuidValue}`)
-
-  // Primeiro, tentar buscar com o identificador fornecido
-  let query = supabase
-    .from("pets")
-    .select(`
-      *,
-      pet_images (
-        url,
-        position
-      ),
-      ongs:user_id(
-        id,
-        name,
-        logo_url,
-        city,
-        state,
-        contact_whatsapp
-      )
-    `)
-    .eq("category", "adoption")
-    .eq("status", "approved")
-
-  if (isUuidValue) {
-    query = query.eq("id", slugOrId)
-  } else {
-    query = query.eq("slug", slugOrId)
-  }
-
-  let { data: pet, error } = await query.single()
-
-  // Se não encontrou por slug, tentar por ID
-  if (error && !isUuidValue) {
-    console.log(`[Adoção] Não encontrou por slug, tentando por ID: ${slugOrId}`)
-    const { data: petById, error: errorById } = await supabase
-      .from("pets")
-      .select(`
-        *,
-        pet_images (
-          url,
-          position
-        ),
-        ongs:user_id(
-          id,
-          name,
-          logo_url,
-          city,
-          state,
-          contact_whatsapp
-        )
-      `)
-      .eq("category", "adoption")
-      .eq("status", "approved")
-      .eq("id", slugOrId)
-      .single()
-
-    if (!errorById) {
-      pet = petById
-      error = null
-    }
-  }
-
-  if (error) {
-    console.error("Erro ao buscar pet para adoção:", error)
+  // Validar o parâmetro
+  if (!slugOrId || slugOrId === "{}" || slugOrId === "%7B%7D" || slugOrId === "undefined" || slugOrId === "null") {
+    console.log(`[Adoção] Parâmetro inválido: ${slugOrId}`)
     return null
   }
 
-  console.log(`[Adoção] Pet encontrado:`, pet)
-  return pet
+  const supabase = createClient()
+
+  console.log(`[Adoção] Buscando pet: ${slugOrId}`)
+
+  try {
+    const isUuidValue = isUuid(slugOrId)
+    console.log(`[Adoção] É UUID: ${isUuidValue}`)
+
+    // Buscar por slug primeiro, depois por ID
+    let pet = null
+
+    if (!isUuidValue) {
+      // Tentar buscar por slug
+      const { data: slugData, error: slugError } = await supabase
+        .from("pets")
+        .select(`
+          *,
+          ongs:user_id(
+            id,
+            name,
+            logo_url,
+            city,
+            state,
+            contact_whatsapp
+          )
+        `)
+        .eq("category", "adoption")
+        .eq("slug", slugOrId)
+        .maybeSingle()
+
+      console.log(`[Adoção] Busca por slug:`, { slugData, slugError })
+
+      if (!slugError && slugData) {
+        pet = slugData
+      }
+    }
+
+    // Se não encontrou por slug ou é UUID, buscar por ID
+    if (!pet) {
+      const { data: idData, error: idError } = await supabase
+        .from("pets")
+        .select(`
+          *,
+          ongs:user_id(
+            id,
+            name,
+            logo_url,
+            city,
+            state,
+            contact_whatsapp
+          )
+        `)
+        .eq("category", "adoption")
+        .eq("id", slugOrId)
+        .maybeSingle()
+
+      console.log(`[Adoção] Busca por ID:`, { idData, idError })
+
+      if (!idError && idData) {
+        pet = idData
+      }
+    }
+
+    console.log(`[Adoção] Pet encontrado:`, pet)
+    return pet
+  } catch (err) {
+    console.error(`[Adoção] Erro na função getPetBySlugOrId:`, err)
+    return null
+  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -101,8 +101,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const location = pet.city && pet.state ? `${pet.city}, ${pet.state}` : pet.city || pet.state || ""
-  const imageUrl =
-    pet.main_image_url || (pet.pet_images && pet.pet_images[0]?.url) || "/placeholder.svg?height=400&width=400"
 
   return {
     title: `${pet.name || "Pet para adoção"} - Adoção em ${location} - Petadot`,
@@ -110,17 +108,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title: `Conheça ${pet.name || "este pet"} - Disponível para adoção!`,
       description: `${pet.name || "Este pet"} está procurando um lar em ${location}. ${pet.description || ""}`,
-      images: [imageUrl],
+      images: [pet.main_image_url || "/placeholder.svg?height=400&width=400"],
       url: `${process.env.NEXT_PUBLIC_APP_URL}/adocao/${params.slug}`,
     },
   }
 }
 
 export default async function PetAdocaoPage({ params }: Props) {
+  console.log(`[Adoção] Renderizando página para slug: ${params.slug}`)
+
   const pet = await getPetBySlugOrId(params.slug)
 
   if (!pet) {
-    console.log(`[Adoção] Pet não encontrado para slug: ${params.slug}`)
+    console.log(`[Adoção] Pet não encontrado, retornando 404`)
     notFound()
   }
 
