@@ -10,6 +10,7 @@ import { getPetsForAdoption, getLostPets, getEvents } from "@/lib/supabase"
 import StatsSection from "@/components/stats-section"
 import PetCard from "@/components/PetCard"
 import { OptimizedImage } from "@/components/optimized-image"
+import { EventCard } from "@/components/event-card"
 
 // Desativar completamente o cache para a página inicial durante o desenvolvimento
 export const revalidate = 0 // Revalidate on every request
@@ -23,7 +24,9 @@ export default async function Home() {
     // Buscar apenas os primeiros 4 pets para cada categoria (sem paginação completa)
     const adoptionPetsResult = await getPetsForAdoption(1, 4)
     const lostPetsResult = await getLostPets(1, 4)
-    const eventsResult = await getEvents(1, 4)
+    const eventsResult = await getEvents(1, 4, {
+      start_date: new Date().toISOString(),
+    })
 
     // Extrair os arrays de dados dos resultados paginados
     const adoptionPets = adoptionPetsResult.data || []
@@ -38,7 +41,9 @@ export default async function Home() {
     const recentAdoptionPets = adoptionPets
     const recentLostPets = lostPets
     // Filtramos apenas eventos futuros
-    const upcomingEvents = events.filter((event) => new Date(event.start_date) >= new Date()).slice(0, 3)
+    const upcomingEvents = events
+      .filter((event) => new Date(event.start_date) >= new Date())
+      .slice(0, 3)
 
     return (
       <div className="flex flex-col min-h-screen">
@@ -60,7 +65,7 @@ export default async function Home() {
                   <PetCard
                     id={pet.id}
                     name={pet.name}
-                    image={pet.image_url || "/a-cute-pet.png"}
+                    image={pet.main_image_url || pet.image_url || "/a-cute-pet.png"}
                     species={pet.species}
                     species_other={pet.species_other}
                     age={pet.age}
@@ -104,7 +109,7 @@ export default async function Home() {
                   <PetCard
                     id={pet.id}
                     name={pet.name}
-                    image={pet.image_url || "/a-cute-pet.png"}
+                    image={pet.main_image_url || pet.image_url || "/a-cute-pet.png"}
                     species={pet.species}
                     species_other={pet.species_other}
                     age={pet.age}
@@ -141,32 +146,22 @@ export default async function Home() {
           </AnimateOnScroll>
 
           {upcomingEvents.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {upcomingEvents.map((event, index) => (
                 <AnimateOnScroll key={event.id} delay={index * 100}>
-                  <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div className="h-48 relative">
-                      <OptimizedImage
-                        src={event.image_url || "/placeholder.svg?height=192&width=384&query=pet+event"}
-                        alt={event.title}
-                        width={384}
-                        height={192}
-                        className="w-full h-full"
-                        objectFit="cover"
-                      />
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-bold text-lg">{event.title}</h3>
-                      <p className="text-sm text-gray-600">
-                        Data: {new Date(event.start_date).toLocaleDateString("pt-BR")}
-                      </p>
-                      <p className="text-sm text-gray-600">Local: {event.location}</p>
-                      <p className="mt-2 text-sm line-clamp-2">{event.description}</p>
-                      <Button className="mt-3 w-full" asChild>
-                        <Link href={`/eventos/${event.slug || event.id}`}>Ver detalhes</Link>
-                      </Button>
-                    </div>
-                  </div>
+                  <EventCard
+                    id={event.id}
+                    name={event.name}
+                    description={event.description}
+                    image_url={event.image_url}
+                    location={event.location}
+                    city={event.city}
+                    state={event.state}
+                    start_date={event.start_date}
+                    end_date={event.end_date}
+                    event_type={event.event_type}
+                    slug={event.slug}
+                  />
                 </AnimateOnScroll>
               ))}
             </div>

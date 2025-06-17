@@ -45,7 +45,11 @@ export default function EncontradosClientPage({
     const fetchPets = async () => {
       setLoading(true)
       try {
-        let query = supabase.from("pets_found").select("*", { count: "exact" })
+        let query = supabase
+          .from("pets")
+          .eq("category", "found")
+          .eq("status", "approved")
+          .select("*", { count: "exact" })
 
         // Aplicar filtros
         if (filters.species && filters.species !== "all") {
@@ -162,7 +166,7 @@ export default function EncontradosClientPage({
                   key={pet.id}
                   id={pet.id}
                   name={pet.name || "Pet sem nome"}
-                  image={pet.image_url}
+                  image={pet.main_image_url || pet.image_url}
                   species={pet.species}
                   species_other={pet.species_other}
                   breed={pet.breed}

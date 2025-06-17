@@ -107,7 +107,7 @@ export async function registerUserAndNgoAction(
           state: ngoData.ngoState,
           postal_code: ngoData.ngoPostalCode || null,
           verification_document_url: ngoData.verificationDocumentUrl || null,
-          is_verified: false, // NGOs start as unverified
+          is_verified: true, // ONGs são verificadas automaticamente
           slug: uniqueSlug,
         })
         .select("id")

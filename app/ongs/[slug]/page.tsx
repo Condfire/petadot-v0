@@ -50,7 +50,6 @@ export default async function OngPage({ params }: { params: { slug: string } }) 
     .from("ongs")
     .select("*")
     .eq(isUuidValue ? "id" : "slug", slugOrId)
-    .eq("is_verified", true)
     .single()
 
   if (ongError || !ong) {
@@ -161,7 +160,7 @@ export default async function OngPage({ params }: { params: { slug: string } }) 
                       key={pet.id}
                       id={pet.id}
                       name={pet.name}
-                      image={pet.image_url}
+                      image={pet.main_image_url || pet.image_url}
                       location={`${ong.city}, ${ong.state}`}
                       species={pet.species}
                       age={pet.age}
@@ -190,7 +189,7 @@ export default async function OngPage({ params }: { params: { slug: string } }) 
                       id={event.id}
                       name={event.name}
                       image={event.image_url}
-                      date={event.date}
+                      start_date={event.start_date}
                       location={event.location}
                       description={event.description}
                     />

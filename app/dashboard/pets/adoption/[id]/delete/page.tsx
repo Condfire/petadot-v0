@@ -74,7 +74,7 @@ function DeletePetContent({ id, type }: { id: string; type: string }) {
           title: "Pet excluído com sucesso",
           description: "O pet foi excluído permanentemente.",
         })
-        router.push("/dashboard/pets")
+        router.push("/my-pets")
       } else {
         toast({
           title: "Erro ao excluir pet",
@@ -97,7 +97,7 @@ function DeletePetContent({ id, type }: { id: string; type: string }) {
   return (
     <div className="container py-8 md:py-12">
       <Button variant="ghost" className="mb-6" asChild>
-        <Link href="/dashboard/pets">
+        <Link href="/my-pets">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar para Meus Pets
         </Link>
@@ -127,7 +127,7 @@ function DeletePetContent({ id, type }: { id: string; type: string }) {
           </CardHeader>
           <CardFooter>
             <Button asChild className="w-full">
-              <Link href="/dashboard/pets">Voltar para Meus Pets</Link>
+              <Link href="/my-pets">Voltar para Meus Pets</Link>
             </Button>
           </CardFooter>
         </Card>
@@ -145,7 +145,7 @@ function DeletePetContent({ id, type }: { id: string; type: string }) {
           <CardContent className="flex flex-col items-center">
             <div className="relative w-[200px] h-[200px] rounded-lg overflow-hidden mb-4">
               <Image
-                src={pet.image_url || "/placeholder.svg?height=200&width=200&query=pet"}
+                src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=200&width=200&query=pet"}
                 alt={pet.name || "Pet"}
                 fill
                 className="object-cover"
@@ -158,7 +158,7 @@ function DeletePetContent({ id, type }: { id: string; type: string }) {
           </CardContent>
           <CardFooter className="flex justify-between">
             <Button variant="outline" asChild>
-              <Link href="/dashboard/pets">Cancelar</Link>
+              <Link href="/my-pets">Cancelar</Link>
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
               {isDeleting ? (

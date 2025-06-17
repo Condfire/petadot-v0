@@ -23,14 +23,14 @@ export default function OngDashboardPage() {
     async function loadOngData() {
       try {
         // Verificar se o usuário está autenticado
-        const { data: session } = await supabase.auth.getSession()
+        const { data: { session } } = await supabase.auth.getSession()
 
-        if (!session.session) {
+        if (!session) {
           router.push("/ongs/login?message=Faça login para acessar o dashboard")
           return
         }
 
-        const userId = session.session.user.id
+        const userId = session.user.id
 
         // Buscar dados da ONG
         const { data: ongData, error: ongError } = await supabase
@@ -66,7 +66,7 @@ export default function OngDashboardPage() {
           .from("events")
           .select("*")
           .eq("ong_id", ongData.id)
-          .order("date", { ascending: true }) // Alterado de event_date para date
+          .order("start_date", { ascending: true })
 
         if (eventsError) {
           console.error("Erro ao buscar eventos:", eventsError)
@@ -196,7 +196,7 @@ export default function OngDashboardPage() {
                       <div key={pet.id} className="flex items-center gap-4 p-3 rounded-md border">
                         <div className="relative h-16 w-16 rounded-md overflow-hidden">
                           <Image
-                            src={pet.image_url || "/placeholder.svg?height=64&width=64&query=pet"}
+                            src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=64&width=64&query=pet"}
                             alt={pet.name}
                             fill
                             className="object-cover"
@@ -263,14 +263,14 @@ export default function OngDashboardPage() {
                         <div className="relative h-16 w-16 rounded-md overflow-hidden">
                           <Image
                             src={event.image_url || "/placeholder.svg?height=64&width=64&query=event"}
-                            alt={event.title || event.name}
+                            alt={event.name}
                             fill
                             className="object-cover"
                           />
                         </div>
                         <div className="flex-grow">
-                          <h3 className="font-medium">{event.title || event.name}</h3>
-                          <p className="text-sm text-muted-foreground">{formatEventDate(event.date)}</p>
+                          <h3 className="font-medium">{event.name}</h3>
+                          <p className="text-sm text-muted-foreground">{formatEventDate(event.start_date)}</p>
                           <div className="text-xs mt-1 inline-block px-2 py-0.5 rounded-full bg-gray-100">
                             Status:{" "}
                             {event.status === "approved"

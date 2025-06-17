@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { cn } from "@/lib/utils"
 import {
   Users,
   PawPrint,
@@ -14,63 +15,68 @@ import {
   BookOpen,
   Handshake,
   Search,
+  AlertTriangle,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
 
 const adminNavItems = [
   {
     title: "Dashboard",
-    href: "/admin-alt",
+    href: "/admin",
     icon: Home,
   },
   {
     title: "Moderação",
-    href: "/admin-alt/moderation",
+    href: "/admin/moderation",
     icon: ShieldCheck,
   },
   {
+    title: "Denúncias",
+    href: "/admin/reports",
+    icon: AlertTriangle,
+  },
+  {
     title: "Histórias",
-    href: "/admin-alt/historias",
+    href: "/admin/historias",
     icon: BookOpen,
   },
   {
     title: "SEO",
-    href: "/admin-alt/seo",
+    href: "/admin/seo",
     icon: Search,
   },
   {
     title: "Usuários",
-    href: "/admin-alt/users",
+    href: "/admin/users",
     icon: Users,
   },
   {
     title: "ONGs",
-    href: "/admin-alt/ongs",
+    href: "/admin/ongs",
     icon: Building2,
   },
   {
     title: "Pets",
-    href: "/admin-alt/pets",
+    href: "/admin/pets",
     icon: PawPrint,
   },
   {
     title: "Eventos",
-    href: "/admin-alt/events",
+    href: "/admin/events",
     icon: Calendar,
   },
   {
     title: "Parceiros",
-    href: "/admin-alt/partners",
+    href: "/admin/partners",
     icon: Handshake,
   },
   {
     title: "Estatísticas",
-    href: "/admin-alt/stats",
+    href: "/admin/stats",
     icon: BarChart3,
   },
   {
     title: "Configurações",
-    href: "/admin-alt/settings",
+    href: "/admin/settings",
     icon: Settings,
   },
 ]

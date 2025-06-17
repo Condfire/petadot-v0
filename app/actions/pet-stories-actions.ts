@@ -32,16 +32,14 @@ export type PetStory = {
 // Verificar se a tabela existe
 async function checkTableExists(supabase, tableName) {
   try {
-    const { data, error } = await supabase
-      .from("information_schema.tables")
-      .select("table_name")
-      .eq("table_schema", "public")
-      .eq("table_name", tableName)
-      .single()
+    const { error } = await supabase
+      .from(tableName)
+      .select("*", { count: "exact", head: true })
+      .limit(1)
 
-    return !error && data
-  } catch (error) {
-    console.error(`Erro ao verificar tabela ${tableName}:`, error)
+    return !error
+  } catch (err) {
+    console.error(`Erro ao verificar tabela ${tableName}:`, err)
     return false
   }
 }

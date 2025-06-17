@@ -130,7 +130,7 @@ export async function createOng(ongData: any) {
           ...ongData,
           id: userId,
           type: "ong",
-          is_verified: false,
+          is_verified: true,
           created_at: new Date().toISOString(),
         },
       ])
@@ -290,7 +290,7 @@ export async function createAdoptionPet(petData: any) {
       ...petData,
       user_id: userId,
       category: "adoption", // Add category field
-      status: ongData ? "approved" : "pending", // Se for ONG, aprova automaticamente
+      status: "approved",
       created_at: new Date().toISOString(),
       slug: baseSlug,
     }
@@ -328,7 +328,7 @@ export async function createAdoptionPet(petData: any) {
 
     // Revalidar página de adoção
     revalidatePath("/adocao")
-    revalidatePath("/dashboard/pets")
+    revalidatePath("/my-pets")
 
     return { success: true, pet }
   } catch (error: any) {
@@ -380,7 +380,7 @@ export async function createLostPet(petData: any) {
       ...petData,
       user_id: userId,
       category: "lost", // Add category field
-      status: "pending",
+      status: "approved",
       created_at: new Date().toISOString(),
       slug: baseSlug,
     }
@@ -418,7 +418,7 @@ export async function createLostPet(petData: any) {
 
     // Revalidar página de pets perdidos
     revalidatePath("/perdidos")
-    revalidatePath("/dashboard/pets")
+    revalidatePath("/my-pets")
 
     return { success: true, data }
   } catch (error: any) {
@@ -470,7 +470,7 @@ export async function createFoundPet(petData: any) {
       ...petData,
       user_id: userId,
       category: "found", // Add category field
-      status: "pending",
+      status: "approved",
       created_at: new Date().toISOString(),
       slug: baseSlug,
     }
@@ -508,7 +508,7 @@ export async function createFoundPet(petData: any) {
 
     // Revalidar página de pets encontrados
     revalidatePath("/encontrados")
-    revalidatePath("/dashboard/pets")
+    revalidatePath("/my-pets")
 
     return { success: true, data }
   } catch (error: any) {
@@ -581,7 +581,7 @@ export async function createEvent(eventData: EventFormData) {
         {
           ...eventData,
           user_id: session.user.id,
-          status: "pending",
+          status: "approved", // Eventos são publicados automaticamente
           created_at: new Date().toISOString(),
           slug: baseSlug,
         },
@@ -732,6 +732,52 @@ export async function deleteOng(ongId: string) {
   }
 }
 
+// Função para excluir um evento (admin)
+export async function deleteEventAdmin(eventId: string) {
+  const supabase = createServerComponentClient({ cookies })
+
+  try {
+    // Verificar se o usuário é um administrador
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session) {
+      return { success: false, error: "Usuário não autenticado" }
+    }
+
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("is_admin")
+      .eq("id", session.user.id)
+      .single()
+
+    if (userError || !user?.is_admin) {
+      return { success: false, error: "Usuário não autorizado" }
+    }
+
+    // Excluir o evento
+    const { error: deleteError } = await supabase
+      .from("events")
+      .delete()
+      .eq("id", eventId)
+
+    if (deleteError) {
+      console.error("Erro ao excluir evento:", deleteError)
+      return { success: false, error: "Erro ao excluir evento" }
+    }
+
+    // Revalidar páginas relacionadas
+    revalidatePath("/eventos")
+    revalidatePath("/admin/events")
+
+    return { success: true }
+  } catch (error) {
+    console.error("Erro ao excluir evento:", error)
+    return { success: false, error: "Erro ao processar solicitação" }
+  }
+}
+
 // Update the approveItem function
 export async function approveItem(itemId: string, type: "adoption" | "event" | "lost" | "found") {
   const supabase = createServerComponentClient({ cookies })
@@ -765,11 +811,11 @@ export async function approveItem(itemId: string, type: "adoption" | "event" | "
       case "lost":
       case "found":
         table = "pets"
-        revalidationPaths = ["/adocao", "/perdidos", "/encontrados", "/admin-alt/pets", "/admin-alt/moderation"]
+        revalidationPaths = ["/adocao", "/perdidos", "/encontrados", "/admin/pets", "/admin/moderation"]
         break
       case "event":
         table = "events"
-        revalidationPaths = ["/eventos", "/admin-alt/events", "/admin-alt/moderation"]
+        revalidationPaths = ["/eventos", "/admin/events", "/admin/moderation"]
         break
       default:
         return { success: false, error: "Tipo de item inválido" }
@@ -853,9 +899,9 @@ export async function rejectItem(itemId: string, type: "adoption" | "event" | "l
     revalidatePath("/perdidos")
     revalidatePath("/encontrados")
     revalidatePath("/eventos")
-    revalidatePath("/admin-alt/pets")
-    revalidatePath("/admin-alt/events")
-    revalidatePath("/admin-alt/moderation")
+    revalidatePath("/admin/pets")
+    revalidatePath("/admin/events")
+    revalidatePath("/admin/moderation")
     revalidatePath("/")
 
     return { success: true }
@@ -978,7 +1024,7 @@ export async function createPet(formData: FormData) {
           adoption_requirements,
           image_url,
           additional_images,
-          status: "pending",
+          status: "available",
           user_id: session.user.id,
           location,
           city,

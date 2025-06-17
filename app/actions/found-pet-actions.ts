@@ -107,11 +107,20 @@ export async function createFoundPet(formData: FormData) {
     const city = formData.get("city") as string
     const state = formData.get("state") as string
 
+    // Extrair e parsear campos booleanos e de texto relacionados a necessidades especiais/compatibilidade
+    const is_special_needs = formData.get("is_special_needs") === "true"
+    const special_needs_description = formData.get("special_needs_description") as string
+    const good_with_kids = formData.get("good_with_kids") === "true"
+    const good_with_cats = formData.get("good_with_cats") === "true"
+    const good_with_dogs = formData.get("good_with_dogs") === "true"
+    const is_vaccinated = formData.get("is_vaccinated") === "true"
+    const is_neutered = formData.get("is_neutered") === "true"
+
     // Verificar conteúdo contra palavras-chave bloqueadas
     const contentToCheck = `${name || ""} ${description || ""} ${found_location || ""} ${current_location || ""}`
     const { blocked, keyword } = await checkContentForBlockedKeywords(contentToCheck, supabase)
 
-    let status = "pending"
+    let status = "approved"
     let rejection_reason = null
 
     if (blocked) {
@@ -145,6 +154,14 @@ export async function createFoundPet(formData: FormData) {
       rejection_reason,
       created_at: new Date().toISOString(),
       slug: baseSlug,
+      // Adicionando os campos que estavam faltando
+      is_special_needs,
+      special_needs_description: is_special_needs ? special_needs_description : null, // Salva apenas se is_special_needs for true
+      good_with_kids,
+      good_with_cats,
+      good_with_dogs,
+      is_vaccinated,
+      is_neutered,
     }
 
     console.log("Dados preparados para inserção:", JSON.stringify(petDataToInsert, null, 2))
@@ -175,8 +192,8 @@ export async function createFoundPet(formData: FormData) {
 
     // Revalidar páginas
     revalidatePath("/encontrados")
-    revalidatePath("/dashboard/pets")
-    revalidatePath("/admin-alt/moderation")
+    revalidatePath("/my-pets")
+    revalidatePath("/admin/moderation")
 
     if (blocked) {
       return {

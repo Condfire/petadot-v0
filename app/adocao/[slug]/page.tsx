@@ -1,252 +1,118 @@
-import type { Metadata } from "next"
 import { notFound } from "next/navigation"
+import type { Metadata } from "next"
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PetCharacteristics } from "@/components/pet-characteristics"
-import { PetInfoCard } from "@/components/pet-info-card"
-import { PetImageGallery } from "@/components/pet-image-gallery"
-import { PetResolvedAlert } from "@/components/pet-resolved-alert"
+import PetDetails from "@/components/PetDetails"
+import { ShareButtons } from "@/components/share-buttons"
 import { AdoptionInterestModal } from "@/components/adoption-interest-modal"
-import { ShareButton } from "@/components/share-button"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle } from "lucide-react"
-import { formatDate } from "@/lib/utils"
+import { ReportPetButton } from "@/components/report-pet-button"
 import { isUuid } from "@/lib/slug-utils"
-import JsonLd from "@/components/json-ld"
-import { generateAdoptionPetSchema } from "@/lib/structured-data"
+import type { Database } from "@/lib/database.types"
 
-export const dynamic = "force-dynamic"
-
-// Lista de slugs reservados que não devem ser tratados como slugs de pet
-const RESERVED_SLUGS = ["cadastrar", "editar", "excluir", "novo"]
-
-interface PetAdoptionDetailPageProps {
+type Props = {
   params: {
     slug: string
   }
 }
 
-export async function generateMetadata({ params }: PetAdoptionDetailPageProps): Promise<Metadata> {
-  // Verificar se o slug é um slug reservado
-  if (RESERVED_SLUGS.includes(params.slug)) {
+async function getPetBySlugOrId(slugOrId: string) {
+  const supabase = createServerComponentClient<Database>({ cookies })
+
+  const isUuidValue = isUuid(slugOrId)
+
+  const { data: pet, error } = await supabase
+    .from("pets")
+    .select(`
+      *,
+      ongs:user_id(
+        id,
+        name,
+        logo_url,
+        city,
+        state,
+        contact_whatsapp
+      )
+    `)
+    .eq("category", "adoption")
+    .eq(isUuidValue ? "id" : "slug", slugOrId)
+    .single()
+
+  if (error) {
+    console.error("Erro ao buscar pet para adoção:", error)
+    return null
+  }
+
+  return pet
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const pet = await getPetBySlugOrId(params.slug)
+
+  if (!pet) {
     return {
-      title: "Pet não encontrado | PetAdot",
-      description: "O pet que você está procurando não foi encontrado.",
+      title: "Pet não encontrado - Petadot",
     }
   }
 
-  try {
-    const supabase = createServerComponentClient({ cookies })
-    const slugOrId = params.slug
-    const isUuidValue = isUuid(slugOrId)
+  const location = pet.city && pet.state ? `${pet.city}, ${pet.state}` : pet.city || pet.state || ""
 
-    // Query based on whether it's a UUID or slug
-    const { data: pet, error } = await supabase
-      .from("pets")
-      .select("*")
-      .eq(isUuidValue ? "id" : "slug", slugOrId)
-      .maybeSingle()
-
-    if (error || !pet) {
-      console.error("Erro ao buscar pet para metadata:", error)
-      return {
-        title: "Pet não encontrado | PetAdot",
-        description: "O pet que você está procurando não foi encontrado.",
-      }
-    }
-
-    const location = pet.city && pet.state ? `${pet.city}, ${pet.state}` : null
-
-    return {
-      title: `${pet.name || "Pet para adoção"} | Adoção | PetAdot`,
-      description: pet.description
-        ? `${pet.name} - ${pet.species} para adoção ${location ? `em ${location}` : ""}. ${pet.description.substring(
-            0,
-            150,
-          )}${pet.description.length > 150 ? "..." : ""}`
-        : `${pet.name} - ${pet.species} para adoção ${location ? `em ${location}` : ""}`,
-      openGraph: {
-        title: `${pet.name || "Pet para adoção"} | Adoção | PetAdot`,
-        description: pet.description
-          ? `${pet.name} - ${pet.species} para adoção ${location ? `em ${location}` : ""}. ${pet.description.substring(
-              0,
-              150,
-            )}${pet.description.length > 150 ? "..." : ""}`
-          : `${pet.name} - ${pet.species} para adoção ${location ? `em ${location}` : ""}`,
-        images: [
-          {
-            url: pet.main_image_url || "/placeholder.svg?key=p34o7",
-            width: 1200,
-            height: 630,
-            alt: pet.name || "Pet para adoção",
-          },
-        ],
-        type: "website",
-      },
-    }
-  } catch (error) {
-    console.error("Erro ao gerar metadata:", error)
-    return {
-      title: "Pet para adoção | PetAdot",
-      description: "Encontre o pet ideal para adoção na plataforma PetAdot",
-    }
+  return {
+    title: `${pet.name || "Pet para adoção"} - Adoção em ${location} - Petadot`,
+    description: pet.description || `Conheça ${pet.name || "este pet"} disponível para adoção em ${location}`,
+    openGraph: {
+      title: `Conheça ${pet.name || "este pet"} - Disponível para adoção!`,
+      description: `${pet.name || "Este pet"} está procurando um lar em ${location}. ${pet.description || ""}`,
+      images: [pet.main_image_url || (pet.images && pet.images[0]) || "/placeholder.svg?height=400&width=400"], // Usa images array primeiro
+      url: `${process.env.NEXT_PUBLIC_APP_URL}/adocao/${params.slug}`,
+    },
   }
 }
 
-export default async function PetAdoptionDetailPage({ params }: PetAdoptionDetailPageProps) {
-  try {
-    // Verificar se o slug é um slug reservado
-    if (RESERVED_SLUGS.includes(params.slug)) {
-      // Em vez de redirecionar, mostrar uma página de "não encontrado"
-      notFound()
-    }
+export default async function PetAdocaoPage({ params }: Props) {
+  const pet = await getPetBySlugOrId(params.slug)
 
-    const supabase = createServerComponentClient({ cookies })
-    const slugOrId = params.slug
-    const isUuidValue = isUuid(slugOrId)
+  if (!pet) {
+    notFound()
+  }
 
-    // Verificar se o usuário está autenticado
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    const userId = session?.user?.id
+  const location = pet.city && pet.state ? `${pet.city}, ${pet.state}` : pet.city || pet.state || ""
 
-    // Get pet details using slug or UUID
-    const { data: pet, error } = await supabase
-      .from("pets")
-      .select("*")
-      .eq(isUuidValue ? "id" : "slug", slugOrId)
-      .maybeSingle()
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <div className="max-w-4xl mx-auto">
+        <PetDetails pet={pet} type="adoption" />
 
-    if (error) {
-      console.error("Erro ao buscar pet:", error)
-      notFound()
-    }
-
-    if (!pet) {
-      console.error("Pet não encontrado")
-      notFound()
-    }
-
-    // Verificar se o pet está aprovado ou pertence ao usuário atual
-    const isApproved = pet.status === "approved" || pet.status === "aprovado" || pet.status === null
-    const isOwner = userId && pet.user_id === userId
-
-    // Se o pet não estiver aprovado e não pertencer ao usuário atual, retornar 404
-    if (!isApproved && !isOwner) {
-      notFound()
-    }
-
-    // Formatar a data
-    const formattedDate = formatDate(pet.created_at)
-
-    // Preparar as imagens
-    const images = []
-    if (pet.main_image_url) images.push(pet.main_image_url)
-    if (pet.additional_images && Array.isArray(pet.additional_images)) {
-      images.push(...pet.additional_images)
-    }
-
-    // Informações de contato da ONG
-    const location = pet.city && pet.state ? `${pet.city}, ${pet.state}` : null
-
-    // Obter o número de telefone para contato (pode estar em phone ou contact)
-    const contactPhone = pet.contact || null
-
-    // Gerar dados estruturados
-    const structuredData = generateAdoptionPetSchema(pet, {
-      baseUrl: process.env.NEXT_PUBLIC_APP_URL || "https://www.petadot.com.br",
-    })
-
-    return (
-      <main className="container mx-auto px-4 py-8">
-        {/* JSON-LD para dados estruturados */}
-        <JsonLd data={structuredData} />
-
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="mt-8 space-y-6">
           <div>
-            <PetImageGallery images={images} alt={pet.name || "Pet para adoção"} className="mb-4" />
+            <h2 className="text-2xl font-bold mb-4">Compartilhe</h2>
+            <p className="text-muted-foreground mb-4">
+              Ajude {pet.name || "este pet"} a encontrar um lar! Compartilhe com seus amigos e familiares.
+            </p>
 
-            <div className="flex flex-wrap gap-2 mb-4">
-              <ShareButton
-                url={`${process.env.NEXT_PUBLIC_APP_URL}/adocao/${pet.slug || pet.id}`}
-                title={`Adote ${pet.name || "este pet"}!`}
-                description={`${pet.name} está disponível para adoção. Conheça mais sobre este pet.`}
-                className="w-full sm:w-auto"
-              />
-
-              <AdoptionInterestModal
-                petId={pet.id}
-                petName={pet.name}
-                ongId={pet.ong_id}
-                contactPhone={contactPhone}
-                ongName={pet.ong_name}
-                className="w-full sm:w-auto sm:flex-1"
-              />
-            </div>
-
-            {pet.is_resolved && <PetResolvedAlert type="adoption" resolvedAt={pet.resolved_at} className="mb-4" />}
+            <ShareButtons
+              title={`Conheça ${pet.name || "este pet"} - Petadot`}
+              url={`${process.env.NEXT_PUBLIC_APP_URL}/adocao/${params.slug}`}
+            />
           </div>
 
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">{pet.name || "Pet para Adoção"}</h1>
-              <p className="text-muted-foreground">Disponível desde {formattedDate}</p>
-              {location && <p className="text-muted-foreground">Localização: {location}</p>}
+          <div>
+            <h2 className="text-2xl font-bold mb-4">Tenho interesse!</h2>
+            <p className="text-muted-foreground mb-4">
+              Se você tem interesse em adotar {pet.name || "este pet"}, clique no botão abaixo para entrar em contato!
+            </p>
+
+            <div className="flex flex-wrap gap-3">
+              <AdoptionInterestModal
+                petName={pet.name || "este pet"}
+                owner={pet.ongs || null}
+                className="flex-1 min-w-[200px]"
+              />
+
+              <ReportPetButton petId={pet.id} petName={pet.name || "este pet"} className="flex-1 min-w-[200px]" />
             </div>
-
-            <Tabs defaultValue="info" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="info">Informações</TabsTrigger>
-                <TabsTrigger value="characteristics">Características</TabsTrigger>
-                <TabsTrigger value="description">Descrição</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="info" className="space-y-4 pt-4">
-                <PetInfoCard
-                  species={pet.species}
-                  breed={pet.breed}
-                  age={pet.age}
-                  gender={pet.gender}
-                  size={pet.size}
-                  color={pet.color}
-                  location={location}
-                />
-              </TabsContent>
-
-              <TabsContent value="characteristics" className="space-y-4 pt-4">
-                <PetCharacteristics
-                  temperament={pet.temperament}
-                  energy_level={pet.energy_level}
-                  isVaccinated={pet.is_vaccinated}
-                  isNeutered={pet.is_neutered}
-                  isSpecialNeeds={pet.is_special_needs}
-                  specialNeedsDescription={pet.special_needs_description}
-                  goodWithKids={pet.good_with_kids}
-                  goodWithCats={pet.good_with_cats}
-                  goodWithDogs={pet.good_with_dogs}
-                />
-              </TabsContent>
-
-              <TabsContent value="description" className="space-y-4 pt-4">
-                <p>{pet.description || "Nenhuma descrição fornecida."}</p>
-              </TabsContent>
-            </Tabs>
           </div>
         </div>
-      </main>
-    )
-  } catch (error) {
-    console.error("Erro ao buscar ou exibir detalhes do pet:", error)
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Erro!</AlertTitle>
-        <AlertDescription>
-          Ocorreu um erro ao carregar os detalhes deste pet. Por favor, tente novamente mais tarde.
-        </AlertDescription>
-      </Alert>
-    )
-  }
+      </div>
+    </div>
+  )
 }

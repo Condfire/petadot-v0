@@ -34,7 +34,10 @@ export default function AdocaoClientPage({
     const fetchPets = async () => {
       setLoading(true)
       try {
-        let query = supabase.from("pets").select("*", { count: "exact" })
+        let query = supabase
+          .from("pets")
+          .select("*", { count: "exact" })
+          .eq("status", "available")
 
         // Aplicar filtros
         if (filters.species) {
@@ -120,7 +123,7 @@ export default function AdocaoClientPage({
                   key={pet.id}
                   id={pet.id}
                   name={pet.name || "Pet sem nome"}
-                  image={pet.image_url}
+                  image={pet.main_image_url || pet.image_url}
                   species={pet.species}
                   species_other={pet.species_other}
                   breed={pet.breed}

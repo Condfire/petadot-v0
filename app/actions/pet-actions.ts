@@ -77,7 +77,7 @@ export async function createLostPet(formData: FormData) {
           good_with_dogs,
           is_vaccinated,
           is_neutered,
-          status: "pending",
+          status: "approved",
           category: "lost",
         },
       ])
@@ -190,7 +190,7 @@ export async function createFoundPet(formData: FormData) {
           good_with_dogs,
           is_vaccinated,
           is_neutered,
-          status: "pending",
+          status: "approved",
           category: "found",
         },
       ])
@@ -276,7 +276,7 @@ export async function createAdoptionPet(petData: any) {
       // Revalidar as páginas relacionadas
       revalidatePath("/adocao")
       revalidatePath(`/adocao/${petData.id}`)
-      revalidatePath("/dashboard/pets")
+      revalidatePath("/my-pets")
 
       return { success: true }
     }
@@ -312,7 +312,7 @@ export async function createAdoptionPet(petData: any) {
       contact: petData.contact,
       user_id: user.id,
       ong_id: petData.ong_id,
-      status: "pending",
+      status: "available",
       category: "adoption",
       created_at: new Date().toISOString(),
     }
@@ -355,7 +355,7 @@ export async function createAdoptionPet(petData: any) {
 
     // Revalidar as páginas relacionadas
     revalidatePath("/adocao")
-    revalidatePath("/dashboard/pets")
+    revalidatePath("/my-pets")
 
     return { success: true, data: insertedPet }
   } catch (error) {

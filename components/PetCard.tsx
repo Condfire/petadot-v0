@@ -3,6 +3,7 @@ import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AlertTriangle } from "lucide-react"
+import { mapPetSpecies, mapPetSize, mapPetGender } from "@/lib/utils"
 
 interface PetCardProps {
   id: string
@@ -18,10 +19,13 @@ interface PetCardProps {
   gender?: string
   gender_other?: string
   location?: string
+  city?: string
+  state?: string
   status?: string
   type: "adoption" | "lost" | "found"
   isSpecialNeeds?: boolean
   slug?: string
+  category?: string // Add category field for debugging
 }
 
 export default function PetCard({
@@ -38,21 +42,35 @@ export default function PetCard({
   gender,
   gender_other,
   location,
+  city,
+  state,
   status,
   type,
   isSpecialNeeds,
   slug,
+  category,
 }: PetCardProps) {
+  // No início do componente, após as props, adicionar:
+  const petType =
+    type ||
+    (category === "adoption" ? "adoption" : category === "lost" ? "lost" : category === "found" ? "found" : "adoption")
   // Determinar a URL de destino com base no tipo de pet
   const getDetailUrl = () => {
     const baseUrl = {
       adoption: "/adocao/",
       lost: "/perdidos/",
       found: "/encontrados/",
-    }[type]
+    }[petType]
 
     // Usar slug se disponível, caso contrário usar id
-    return `${baseUrl}${slug || id}`
+    const identifier = slug || id
+    const url = `${baseUrl}${identifier}`
+
+    console.log(
+      `[PetCard] Gerando URL: ${url} para pet ${name} (id: ${id}, slug: ${slug}, type: ${petType}, category: ${category})`,
+    )
+
+    return url
   }
 
   // Função para obter a imagem com fallback
@@ -66,57 +84,12 @@ export default function PetCard({
     return "/placeholder.svg?height=300&width=300"
   }
 
-  // Mapear espécie para texto legível
-  const getSpeciesText = () => {
-    if (species === "other" && species_other) {
-      return species_other
-    }
+  // Preparar localização
+  const displayLocation = location || (city && state ? `${city}, ${state}` : city || state || "")
 
-    const speciesMap: Record<string, string> = {
-      dog: "Cachorro",
-      cat: "Gato",
-      bird: "Pássaro",
-      rabbit: "Coelho",
-      hamster: "Hamster",
-      fish: "Peixe",
-      turtle: "Tartaruga",
-      other: "Outro",
-    }
-
-    return speciesMap[species || ""] || species || "Não informado"
-  }
-
-  // Mapear tamanho para texto legível
-  const getSizeText = () => {
-    if (size === "other" && size_other) {
-      return size_other
-    }
-
-    const sizeMap: Record<string, string> = {
-      small: "Pequeno",
-      medium: "Médio",
-      large: "Grande",
-      giant: "Gigante",
-    }
-
-    return sizeMap[size || ""] || size || "Não informado"
-  }
-
-  // Mapear gênero para texto legível
-  const getGenderText = () => {
-    if (gender === "other" && gender_other) {
-      return gender_other
-    }
-
-    const genderMap: Record<string, string> = {
-      male: "Macho",
-      female: "Fêmea",
-      unknown: "Não informado",
-      other: "Outro",
-    }
-
-    return genderMap[gender || ""] || gender || "Não informado"
-  }
+  const speciesText = mapPetSpecies(species, species_other)
+  const sizeText = mapPetSize(size, size_other)
+  const genderText = mapPetGender(gender, gender_other)
 
   // Mapear status para texto legível
   const getStatusText = () => {
@@ -166,7 +139,7 @@ export default function PetCard({
           <h3 className="font-bold text-lg mb-2 truncate">{name || "Pet sem nome"}</h3>
           <div className="space-y-1 text-sm text-muted-foreground">
             <p>
-              <span className="font-medium">Espécie:</span> {getSpeciesText()}
+              <span className="font-medium">Espécie:</span> {speciesText}
             </p>
             {breed && (
               <p>
@@ -180,17 +153,17 @@ export default function PetCard({
             )}
             {size && (
               <p>
-                <span className="font-medium">Porte:</span> {getSizeText()}
+                <span className="font-medium">Porte:</span> {sizeText}
               </p>
             )}
             {gender && (
               <p>
-                <span className="font-medium">Gênero:</span> {getGenderText()}
+                <span className="font-medium">Gênero:</span> {genderText}
               </p>
             )}
-            {location && (
+            {displayLocation && (
               <p>
-                <span className="font-medium">Localização:</span> {location}
+                <span className="font-medium">Localização:</span> {displayLocation}
               </p>
             )}
           </div>

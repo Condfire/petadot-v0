@@ -68,7 +68,7 @@ export default async function MyPetsPage() {
                   key={pet.id}
                   id={pet.id}
                   name={pet.name}
-                  image={pet.image_url}
+                  image={pet.main_image_url || pet.image_url}
                   species={pet.species}
                   age={pet.age}
                   size={pet.size}
@@ -101,7 +101,7 @@ export default async function MyPetsPage() {
                   key={pet.id}
                   id={pet.id}
                   name={pet.name || "Pet sem nome"}
-                  image={pet.image_url}
+                  image={pet.main_image_url || pet.image_url}
                   species={pet.species}
                   size={pet.size}
                   gender={pet.gender}
@@ -133,7 +133,7 @@ export default async function MyPetsPage() {
                   key={pet.id}
                   id={pet.id}
                   name={pet.name || "Pet sem nome"}
-                  image={pet.image_url}
+                  image={pet.main_image_url || pet.image_url}
                   species={pet.species}
                   size={pet.size}
                   gender={pet.gender}
@@ -165,7 +165,7 @@ export default async function MyPetsPage() {
                   key={pet.id}
                   id={pet.id}
                   name={pet.name || "Pet sem nome"}
-                  image={pet.image_url}
+                  image={pet.main_image_url || pet.image_url}
                   species={pet.species}
                   size={pet.size}
                   gender={pet.gender}

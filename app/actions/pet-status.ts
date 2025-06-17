@@ -96,8 +96,8 @@ export async function updatePetStatus(
     console.log("Pet atualizado com sucesso")
 
     // Revalidar páginas relevantes
-    revalidatePath("/dashboard/pets")
-    revalidatePath("/admin-alt/pets")
+    revalidatePath("/my-pets")
+    revalidatePath("/admin/pets")
     revalidatePath("/")
 
     // Revalidar páginas específicas baseadas na categoria do pet

@@ -75,7 +75,7 @@ const defaultLostPetData: LostPetData = {
   good_with_dogs: false,
   is_vaccinated: false,
   is_neutered: false,
-  status: "pending",
+  status: "approved",
   state: "",
   city: "",
 }
@@ -249,7 +249,7 @@ export function LostPetForm({ initialData, isEditing = false }: LostPetFormProps
 
         // Aguardar 2 segundos antes de redirecionar
         setTimeout(() => {
-          router.push("/dashboard/pets")
+          router.push("/my-pets")
           router.refresh()
         }, 2000)
       } else {

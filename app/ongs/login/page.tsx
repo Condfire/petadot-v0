@@ -41,14 +41,14 @@ export default function OngLoginPage() {
     // Verificar se o usuário já está autenticado
     async function checkSession() {
       try {
-        const { data: session } = await supabase.auth.getSession()
+        const { data: { session } } = await supabase.auth.getSession()
 
-        if (session.session) {
+        if (session) {
           // Verificar se o usuário é uma ONG
           const { data: ongData, error: ongError } = await supabase
             .from("ongs")
             .select("id")
-            .eq("user_id", session.session.user.id)
+            .eq("user_id", session.user.id)
             .single()
 
           if (!ongError && ongData) {
