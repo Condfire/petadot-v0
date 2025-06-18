@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import PetDetails from "@/components/PetDetails"
 import { ShareButton } from "@/components/share-button"
-import { PetRecognitionModal } from "@/components/pet-recognition-modal"
+import { PetRecognitionButton } from "@/components/pet-recognition-button"
 import { ReportPetButton } from "@/components/report-pet-button"
 import { isUuid } from "@/lib/slug-utils"
 
@@ -127,7 +127,7 @@ export default async function PetEncontradoPage({ params }: Props) {
                   className="flex-1 min-w-[200px]"
                 />
 
-                <PetRecognitionModal
+                <PetRecognitionButton
                   petId={pet.id}
                   petName={pet.name || "Pet encontrado"}
                   className="flex-1 min-w-[200px]"
