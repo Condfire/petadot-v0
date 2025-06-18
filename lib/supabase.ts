@@ -4,8 +4,17 @@ import type { Database } from "./types"
 import { unstable_noStore as noStore } from "next/cache"
 import type { Evento } from "@/app/eventos/types"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  const missing: string[] = []
+  if (!supabaseUrl) missing.push("NEXT_PUBLIC_SUPABASE_URL")
+  if (!supabaseAnonKey) missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+  const message = `Missing Supabase configuration: ${missing.join(", ")}`
+  console.error(message)
+  throw new Error(message)
+}
 
 // Client for use in client components
 export const supabase = createClient<Database>(
@@ -43,7 +52,7 @@ export interface PaginationResult<T> {
 
 // Função para criar um cliente Supabase (útil para server components)
 export function createSupabaseClient() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || "", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "")
+  return createClient(supabaseUrl, supabaseAnonKey)
 }
 
 // Função auxiliar para verificar se uma tabela existe
