@@ -47,6 +47,13 @@ export default function EncontradosClientPage({ initialPets }: EncontradosClient
 
   const petsPerPage = 12
 
+  useEffect(() => {
+    // Atualiza os pets quando initialPets muda (ex: navegação de página no servidor)
+    setPets(initialPets)
+    setFilteredPets(initialPets) // Resetar filteredPets também
+    setCurrentPage(1) // Resetar página ao receber novos initialPets
+  }, [initialPets])
+
   // Debug log dos pets recebidos
   console.log(
     "[EncontradosClientPage] Pets recebidos:",
