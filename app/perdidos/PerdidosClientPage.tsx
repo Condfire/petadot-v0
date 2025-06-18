@@ -1,28 +1,155 @@
-'use client';
+"use client"
 
-import { useEffect, useState } from 'react';
-import { Pet } from '@/utils/types';
+import { useState, useEffect } from "react"
+import { PetCard } from "@/components/PetCard" // Importação nomeada
+import { PetFilters } from "@/components/pet-filters"
+import { Pagination } from "@/components/pagination" // Importação nomeada
+import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
+import Link from "next/link"
+import type { Pet } from "@/utils/types" // Importar a interface Pet
 
-interface Props {
-  pets: Pet[];
+interface PerdidosClientPageProps {
+  initialPets: Pet[]
 }
 
-const PerdidosClientPage: React.FC<Props> = ({ pets }) => {
-  // No início do componente, adicionar log dos pets
-  console.log('[PerdidosClientPage] Pets recebidos:', pets?.map(pet => ({
-    id: pet.id,
-    name: pet.name,
-    main_image_url: pet.main_image_url,
-    slug: pet.slug,
-    category: pet.category
-  })))
+export default function PerdidosClientPage({ initialPets }: PerdidosClientPageProps) {
+  const [pets, setPets] = useState<Pet[]>(initialPets)
+  const [filteredPets, setFilteredPets] = useState<Pet[]>(initialPets)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [filters, setFilters] = useState({
+    species: "",
+    city: "",
+    state: "",
+    size: "",
+    gender: "",
+  })
+
+  const petsPerPage = 12
+
+  useEffect(() => {
+    // Atualiza os pets quando initialPets muda (ex: navegação de página no servidor)
+    setPets(initialPets)
+    setFilteredPets(initialPets) // Resetar filteredPets também
+    setCurrentPage(1) // Resetar página ao receber novos initialPets
+  }, [initialPets])
+
+  useEffect(() => {
+    let filtered = pets
+
+    if (filters.species) {
+      filtered = filtered.filter(
+        (pet) =>
+          pet.species === filters.species ||
+          (pet.species === "other" && pet.species_other?.toLowerCase().includes(filters.species.toLowerCase())),
+      )
+    }
+
+    if (filters.city) {
+      filtered = filtered.filter((pet) => pet.city?.toLowerCase().includes(filters.city.toLowerCase()))
+    }
+
+    if (filters.state) {
+      filtered = filtered.filter((pet) => pet.state === filters.state)
+    }
+
+    if (filters.size) {
+      filtered = filtered.filter(
+        (pet) =>
+          pet.size === filters.size ||
+          (pet.size === "other" && pet.size_other?.toLowerCase().includes(filters.size.toLowerCase())),
+      )
+    }
+
+    if (filters.gender) {
+      filtered = filtered.filter((pet) => pet.gender === filters.gender)
+    }
+
+    setFilteredPets(filtered)
+    setCurrentPage(1)
+    console.log(`[PerdidosClientPage] Filters changed. Filtered ${filtered.length} pets.`)
+    filtered.forEach((p) =>
+      console.log(`[PerdidosClientPage] Filtered Pet ${p.id}: main_image_url=${p.main_image_url}`),
+    )
+  }, [filters, pets])
+
+  const totalPages = Math.ceil(filteredPets.length / petsPerPage)
+  const startIndex = (currentPage - 1) * petsPerPage
+  const currentPets = filteredPets.slice(startIndex, startIndex + petsPerPage)
 
   return (
-    <div>
-      <h1>Pets Perdidos</h1>
-      {/* Display pets here */}
-    </div>
-  );
-};
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto py-8 px-4">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Pets Perdidos</h1>
+              <p className="text-muted-foreground">
+                Ajude estes pets a voltarem para casa. {filteredPets.length} pets perdidos.
+              </p>
+            </div>
+            <Link href="/perdidos/cadastrar">
+              <Button className="flex items-center gap-2">
+                <Plus size={20} />
+                Cadastrar Pet Perdido
+              </Button>
+            </Link>
+          </div>
 
-export default PerdidosClientPage;
+          {/* Filters */}
+          <div className="mb-8">
+            <PetFilters onFilterChange={setFilters} initialFilters={filters} pets={pets} />
+          </div>
+
+          {/* Results */}
+          {currentPets.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground text-lg mb-4">Nenhum pet encontrado com os filtros selecionados.</p>
+              <Button
+                variant="outline"
+                onClick={() => setFilters({ species: "", city: "", state: "", size: "", gender: "" })}
+              >
+                Limpar Filtros
+              </Button>
+            </div>
+          ) : (
+            <>
+              {/* Pet Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+                {currentPets.map((pet) => (
+                  <PetCard
+                    key={pet.id}
+                    id={pet.id}
+                    name={pet.name}
+                    main_image_url={pet.main_image_url} // Passando main_image_url
+                    species={pet.species}
+                    species_other={pet.species_other}
+                    breed={pet.breed}
+                    age={pet.age}
+                    size={pet.size}
+                    size_other={pet.size_other}
+                    gender={pet.gender}
+                    gender_other={pet.gender_other}
+                    city={pet.city}
+                    state={pet.state}
+                    status={pet.status}
+                    type="lost"
+                    slug={pet.slug}
+                    category={pet.category}
+                    created_at={pet.created_at}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
