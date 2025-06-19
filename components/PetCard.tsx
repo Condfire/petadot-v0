@@ -61,7 +61,8 @@ function PetCard({
 
   // Função para gerar a URL de detalhes
   const getDetailUrl = () => {
-    const identifier = slug || id
+    const validSlug = slug && !["{}", "%7B%7D", "undefined", "null"].includes(slug)
+    const identifier = validSlug ? slug : id
     console.log(`[PetCard] Gerando URL para pet ${id}, slug: ${slug}, type: ${type}, identifier: ${identifier}`)
 
     switch (type) {
