@@ -278,11 +278,13 @@ export async function createAdoptionPet(petData: any) {
     // --- Fim da nova verificação ---
 
     // Gerar slug para o pet
-    const baseSlug = generateEntitySlug(
-      petData.name || "pet",
-      petData.species || "unknown",
-      petData.city || "",
-      undefined,
+    const baseSlug = await generateEntitySlug(
+      "pet",
+      {
+        name: petData.name || "pet",
+        type: petData.species || "unknown",
+        city: petData.city || "",
+      },
     )
 
     // Preparar dados para inserção
@@ -310,10 +312,13 @@ export async function createAdoptionPet(petData: any) {
     // Atualizar o slug com o ID real
     if (pet && pet.length > 0) {
       const petId = pet[0].id
-      const finalSlug = generateEntitySlug(
-        petData.name || "pet",
-        petData.species || "unknown",
-        petData.city || "",
+      const finalSlug = await generateEntitySlug(
+        "pet",
+        {
+          name: petData.name || "pet",
+          type: petData.species || "unknown",
+          city: petData.city || "",
+        },
         petId,
       )
 
@@ -368,11 +373,13 @@ export async function createLostPet(petData: any) {
     // --- Fim da nova verificação ---
 
     // Gerar slug para o pet
-    const baseSlug = generateEntitySlug(
-      petData.name || "pet-perdido",
-      petData.species || "unknown",
-      petData.city || "",
-      undefined,
+    const baseSlug = await generateEntitySlug(
+      "pet",
+      {
+        name: petData.name || "pet-perdido",
+        type: petData.species || "unknown",
+        city: petData.city || "",
+      },
     )
 
     // Preparar dados para inserção
@@ -400,10 +407,13 @@ export async function createLostPet(petData: any) {
     // Atualizar o slug com o ID real
     if (data && data.length > 0) {
       const petId = data[0].id
-      const finalSlug = generateEntitySlug(
-        petData.name || "pet-perdido",
-        petData.species || "unknown",
-        petData.city || "",
+      const finalSlug = await generateEntitySlug(
+        "pet",
+        {
+          name: petData.name || "pet-perdido",
+          type: petData.species || "unknown",
+          city: petData.city || "",
+        },
         petId,
       )
 
@@ -458,11 +468,13 @@ export async function createFoundPet(petData: any) {
     // --- Fim da nova verificação ---
 
     // Gerar slug para o pet
-    const baseSlug = generateEntitySlug(
-      petData.name || "pet-encontrado",
-      petData.species || "unknown",
-      petData.city || "",
-      undefined,
+    const baseSlug = await generateEntitySlug(
+      "pet",
+      {
+        name: petData.name || "pet-encontrado",
+        type: petData.species || "unknown",
+        city: petData.city || "",
+      },
     )
 
     // Preparar dados para inserção
@@ -490,10 +502,13 @@ export async function createFoundPet(petData: any) {
     // Atualizar o slug com o ID real
     if (data && data.length > 0) {
       const petId = data[0].id
-      const finalSlug = generateEntitySlug(
-        petData.name || "pet-encontrado",
-        petData.species || "unknown",
-        petData.city || "",
+      const finalSlug = await generateEntitySlug(
+        "pet",
+        {
+          name: petData.name || "pet-encontrado",
+          type: petData.species || "unknown",
+          city: petData.city || "",
+        },
         petId,
       )
 
@@ -567,11 +582,13 @@ export async function createEvent(eventData: EventFormData) {
     // --- Fim da nova verificação ---
 
     // Gerar slug para o evento
-    const baseSlug = generateEntitySlug(
-      eventData.name || "evento",
-      "event",
-      eventData.city || "",
-      undefined, // Ainda não temos o ID
+    const baseSlug = await generateEntitySlug(
+      "evento",
+      {
+        title: eventData.name || "evento",
+        location: eventData.location || eventData.city || "",
+        date: eventData.date,
+      },
     )
 
     // Inserir evento
@@ -598,7 +615,15 @@ export async function createEvent(eventData: EventFormData) {
     // Atualizar o slug com o ID real
     if (data && data.length > 0) {
       const eventId = data[0].id
-      const finalSlug = generateEntitySlug(eventData.name || "evento", "event", eventData.city || "", eventId)
+      const finalSlug = await generateEntitySlug(
+        "evento",
+        {
+          title: eventData.name || "evento",
+          location: eventData.location || eventData.city || "",
+          date: eventData.date,
+        },
+        eventId,
+      )
 
       const { error: slugUpdateError } = await supabase.from("events").update({ slug: finalSlug }).eq("id", eventId)
 
@@ -990,11 +1015,13 @@ export async function createPet(formData: FormData) {
     // --- Fim da nova verificação ---
 
     // Generate a slug for the pet
-    const baseSlug = generateEntitySlug(
-      name,
-      species,
-      city,
-      undefined, // We don't have an ID yet
+    const baseSlug = await generateEntitySlug(
+      "pet",
+      {
+        name,
+        type: species,
+        city,
+      },
     )
 
     // Insert data
@@ -1043,7 +1070,15 @@ export async function createPet(formData: FormData) {
     // Now that we have the ID, update the slug to include it
     if (data && data.length > 0) {
       const petId = data[0].id
-      const finalSlug = generateEntitySlug(name, species, city, petId)
+      const finalSlug = await generateEntitySlug(
+        "pet",
+        {
+          name,
+          type: species,
+          city,
+        },
+        petId,
+      )
 
       const { error: slugUpdateError } = await supabase.from("pets").update({ slug: finalSlug }).eq("id", petId)
 
