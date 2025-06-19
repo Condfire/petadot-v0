@@ -104,13 +104,19 @@ export default async function PetEncontradoPage({ params }: Props) {
     notFound()
   }
 
+  const supabase = createClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const isOwner = session?.user?.id === pet.user_id
+
   const location = pet.city && pet.state ? `${pet.city}, ${pet.state}` : pet.city || pet.state || ""
 
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-8 px-4">
         <div className="max-w-6xl mx-auto">
-          <PetDetails pet={pet} type="found" />
+          <PetDetails pet={pet} type="found" isOwner={isOwner} />
 
           <div className="mt-8 space-y-6">
             <div className="bg-card rounded-lg p-6 border">
