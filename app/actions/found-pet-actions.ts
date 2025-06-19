@@ -130,7 +130,17 @@ export async function createFoundPet(formData: FormData) {
     }
 
     // Gerar slug para o pet
-    const baseSlug = generateEntitySlug(name || "pet-encontrado", species || "unknown", city || "", undefined)
+    const baseSlug = await generateEntitySlug(
+      "pet",
+      {
+        name: name || "pet-encontrado",
+        type: "found",
+        city: city || "",
+        state: state || "",
+        table: "pets",
+      },
+      undefined,
+    )
 
     // Preparar dados para inserção
     const petDataToInsert = {
@@ -179,7 +189,17 @@ export async function createFoundPet(formData: FormData) {
     // Atualizar o slug com o ID real
     if (data && data.length > 0) {
       const petId = data[0].id
-      const finalSlug = generateEntitySlug(name || "pet-encontrado", species || "unknown", city || "", petId)
+      const finalSlug = await generateEntitySlug(
+        "pet",
+        {
+          name: name || "pet-encontrado",
+          type: "found",
+          city: city || "",
+          state: state || "",
+          table: "pets",
+        },
+        petId,
+      )
 
       const { error: slugUpdateError } = await supabase.from("pets").update({ slug: finalSlug }).eq("id", petId)
 
