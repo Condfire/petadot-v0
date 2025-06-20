@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Heart, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { PetStatusButtonSimple } from "@/components/pet-status-button-simple"
 
 interface PetCardProps {
   id: string
@@ -27,6 +28,7 @@ interface PetCardProps {
   category?: string
   isSpecialNeeds?: boolean
   created_at?: string
+  isOwner?: boolean
 }
 
 function PetCard({
@@ -49,6 +51,7 @@ function PetCard({
   category,
   isSpecialNeeds,
   created_at,
+  isOwner = false,
 }: PetCardProps) {
   // Debug logs
   console.log(`[PetCard] Pet ${id}:`, {
@@ -137,6 +140,9 @@ function PetCard({
   const imageUrl = main_image_url || "/placeholder.svg?height=200&width=300&text=Sem+foto"
   console.log(`[PetCard] Imagem para pet ${id}:`, imageUrl)
 
+  const resolvedStatuses = ["adopted", "resolved", "reunited"]
+  const isResolved = status ? resolvedStatuses.includes(status) : false
+
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300 bg-card border">
       <div className="relative">
@@ -210,6 +216,17 @@ function PetCard({
         <Link href={detailUrl} className="block">
           <Button className="w-full mt-3">Ver Detalhes</Button>
         </Link>
+
+        {isOwner && (
+          <div className="flex flex-col gap-2 mt-3">
+            {!isResolved && (
+              <PetStatusButtonSimple petId={id} petType={type} />
+            )}
+            <Button variant="destructive" asChild>
+              <Link href={`/dashboard/pets/${type}/${id}/delete`}>Excluir</Link>
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
