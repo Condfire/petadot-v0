@@ -52,7 +52,8 @@ export interface ONG {
   id: string
   name: string
   email: string
-  phone?: string
+  contact_email?: string
+  contact_phone?: string
   city?: string
   state?: string
   description?: string

@@ -64,13 +64,27 @@ export function mapPetUIToDB(uiData: PetFormUI): PetFormDB {
 
 // Mapeamento de UI para DB para ONGs
 export function mapOngUIToDB(uiData: OngFormUI): OngFormDB {
-  const { name, description, email, phone, address, city, state, postal_code, website, social_media, logo_url, cnpj } =
-    uiData
+  const {
+    name,
+    description,
+    email,
+    contact_email,
+    contact_phone,
+    address,
+    city,
+    state,
+    postal_code,
+    website,
+    social_media,
+    logo_url,
+    cnpj,
+  } = uiData
   return {
     name,
     description,
     email,
-    phone,
+    contact_email,
+    contact_phone,
     address,
     city,
     state,
