@@ -230,6 +230,12 @@ export default function LoginPage() {
               Cadastre-se
             </Link>
           </div>
+          <div className="text-sm text-center">
+            É uma ONG?{" "}
+            <Link href="/ongs/register" className="text-primary hover:underline">
+              Cadastre sua organização
+            </Link>
+          </div>
         </CardFooter>
       </Card>
     </div>
