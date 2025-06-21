@@ -89,7 +89,11 @@ export async function registerUserAndNgoAction(
   if (isNgo) {
     const ngoData = validation.data // This will be the merged schema with NGO fields
     try {
-      const baseSlug = await generateEntitySlug(ngoData.ngoName, "ong", ngoData.ngoCity, undefined)
+      const baseSlug = await generateEntitySlug(
+        "ong",
+        { name: ngoData.ngoName, city: ngoData.ngoCity, state: ngoData.ngoState },
+        undefined,
+      )
       const uniqueSlug = await generateUniqueSlug(baseSlug, "ongs", undefined) // Pass undefined for new ONG ID
 
       const { data: ong, error: ongInsertError } = await supabase
