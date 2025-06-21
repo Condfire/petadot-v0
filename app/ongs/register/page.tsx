@@ -11,8 +11,8 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Building2, Loader2 } from "lucide-react"
-import { supabase } from "@/lib/supabase"
 import LocationSelectorSimple from "@/components/location-selector-simple"
+import { registerUserAndNgoAction, type RegisterUserAndNgoInput } from "@/app/actions/auth-actions"
 
 export default function OngRegisterPage() {
   const [formData, setFormData] = useState({
@@ -21,7 +21,8 @@ export default function OngRegisterPage() {
     email: "",
     city: "",
     state: "",
-    contact: "",
+    ngoContactEmail: "",
+    ngoContactPhone: "",
     password: "",
     confirmPassword: "",
   })
@@ -99,104 +100,40 @@ export default function OngRegisterPage() {
       return
     }
 
-    if (!formData.contact.trim()) {
-      setError("O contato é obrigatório")
+    if (!formData.ngoContactEmail.trim() && !formData.ngoContactPhone.trim()) {
+      setError("Email ou telefone de contato é obrigatório")
       setIsSubmitting(false)
       return
     }
 
     try {
-      console.log("Iniciando processo de registro de ONG...")
-
-      // Criar usuário no Supabase Auth
-      console.log("Criando usuário na autenticação...")
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const input: RegisterUserAndNgoInput = {
+        isNgo: true,
+        personalName: formData.name,
         email: formData.email,
         password: formData.password,
-        options: {
-          data: {
-            name: formData.name,
-            is_ong: true,
-            state: formData.state,
-            city: formData.city,
-          },
-        },
-      })
-
-      if (authError) {
-        console.error("Erro ao criar usuário na autenticação:", authError)
-        setError(authError.message || "Falha ao criar conta")
-        setIsSubmitting(false)
-        return
-      }
-
-      if (!authData.user) {
-        console.error("Usuário não criado na autenticação")
-        setError("Erro ao criar usuário")
-        setIsSubmitting(false)
-        return
-      }
-
-      console.log("Usuário criado com sucesso na autenticação, ID:", authData.user.id)
-
-      // Criar registro de ONG no banco de dados
-      console.log("Criando registro de ONG...")
-
-      // Preparar dados da ONG
-      const ongData = {
-        name: formData.name,
-        email: formData.email,
+        userState: formData.state,
+        userCity: formData.city,
+        ngoName: formData.name,
         cnpj: formData.cnpj,
-        user_id: authData.user.id,
-        state: formData.state,
-        city: formData.city,
-        contact: formData.contact,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        is_verified: true,
+        ngoCity: formData.city,
+        ngoState: formData.state,
+        ngoContactEmail: formData.ngoContactEmail || "",
+        ngoContactPhone: formData.ngoContactPhone || "",
       }
 
-      console.log("Dados da ONG a serem inseridos:", ongData)
+      const result = await registerUserAndNgoAction(input)
 
-      const { data: ongResult, error: ongError } = await supabase.from("ongs").insert(ongData).select()
-
-      if (ongError) {
-        console.error("Erro ao criar ONG:", ongError)
-        setError(`Erro ao criar perfil de ONG: ${ongError.message}`)
-
-        // Não fazer logout automaticamente para permitir depuração
-        setIsSubmitting(false)
-        return
+      if (result.success) {
+        setSuccess(result.message + " Redirecionando para o login...")
+        setTimeout(() => {
+          router.push(
+            "/ongs/login?message=Cadastro realizado com sucesso! Faça login para acessar sua conta.",
+          )
+        }, 3000)
+      } else {
+        setError(result.message)
       }
-
-      console.log("ONG criada com sucesso:", ongResult)
-
-      // Atualizar a tabela users com o nome
-      console.log("Atualizando tabela users com o nome...")
-      const { error: userUpdateError } = await supabase
-        .from("users")
-        .update({
-          name: formData.name,
-          state: formData.state,
-          city: formData.city,
-        })
-        .eq("id", authData.user.id)
-
-      if (userUpdateError) {
-        console.warn("Aviso: Não foi possível atualizar o nome na tabela users:", userUpdateError)
-        // Não vamos interromper o fluxo por causa desse erro
-      }
-
-      // Registro bem-sucedido
-      setSuccess("Registro realizado com sucesso! Redirecionando para o login...")
-
-      // Fazer logout para garantir um login limpo
-      await supabase.auth.signOut()
-
-      // Redirecionar para o login após um breve delay
-      setTimeout(() => {
-        router.push("/ongs/login?message=Cadastro realizado com sucesso! Faça login para acessar sua conta.")
-      }, 2000)
     } catch (err) {
       console.error("Erro ao registrar:", err)
       const errorMessage = err instanceof Error ? err.message : "Ocorreu um erro desconhecido"
@@ -274,14 +211,25 @@ export default function OngRegisterPage() {
             <LocationSelectorSimple onStateChange={handleStateChange} onCityChange={handleCityChange} required={true} />
 
             <div className="space-y-2">
-              <Label htmlFor="contact">Contato Principal</Label>
+              <Label htmlFor="ngoContactEmail">Email de Contato</Label>
               <Input
-                id="contact"
-                name="contact"
-                value={formData.contact}
+                id="ngoContactEmail"
+                name="ngoContactEmail"
+                type="email"
+                value={formData.ngoContactEmail}
                 onChange={handleChange}
-                placeholder="Nome do contato principal"
-                required
+                placeholder="contato@ong.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ngoContactPhone">Telefone de Contato</Label>
+              <Input
+                id="ngoContactPhone"
+                name="ngoContactPhone"
+                value={formData.ngoContactPhone}
+                onChange={handleChange}
+                placeholder="(11) 99999-9999"
               />
             </div>
 
