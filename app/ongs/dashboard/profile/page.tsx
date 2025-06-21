@@ -22,7 +22,8 @@ const profileFormSchema = z.object({
   address: z.string().min(5, { message: "Endereço muito curto" }),
   city: z.string().min(2, { message: "Cidade inválida" }),
   state: z.string().length(2, { message: "Estado deve ter 2 caracteres (ex: SP)" }),
-  contact: z.string().min(8, { message: "Contato inválido" }),
+  contact_email: z.string().email({ message: "Email de contato inválido" }).optional().or(z.literal("")),
+  contact_phone: z.string().optional(),
   website: z.string().url({ message: "URL inválida" }).optional().or(z.literal("")),
   logo_url: z.string().optional(),
 })
@@ -47,7 +48,8 @@ export default function OngProfilePage() {
       address: "",
       city: "",
       state: "",
-      contact: "",
+      contact_email: "",
+      contact_phone: "",
       website: "",
       logo_url: "",
     },
@@ -91,7 +93,8 @@ export default function OngProfilePage() {
           address: ongData.address || "",
           city: ongData.city || "",
           state: ongData.state || "",
-          contact: ongData.contact || "",
+          contact_email: ongData.contact_email || "",
+          contact_phone: ongData.contact_phone || "",
           website: ongData.website || "",
           logo_url: ongData.logo_url || "",
         })
@@ -126,7 +129,8 @@ export default function OngProfilePage() {
           address: data.address,
           city: data.city,
           state: data.state,
-          contact: data.contact,
+          contact_email: data.contact_email,
+          contact_phone: data.contact_phone,
           website: data.website,
           logo_url: data.logo_url,
           updated_at: new Date().toISOString(),
@@ -293,12 +297,26 @@ export default function OngProfilePage() {
 
                 <FormField
                   control={form.control}
-                  name="contact"
+                  name="contact_email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Contato</FormLabel>
+                      <FormLabel>Email de Contato</FormLabel>
                       <FormControl>
-                        <Input placeholder="Telefone ou email" {...field} />
+                        <Input placeholder="contato@ong.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="contact_phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telefone de Contato</FormLabel>
+                      <FormControl>
+                        <Input placeholder="(11) 99999-9999" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
