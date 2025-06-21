@@ -31,9 +31,19 @@ function DeletePetContent({ id, type }: { id: string; type: string }) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>
     const fetchPet = async () => {
-      if (!user?.id) return
+      if (!user?.id) {
+        timeout = setTimeout(() => {
+          if (!user?.id) {
+            setError("Não autenticado")
+            setIsLoading(false)
+          }
+        }, 1000)
+        return
+      }
 
+      setError(null)
       setIsLoading(true)
       try {
         const petData = await getLostPetById(id)
@@ -59,6 +69,7 @@ function DeletePetContent({ id, type }: { id: string; type: string }) {
     }
 
     fetchPet()
+    return () => clearTimeout(timeout)
   }, [id, type, user?.id])
 
   const handleDelete = async () => {
