@@ -4,12 +4,6 @@ CREATE TABLE IF NOT EXISTS ongs (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   cnpj TEXT UNIQUE,
-  -- Contato principal da ONG
-  contact_email TEXT UNIQUE,
-  description TEXT,
-  logo_url TEXT,
-  banner_url TEXT,
-  -- Telefone para contato
   contact_phone VARCHAR(20),
   address TEXT,
   city TEXT,

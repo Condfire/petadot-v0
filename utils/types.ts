@@ -51,7 +51,6 @@ export interface User {
 export interface ONG {
   id: string
   name: string
-  email: string
   contact_email?: string
   contact_phone?: string
   city?: string
