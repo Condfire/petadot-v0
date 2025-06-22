@@ -83,8 +83,27 @@ export async function registerUserAndNgoAction(
 
   const newUserId = authData.user.id
 
-  // The AuthProvider's syncUserWithDatabase should handle populating public.users table
-  // including name, email, type, state, city from user_metadata.
+  // Ensure user data exists in public.users. Ignore duplicate errors if the row already exists.
+  const { error: userInsertError } = await supabase
+    .from("users")
+    .upsert(
+      [
+        {
+          id: newUserId,
+          email,
+          name: personalName,
+          type: userMetadata.type,
+          state: userState || null,
+          city: userCity || null,
+        },
+      ],
+      { onConflict: "id" },
+    )
+
+  if (userInsertError && userInsertError.code !== "23505") {
+    console.error("Erro ao inserir usuário em public.users:", userInsertError)
+    return { success: false, message: userInsertError.message }
+  }
 
   if (isNgo) {
     const ngoData = validation.data // This will be the merged schema with NGO fields
