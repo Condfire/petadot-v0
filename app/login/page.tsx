@@ -236,6 +236,12 @@ export default function LoginPage() {
               Cadastre sua organização
             </Link>
           </div>
+          <div className="text-sm text-center">
+            Já tem conta como ONG?{" "}
+            <Link href="/ongs/login" className="text-primary hover:underline">
+              Login de ONG
+            </Link>
+          </div>
         </CardFooter>
       </Card>
     </div>
