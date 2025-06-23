@@ -36,8 +36,10 @@ export async function createLostPet(formData: FormData) {
     const last_seen_date = formData.get("last_seen_date") as string
     const last_seen_location = formData.get("last_seen_location") as string
     const contact = formData.get("contact") as string
-    const image_url = formData.get("image_urls") ? (formData.get("image_urls") as string).split(",")[0] : null // Pega a primeira imagem se for um array de URLs
-    const image_urls = formData.get("image_urls") ? (formData.get("image_urls") as string).split(",") : [] // Pega todas as imagens
+    // CORREÇÃO: Usar getAll para obter o array de URLs
+    const image_urls = formData.getAll("image_urls") as string[]
+    const main_image_url = image_urls.length > 0 ? image_urls[0] : null // Pega a primeira imagem
+
     const state = formData.get("state") as string
     const city = formData.get("city") as string
     const is_special_needs = formData.get("is_special_needs") === "on"
@@ -68,7 +70,7 @@ export async function createLostPet(formData: FormData) {
           last_seen_date,
           last_seen_location,
           contact,
-          main_image_url: image_url,
+          main_image_url: main_image_url, // Usar a primeira imagem
           image_urls: image_urls, // Salvar todas as URLs de imagem
           user_id: user.id,
           state,
@@ -151,8 +153,10 @@ export async function createFoundPet(formData: FormData) {
     const found_location = formData.get("found_location") as string
     const current_location = formData.get("current_location") as string
     const contact = formData.get("contact") as string
-    const image_url = formData.get("image_urls") ? (formData.get("image_urls") as string).split(",")[0] : null // Pega a primeira imagem se for um array de URLs
-    const image_urls = formData.get("image_urls") ? (formData.get("image_urls") as string).split(",") : [] // Pega todas as imagens
+    // CORREÇÃO: Usar getAll para obter o array de URLs
+    const image_urls = formData.getAll("image_urls") as string[]
+    const main_image_url = image_urls.length > 0 ? image_urls[0] : null // Pega a primeira imagem
+
     const state = formData.get("state") as string
     const city = formData.get("city") as string
     const is_special_needs = formData.get("is_special_needs") === "on"
@@ -183,7 +187,7 @@ export async function createFoundPet(formData: FormData) {
           found_location,
           current_location,
           contact,
-          main_image_url: image_url,
+          main_image_url: main_image_url, // Usar a primeira imagem
           image_urls: image_urls, // Salvar todas as URLs de imagem
           user_id: user.id,
           state,
@@ -370,26 +374,60 @@ export async function createAdoptionPet(petData: PetFormUI) {
   }
 }
 
-// Nova função genérica para criar pet, que atua como dispatcher
-export async function createPet(formData: FormData) {
-  const category = formData.get("category") as string // Assumindo que o formulário terá um campo 'category'
+// RE-ADICIONADO: Função genérica para criar pet, para resolver o erro de exportação ausente.
+// Esta função deve ser usada com cautela e preferencialmente substituída por chamadas diretas
+// a createLostPet, createFoundPet ou createAdoptionPet, dependendo do contexto.
+export async function createPet(input: FormData | PetFormUI) {
+  console.warn("createPet foi chamado. Considere usar createLostPet, createFoundPet ou createAdoptionPet diretamente.")
 
-  switch (category) {
-    case "lost":
-      return createLostPet(formData)
-    case "found":
-      return createFoundPet(formData)
-    case "adoption":
-      // Para adoção, o PetFormUI é passado diretamente, não FormData.
-      // Se o PetForm for usado para adoção, ele precisará ser adaptado para passar um objeto.
-      // Por enquanto, vamos assumir que o PetForm para adoção chama createAdoptionPet diretamente
-      // ou que o formData pode ser convertido para PetFormUI.
-      // Para simplificar, se o PetForm for usado para adoção, ele deve chamar createAdoptionPet diretamente.
-      // Se esta função `createPet` for o ponto de entrada, precisaremos de uma forma de converter FormData para PetFormUI.
-      // Por agora, vou retornar um erro para adoção se for chamado via FormData.
-      console.error("createPet: Categoria 'adoption' deve ser chamada com um objeto PetFormUI, não FormData.")
-      return { success: false, error: "Método de submissão inválido para pets de adoção." }
-    default:
-      return { success: false, error: "Categoria de pet inválida." }
+  if (input instanceof FormData) {
+    const category = input.get("category") as string
+
+    switch (category) {
+      case "lost":
+        return createLostPet(input)
+      case "found":
+        return createFoundPet(input)
+      case "adoption":
+        // Se FormData for usado para adoção, ele precisará ser convertido para PetFormUI
+        // Isso é um fallback e pode não funcionar corretamente se os campos não corresponderem
+        console.error("createPet: Tentativa de usar FormData para categoria 'adoption'. Isso pode causar erros.")
+        // Tentativa de conversão básica para PetFormUI (pode precisar de mais lógica)
+        const petFormUIFromFormData: PetFormUI = {
+          name: input.get("name") as string,
+          species: input.get("species") as string,
+          species_other: input.get("species_other") as string | null,
+          breed: input.get("breed") as string,
+          age: input.get("age") as string,
+          size: input.get("size") as string,
+          size_other: input.get("size_other") as string | null,
+          gender: input.get("gender") as string,
+          gender_other: input.get("gender_other") as string | null,
+          color: input.get("color") as string,
+          color_other: input.get("color_other") as string | null,
+          description: input.get("description") as string,
+          image_urls: input.getAll("image_urls") as string[],
+          is_vaccinated: input.get("is_vaccinated") === "on",
+          is_castrated: input.get("is_castrated") === "on",
+          is_special_needs: input.get("is_special_needs") === "on",
+          special_needs_description: input.get("special_needs_description") as string | null,
+          temperament: input.get("temperament") as string | null,
+          energy_level: input.get("energy_level") as string | null,
+          good_with_kids: input.get("good_with_kids") === "on",
+          good_with_cats: input.get("good_with_cats") === "on",
+          good_with_dogs: input.get("good_with_dogs") === "on",
+          city: input.get("city") as string,
+          state: input.get("state") as string,
+          whatsapp_contact: input.get("whatsapp_contact") as string,
+          ong_id: input.get("ong_id") as string | null,
+          // Adicione outros campos conforme necessário para PetFormUI
+        }
+        return createAdoptionPet(petFormUIFromFormData)
+      default:
+        return { success: false, error: "Categoria de pet inválida." }
+    }
+  } else {
+    // Se o input já for PetFormUI, assumimos que é para adoção
+    return createAdoptionPet(input)
   }
 }
