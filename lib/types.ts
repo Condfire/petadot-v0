@@ -7,17 +7,13 @@ export type PetType = "adoption" | "lost" | "found"
  * `AdoptionPetForm` e pela função `createAdoptionPet`. Nem todos os campos
  * são obrigatórios em todos os contextos, por isso muitos são opcionais.
  */
-export interface PetFormUI {
+export type PetFormUI = {
   id?: string
-  slug?: string
-  is_editing?: boolean
-
-  /** Informações básicas */
   name: string
   species: string
   species_other?: string | null
-  breed?: string
-  age?: string
+  breed: string
+  age: string
   size: string
   size_other?: string | null
   gender: string
@@ -25,38 +21,27 @@ export interface PetFormUI {
   color: string
   color_other?: string | null
   description: string
-
-  /** Imagens */
-  image_url?: string
-  image_urls?: string[]
-
-  /** Estado de saúde e comportamentos */
+  // CORREÇÃO: Usar main_image_url em vez de image_urls (array)
+  main_image_url?: string | null // Alterado de image_urls: string[]
   is_vaccinated?: boolean
-  is_castrated?: boolean
-  is_neutered?: boolean
+  is_castrated?: boolean // Mapeia para is_neutered no DB
   is_special_needs?: boolean
-  special_needs?: string
   special_needs_description?: string | null
   temperament?: string | null
   energy_level?: string | null
-  sociability?: string
-  shedding?: string
-  trainability?: string
   good_with_kids?: boolean
   good_with_cats?: boolean
   good_with_dogs?: boolean
-
-  /** Localização e contato */
-  location?: string
   city: string
   state: string
-  contact?: string
-  whatsapp_contact?: string
-
-  /** Relacionamentos */
+  whatsapp_contact: string // Mapeia para contact no DB
   ong_id?: string | null
-  user_id?: string
-
-  /** Status internos */
-  status?: string
+  is_editing?: boolean // Para indicar se é uma edição
+  slug?: string | null // Adicionado para edição
+  // Campos específicos para pets perdidos/encontrados, se necessário
+  last_seen_date?: string | null
+  last_seen_location?: string | null
+  found_date?: string | null
+  found_location?: string | null
+  current_location?: string | null
 }
