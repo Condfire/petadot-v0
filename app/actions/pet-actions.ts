@@ -240,34 +240,20 @@ export async function createFoundPet(formData: FormData) {
   }
 }
 
-// Função para cadastrar um pet para adoção
-export async function createAdoptionPet(petData: PetFormUI) {
-  // Usar PetFormUI para tipagem
-  console.log("createAdoptionPet chamado com:", petData)
+// Função para cadastrar um pet para adoção - VERSÃO CLIENT-SIDE
+export async function createAdoptionPetClientSide(petData: PetFormUI, userId: string) {
+  console.log("createAdoptionPetClientSide chamado com:", petData, "userId:", userId)
 
   try {
-    // Usar o mesmo método de criação do cliente Supabase que as outras funções
+    // Usar createServerActionClient com cookies para manter a sessão
     const supabase = createServerActionClient({ cookies })
     console.log("Cliente Supabase criado")
-
-    // Verificar autenticação
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    console.log("Sessão verificada:", user ? "Autenticado" : "Não autenticado")
-
-    if (!user) {
-      console.log("Usuário não autenticado")
-      return { error: "Usuário não autenticado" }
-    }
 
     // Verificar se é uma edição ou criação
     const isEditing = petData.is_editing === true
 
     // Se for edição, atualizar o pet existente
     if (isEditing && petData.id) {
-      // Se o slug já existir, não o sobrescrever
       const updateData = { ...petData }
       delete updateData.is_editing
       delete updateData.slug // Não atualizar o slug se já existir
@@ -276,7 +262,7 @@ export async function createAdoptionPet(petData: PetFormUI) {
         .from("pets")
         .update(updateData)
         .eq("id", petData.id)
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
 
       if (updateError) {
         console.error("Erro ao atualizar pet:", updateError)
@@ -286,13 +272,12 @@ export async function createAdoptionPet(petData: PetFormUI) {
       // Revalidar as páginas relacionadas
       revalidatePath("/adocao")
       revalidatePath(`/adocao/${petData.id}`)
-      revalidatePath("/my-pets")
+      revalidatePath("/ongs/dashboard")
 
       return { success: true }
     }
 
     // Caso contrário, criar um novo pet
-    // Preparar dados apenas com campos que existem na tabela
     const newPet = {
       name: petData.name,
       species: petData.species,
@@ -306,21 +291,21 @@ export async function createAdoptionPet(petData: PetFormUI) {
       color: petData.color,
       color_other: petData.color_other,
       description: petData.description,
-      main_image_url: petData.image_urls?.[0] || null, // Usar a primeira imagem do array
-      image_urls: petData.image_urls || [], // Salvar todas as URLs de imagem
+      main_image_url: petData.image_urls?.[0] || null,
+      image_urls: petData.image_urls || [],
       is_vaccinated: petData.is_vaccinated || false,
-      is_neutered: petData.is_castrated || false, // Mapear is_castrated para is_neutered
+      is_neutered: petData.is_castrated || false,
       is_special_needs: petData.is_special_needs || false,
       special_needs_description: petData.special_needs_description || null,
-      temperament: petData.temperament, // Adicionar se existir no PetFormUI
-      energy_level: petData.energy_level, // Adicionar se existir no PetFormUI
+      temperament: petData.temperament,
+      energy_level: petData.energy_level,
       good_with_kids: petData.good_with_kids || false,
       good_with_cats: petData.good_with_cats || false,
       good_with_dogs: petData.good_with_dogs || false,
       city: petData.city,
       state: petData.state,
-      contact: petData.whatsapp_contact, // Mapear whatsapp_contact para contact
-      user_id: user.id,
+      contact: petData.whatsapp_contact,
+      user_id: userId,
       ong_id: petData.ong_id,
       status: "available",
       category: "adoption",
@@ -341,8 +326,6 @@ export async function createAdoptionPet(petData: PetFormUI) {
     // Gerar slug com o ID obtido
     if (insertedPet) {
       const petType = "adocao"
-
-      // Gerar slug base
       const baseSlug = await generatePetSlug(
         petData.name || "pet",
         petType,
@@ -351,11 +334,8 @@ export async function createAdoptionPet(petData: PetFormUI) {
         insertedPet.id,
         "pets",
       )
-
-      // Garantir que o slug seja único
       const uniqueSlug = await generateUniqueSlug(baseSlug, "pets", insertedPet.id)
 
-      // Atualizar o registro com o slug
       const { error: updateError } = await supabase.from("pets").update({ slug: uniqueSlug }).eq("id", insertedPet.id)
 
       if (updateError) {
@@ -365,7 +345,7 @@ export async function createAdoptionPet(petData: PetFormUI) {
 
     // Revalidar as páginas relacionadas
     revalidatePath("/adocao")
-    revalidatePath("/my-pets")
+    revalidatePath("/ongs/dashboard")
 
     return { success: true, data: insertedPet }
   } catch (error) {
@@ -374,9 +354,34 @@ export async function createAdoptionPet(petData: PetFormUI) {
   }
 }
 
+// Função para cadastrar um pet para adoção - VERSÃO ORIGINAL (mantida para compatibilidade)
+export async function createAdoptionPet(petData: PetFormUI) {
+  console.log("createAdoptionPet chamado com:", petData)
+
+  try {
+    const supabase = createServerActionClient({ cookies })
+    console.log("Cliente Supabase criado")
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    console.log("Sessão verificada:", user ? "Autenticado" : "Não autenticado")
+
+    if (!user) {
+      console.log("Usuário não autenticado")
+      return { error: "Usuário não autenticado" }
+    }
+
+    // Usar a função client-side passando o userId
+    return await createAdoptionPetClientSide(petData, user.id)
+  } catch (error) {
+    console.error("Erro ao cadastrar pet:", error)
+    return { error: `Erro ao cadastrar pet: ${error instanceof Error ? error.message : String(error)}` }
+  }
+}
+
 // RE-ADICIONADO: Função genérica para criar pet, para resolver o erro de exportação ausente.
-// Esta função deve ser usada com cautela e preferencialmente substituída por chamadas diretas
-// a createLostPet, createFoundPet ou createAdoptionPet, dependendo do contexto.
 export async function createPet(input: FormData | PetFormUI) {
   console.warn("createPet foi chamado. Considere usar createLostPet, createFoundPet ou createAdoptionPet diretamente.")
 
@@ -389,10 +394,7 @@ export async function createPet(input: FormData | PetFormUI) {
       case "found":
         return createFoundPet(input)
       case "adoption":
-        // Se FormData for usado para adoção, ele precisará ser convertido para PetFormUI
-        // Isso é um fallback e pode não funcionar corretamente se os campos não corresponderem
         console.error("createPet: Tentativa de usar FormData para categoria 'adoption'. Isso pode causar erros.")
-        // Tentativa de conversão básica para PetFormUI (pode precisar de mais lógica)
         const petFormUIFromFormData: PetFormUI = {
           name: input.get("name") as string,
           species: input.get("species") as string,
@@ -420,14 +422,12 @@ export async function createPet(input: FormData | PetFormUI) {
           state: input.get("state") as string,
           whatsapp_contact: input.get("whatsapp_contact") as string,
           ong_id: input.get("ong_id") as string | null,
-          // Adicione outros campos conforme necessário para PetFormUI
         }
         return createAdoptionPet(petFormUIFromFormData)
       default:
         return { success: false, error: "Categoria de pet inválida." }
     }
   } else {
-    // Se o input já for PetFormUI, assumimos que é para adoção
     return createAdoptionPet(input)
   }
 }

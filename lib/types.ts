@@ -60,4 +60,3 @@ export interface PetFormUI {
   /** Status internos */
   status?: string
 }
-
