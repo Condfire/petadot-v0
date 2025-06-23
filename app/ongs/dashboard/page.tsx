@@ -26,7 +26,9 @@ export default function OngDashboardPage() {
     async function loadOngData() {
       try {
         // Verificar se o usuário está autenticado
-        const { data: { session } } = await supabase.auth.getSession()
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
 
         if (!session) {
           router.push("/ongs/login?message=Faça login para acessar o dashboard")
@@ -197,7 +199,12 @@ export default function OngDashboardPage() {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <CardTitle>Pets para Adoção</CardTitle>
-                  <Button onClick={() => router.push("/ongs/dashboard/pets/cadastrar")}>
+                  <Button
+                    onClick={() => {
+                      console.log("Clicando para cadastrar pet...")
+                      router.push("/ongs/dashboard/pets/cadastrar")
+                    }}
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Cadastrar Pet
                   </Button>
@@ -250,7 +257,13 @@ export default function OngDashboardPage() {
                     <p className="mt-2 text-sm text-muted-foreground">
                       Cadastre pets para adoção para que eles apareçam aqui.
                     </p>
-                    <Button className="mt-4" onClick={() => router.push("/ongs/dashboard/pets/cadastrar")}>
+                    <Button
+                      className="mt-4"
+                      onClick={() => {
+                        console.log("Clicando para cadastrar pet (sem pets)...")
+                        router.push("/ongs/dashboard/pets/cadastrar")
+                      }}
+                    >
                       Cadastrar Pet
                     </Button>
                   </div>

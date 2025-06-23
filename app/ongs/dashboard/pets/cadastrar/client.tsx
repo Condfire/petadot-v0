@@ -1,13 +1,10 @@
 "use client"
 
-import { useState, Suspense } from "react"
-import { Loader2, ArrowLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useRouter } from "next/navigation"
-import { AdoptionPetForm } from "@/components/AdoptionPetForm" // Importação nomeada
-import { LostPetForm } from "@/components/LostPetForm" // Importação nomeada
+import { AdoptionPetForm } from "@/components/AdoptionPetForm"
+import { LostPetForm } from "@/components/LostPetForm"
 
 interface CadastrarPetClientProps {
   ongId: string
@@ -15,66 +12,57 @@ interface CadastrarPetClientProps {
 }
 
 export default function CadastrarPetClient({ ongId, ongName }: CadastrarPetClientProps) {
-  const router = useRouter()
-  const [activeTab, setActiveTab] = useState("adoption") // Estado para controlar a aba ativa
+  const [activeTab, setActiveTab] = useState("adoption")
 
   return (
-    <div className="container py-12">
-      <div className="flex items-center mb-8">
-        <Button variant="ghost" onClick={() => router.push("/ongs/dashboard")} className="mr-4">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Voltar
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">Cadastrar Pet</h1>
-          <p className="text-muted-foreground">Adicione um novo pet para adoção ou reporte um pet perdido</p>
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Cadastrar Pet</h1>
+          <p className="text-gray-600">
+            Cadastre um novo pet para sua ONG: <span className="font-semibold">{ongName}</span>
+          </p>
         </div>
-      </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="adoption">Para Adoção</TabsTrigger>
-          <TabsTrigger value="lost">Perdido</TabsTrigger>
-        </TabsList>
-        <TabsContent value="adoption">
-          <Card>
-            <CardHeader>
-              <CardTitle>Cadastrar Pet para Adoção</CardTitle>
-              <CardDescription>Preencha os dados do pet disponível para adoção.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Suspense
-                fallback={
-                  <div className="flex items-center justify-center min-h-[40vh]">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <Card>
+          <CardHeader>
+            <CardTitle>Tipo de Cadastro</CardTitle>
+            <CardDescription>Escolha o tipo de pet que você deseja cadastrar</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="adoption">Pet para Adoção</TabsTrigger>
+                <TabsTrigger value="lost">Pet Perdido</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="adoption" className="mt-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Cadastrar Pet para Adoção</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Cadastre um pet que está disponível para adoção em sua ONG.
+                    </p>
                   </div>
-                }
-              >
-                <AdoptionPetForm ongId={ongId} ongName={ongName} />
-              </Suspense>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="lost">
-          <Card>
-            <CardHeader>
-              <CardTitle>Reportar Pet Perdido</CardTitle>
-              <CardDescription>Preencha os dados do pet que foi perdido.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Suspense
-                fallback={
-                  <div className="flex items-center justify-center min-h-[40vh]">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                  <AdoptionPetForm ongId={ongId} redirectPath="/ongs/dashboard" />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="lost" className="mt-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Cadastrar Pet Perdido</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Cadastre um pet perdido para ajudar na busca pelo dono.
+                    </p>
                   </div>
-                }
-              >
-                <LostPetForm />
-              </Suspense>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                  <LostPetForm ongId={ongId} redirectPath="/ongs/dashboard" />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
