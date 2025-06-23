@@ -9,7 +9,10 @@ const SPECIAL_ROUTES = ["/cadastrar", "/editar", "/excluir", "/novo"]
 export async function middleware(request: NextRequest) {
   // Ignorar a rota de cadastro de pets para adoção
   if (request.nextUrl.pathname === "/cadastrar-pet-adocao") {
-    return NextResponse.next()
+    const response = NextResponse.next()
+    const supabase = createMiddlewareClient({ req: request, res: response })
+    await supabase.auth.getSession()
+    return response
   }
 
   // Permitir redirecionamento para rotas especiais
