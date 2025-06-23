@@ -5,6 +5,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { AlertTriangle, Eye, CheckCircle, XCircle, Clock } from "lucide-react"
 
+// Força renderização dinâmica
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 async function getReports() {
   const supabase = createServerComponentClient({ cookies })
 
