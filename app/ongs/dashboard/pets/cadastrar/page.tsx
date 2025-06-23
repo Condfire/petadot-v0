@@ -3,6 +3,8 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import CadastrarPetClient from "./client"
 
+export const dynamic = "force-dynamic"
+
 export default async function CadastrarPetPage() {
   const supabase = createServerComponentClient({ cookies })
 
