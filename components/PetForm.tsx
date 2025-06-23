@@ -52,7 +52,8 @@ interface PetFormProps {
   type: "lost" | "found" | "adoption"
 }
 
-export default function PetForm({ initialData, onSubmit, isSubmitting, type }: PetFormProps) {
+// Exportação nomeada para quem usa import { PetForm } from '@/components/PetForm'
+export function PetForm({ initialData, onSubmit, isSubmitting, type }: PetFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: initialData || {
@@ -443,3 +444,6 @@ export default function PetForm({ initialData, onSubmit, isSubmitting, type }: P
     </Form>
   )
 }
+
+// Exportação default para quem usa import PetForm from '@/components/PetForm'
+export default PetForm

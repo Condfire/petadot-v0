@@ -355,5 +355,7 @@ export function useAuth() {
   return context
 }
 
+export const useSession = () => useContext(AuthContext)?.session
+
 // Exportar cliente Supabase para acesso direto
 export const supabaseClient = getSupabaseClient()
