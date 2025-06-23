@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,9 @@ export default function OngDashboardPage() {
   const [events, setEvents] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const urlError = searchParams.get("error")
+  const urlSuccess = searchParams.get("success")
 
   useEffect(() => {
     async function loadOngData() {
@@ -131,6 +134,18 @@ export default function OngDashboardPage() {
           </Button>
         </div>
       </div>
+
+      {urlSuccess && (
+        <Alert className="mb-6 bg-green-50 border-green-200">
+          <AlertDescription className="text-green-800">{urlSuccess}</AlertDescription>
+        </Alert>
+      )}
+
+      {urlError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertDescription>{urlError}</AlertDescription>
+        </Alert>
+      )}
 
       {error && (
         <Alert variant="destructive" className="mb-6">
