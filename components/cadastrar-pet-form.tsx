@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Loader2, AlertCircle, ArrowLeft } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { ImageUpload } from "@/components/image-upload"
+import { ImageUpload } from "@/components/ImageUpload"
 
 const petFormSchema = z.object({
   name: z.string().min(2, { message: "O nome deve ter pelo menos 2 caracteres" }),

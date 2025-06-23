@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Loader2, AlertCircle, ArrowLeft, Trash2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import ImageUpload from "@/components/image-upload"
+import ImageUpload from "@/components/ImageUpload"
 import {
   Dialog,
   DialogContent,
