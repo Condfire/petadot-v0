@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ImageUpload } from "@/components/image-upload"
+import { ImageUpload } from "@/components/ImageUpload"
 import { getEventForEdit, updateEvent } from "@/app/actions/event-actions"
 import { Loader2, Calendar, MapPin } from "lucide-react"
 
