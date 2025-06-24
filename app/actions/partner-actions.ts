@@ -1,13 +1,13 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { generateEntitySlug, generateUniqueSlug } from "@/lib/slug-utils"
 
 // Verificar se o usuário é administrador
 async function isAdmin() {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   const {
     data: { session },
@@ -32,7 +32,7 @@ export async function createPartner(formData: FormData) {
     return { success: false, error: "Não autorizado" }
   }
 
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     const name = formData.get("name") as string
@@ -101,7 +101,7 @@ export async function updatePartner(id: string, formData: FormData) {
     return { success: false, error: "Não autorizado" }
   }
 
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     const name = formData.get("name") as string
@@ -176,7 +176,7 @@ export async function deletePartner(id: string) {
     return { success: false, error: "Não autorizado" }
   }
 
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Excluir parceiro

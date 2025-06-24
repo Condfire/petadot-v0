@@ -1,16 +1,15 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 
 // Import the slug utilities
 import { generateEntitySlug, generateUniqueSlug } from "@/lib/slug-utils"
 
 // Função para garantir que o usuário existe na tabela users
 export async function ensureUserExists(userId: string, userData: any) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   // Verificar se o usuário já existe
   const { data: existingUser, error: checkError } = await supabase.from("users").select("*").eq("id", userId).single()
@@ -41,7 +40,7 @@ export async function ensureUserExists(userId: string, userData: any) {
 // Função para verificar conteúdo contra palavras-chave bloqueadas
 async function checkContentForBlockedKeywords(
   content: string,
-  supabaseClient: ReturnType<typeof createServerComponentClient>,
+  supabaseClient: ReturnType<typeof createServerActionClient>,
 ): Promise<{ blocked: boolean; keyword?: string }> {
   try {
     console.log("Verificando conteúdo para palavras-chave bloqueadas:", content)
@@ -107,7 +106,7 @@ async function checkContentForBlockedKeywords(
 
 // Função para criar uma ONG
 export async function createOng(ongData: any) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Obter a sessão do usuário
@@ -172,7 +171,7 @@ export async function createOng(ongData: any) {
 
 // Função para atualizar uma ONG
 export async function updateOng(ongId: string, ongData: any) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Obter a sessão do usuário
@@ -236,7 +235,7 @@ export async function updateOng(ongId: string, ongData: any) {
 
 // Função para cadastrar um pet para adoção
 export async function createAdoptionPet(petData: any) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     console.log("Iniciando cadastro de pet para adoção:", petData)
@@ -344,7 +343,7 @@ export async function createAdoptionPet(petData: any) {
 
 // Função para criar um pet perdido
 export async function createLostPet(petData: any) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     console.log("Iniciando cadastro de pet perdido")
@@ -439,7 +438,7 @@ export async function createLostPet(petData: any) {
 
 // Função para criar um pet encontrado
 export async function createFoundPet(petData: any) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     console.log("Iniciando cadastro de pet encontrado:", petData)
@@ -548,7 +547,7 @@ export type EventFormData = {
 
 // Função para criar um evento
 export async function createEvent(eventData: EventFormData) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     console.log("Iniciando cadastro de evento:", eventData)
@@ -647,7 +646,7 @@ export async function createEvent(eventData: EventFormData) {
 
 // Função para verificar uma ONG
 export async function verifyOng(ongId: string) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Verificar se o usuário é um administrador
@@ -692,7 +691,7 @@ export async function verifyOng(ongId: string) {
 
 // Função para excluir uma ONG
 export async function deleteOng(ongId: string) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Verificar se o usuário é um administrador
@@ -759,7 +758,7 @@ export async function deleteOng(ongId: string) {
 
 // Função para excluir um evento (admin)
 export async function deleteEventAdmin(eventId: string) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Verificar se o usuário é um administrador
@@ -805,7 +804,7 @@ export async function deleteEventAdmin(eventId: string) {
 
 // Update the approveItem function
 export async function approveItem(itemId: string, type: "adoption" | "event" | "lost" | "found") {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Verificar se o usuário é um administrador
@@ -874,7 +873,7 @@ export async function approveItem(itemId: string, type: "adoption" | "event" | "
 
 // Update the rejectItem function
 export async function rejectItem(itemId: string, type: "adoption" | "event" | "lost" | "found") {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Verificar se o usuário é um administrador
