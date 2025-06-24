@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { generateEventSlug, generateUniqueSlug } from "@/lib/slug-utils"
@@ -9,8 +9,7 @@ import type { EventDB } from "@/lib/mappers" // Import EventDB type
 // Função para excluir um evento
 export async function deleteEvent(eventId: string) {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerComponentClient({ cookies: () => cookieStore })
+    const supabase = createServerActionClient({ cookies })
 
     // Verificar se o usuário está autenticado
     const {
@@ -65,8 +64,7 @@ export async function deleteEvent(eventId: string) {
 export async function updateEvent(eventId: string, eventData: Partial<EventDB>) {
   // Use Partial<EventDB>
   try {
-    const cookieStore = cookies()
-    const supabase = createServerComponentClient({ cookies: () => cookieStore })
+    const supabase = createServerActionClient({ cookies })
 
     // Verificar se o usuário está autenticado
     const {
@@ -147,8 +145,7 @@ export async function updateEvent(eventId: string, eventData: Partial<EventDB>) 
 // Função para obter um evento pelo ID
 export async function getEventForEdit(eventId: string) {
   try {
-    const cookieStore = cookies()
-    const supabase = createServerComponentClient({ cookies: () => cookieStore })
+    const supabase = createServerActionClient({ cookies })
 
     // Verificar se o usuário está autenticado
     const {
@@ -190,8 +187,7 @@ export async function getEventForEdit(eventId: string) {
 export async function createEvent(eventData: EventDB) {
   // Use EventDB type
   try {
-    const cookieStore = cookies()
-    const supabase = createServerComponentClient({ cookies: () => cookieStore })
+    const supabase = createServerActionClient({ cookies })
 
     // Verificar se o usuário está autenticado
     const {
