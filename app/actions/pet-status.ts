@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
@@ -13,7 +13,7 @@ export async function updatePetStatus(
   status: ResolutionStatus,
   notes?: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     console.log("updatePetStatus chamada com:", { petId, petType, status, notes })

@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { generateEntitySlug } from "@/lib/slug-utils"
@@ -8,7 +8,7 @@ import { generateEntitySlug } from "@/lib/slug-utils"
 // Função para verificar conteúdo contra palavras-chave bloqueadas
 async function checkContentForBlockedKeywords(
   content: string,
-  supabaseClient: ReturnType<typeof createServerComponentClient>,
+  supabaseClient: ReturnType<typeof createServerActionClient>,
 ): Promise<{ blocked: boolean; keyword?: string }> {
   try {
     console.log("Verificando conteúdo para palavras-chave bloqueadas:", content)
@@ -73,7 +73,7 @@ async function checkContentForBlockedKeywords(
 }
 
 export async function createFoundPet(formData: FormData) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     console.log("Iniciando cadastro de pet encontrado")
