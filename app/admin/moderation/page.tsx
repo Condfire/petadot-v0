@@ -9,6 +9,7 @@ import Image from "next/image"
 import { ModerationActions } from "@/components/moderation-actions"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import AdminAuthCheck from "@/components/admin-auth-check"
+import { mapPetSpecies } from "@/lib/utils"
 
 // Tipos
 type Pet = {
@@ -294,7 +295,7 @@ export default function AdminModerationPage() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
                             <div>
                               <p className="text-sm font-medium">Espécie:</p>
-                              <p className="text-sm">{pet.species}</p>
+                              <p className="text-sm">{mapPetSpecies(pet.species)}</p>
                             </div>
                             <div>
                               <p className="text-sm font-medium">Raça:</p>

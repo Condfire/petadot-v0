@@ -13,6 +13,13 @@ import { useToast } from "@/components/ui/use-toast"
 import { getLostPetById, deleteUserPet } from "@/lib/supabase"
 import { ArrowLeft, Pencil, Trash2, Loader2 } from "lucide-react"
 import { format } from "date-fns"
+import {
+  mapPetAge,
+  mapPetColor,
+  mapPetGender,
+  mapPetSize,
+  mapPetSpecies,
+} from "@/lib/utils"
 import { ptBR } from "date-fns/locale"
 
 export default function LostPetDetailsPage({ params }: { params: { id: string } }) {
@@ -176,7 +183,7 @@ function LostPetDetails({ id }: { id: string }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div>
                   <p className="text-sm text-muted-foreground">Espécie</p>
-                  <p className="font-medium">{pet.species || "Não informado"}</p>
+                  <p className="font-medium">{mapPetSpecies(pet.species)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Raça</p>
@@ -184,25 +191,19 @@ function LostPetDetails({ id }: { id: string }) {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Idade</p>
-                  <p className="font-medium">{pet.age || "Não informado"}</p>
+                  <p className="font-medium">{mapPetAge(pet.age)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Porte</p>
-                  <p className="font-medium">{pet.size || "Não informado"}</p>
+                  <p className="font-medium">{mapPetSize(pet.size)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Sexo</p>
-                  <p className="font-medium">
-                    {pet.gender === "male"
-                      ? "Macho"
-                      : pet.gender === "female"
-                        ? "Fêmea"
-                        : pet.gender || "Não informado"}
-                  </p>
+                  <p className="font-medium">{mapPetGender(pet.gender)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Cor</p>
-                  <p className="font-medium">{pet.color || "Não informado"}</p>
+                  <p className="font-medium">{mapPetColor(pet.color)}</p>
                 </div>
               </div>
 

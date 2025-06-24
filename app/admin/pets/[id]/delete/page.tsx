@@ -7,6 +7,7 @@ import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { DeletePetForm } from "./delete-pet-form"
 import Image from "next/image"
+import { mapPetSpecies } from "@/lib/utils"
 
 export const metadata: Metadata = {
   title: "Excluir Pet | Admin PetAdot",
@@ -74,7 +75,7 @@ export default async function DeletePetPage({ params }: { params: { id: string }
               <div className="flex-1">
                 <h3 className="font-medium">{pet.name || "Sem nome"}</h3>
                 <p className="text-sm text-muted-foreground">
-                  {pet.species} {pet.breed && `• ${pet.breed}`}
+                  {mapPetSpecies(pet.species)} {pet.breed && `• ${pet.breed}`}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {pet.city}, {pet.state}

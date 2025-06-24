@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/use-toast"
 import { getPetById, getLostPetById, getFoundPetById, deleteUserPet } from "@/lib/supabase"
 import { ArrowLeft, AlertTriangle, Loader2 } from "lucide-react"
+import { mapPetAge, mapPetSize } from "@/lib/utils"
 
 export default function DeletePetPage({ params }: { params: { type: string; id: string } }) {
   return (
@@ -231,15 +232,7 @@ function DeletePetContent({ params }: { params: { type: string; id: string } }) 
             <h2 className="text-xl font-semibold">{pet.name || "Pet sem nome"}</h2>
             <p className="text-muted-foreground mt-1">
               {pet.type === "adoption"
-                ? `${pet.age || "Idade não informada"} • ${
-                    pet.size === "small"
-                      ? "Pequeno"
-                      : pet.size === "medium"
-                        ? "Médio"
-                        : pet.size === "large"
-                          ? "Grande"
-                          : pet.size
-                  }`
+                ? `${mapPetAge(pet.age)} • ${mapPetSize(pet.size)}`
                 : pet.type === "lost"
                   ? `Perdido em ${pet.last_seen_location}`
                   : `Encontrado em ${pet.found_location}`}

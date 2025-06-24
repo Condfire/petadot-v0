@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MapPinIcon, MailIcon, PhoneIcon, ClockIcon, ArrowLeftIcon, PawPrintIcon } from "lucide-react"
+import { mapPetSpecies } from "@/lib/utils"
 
 export default async function OngDetailPage({ params }: { params: { id: string } }) {
   const supabase = createServerComponentClient({ cookies })
@@ -154,7 +155,7 @@ export default async function OngDetailPage({ params }: { params: { id: string }
                           <div>
                             <h4 className="font-medium">{pet.name}</h4>
                             <p className="text-sm text-muted-foreground">
-                              {pet.species} {pet.breed && `• ${pet.breed}`}
+                              {mapPetSpecies(pet.species)} {pet.breed && `• ${pet.breed}`}
                             </p>
                             <Badge
                               variant="outline"

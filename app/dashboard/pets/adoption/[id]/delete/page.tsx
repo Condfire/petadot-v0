@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/use-toast"
 import { getPetById, deleteUserPet } from "@/lib/supabase"
 import { ArrowLeft, AlertTriangle, Loader2 } from "lucide-react"
+import { mapPetAge, mapPetSize } from "@/lib/utils"
 
 export default function DeleteAdoptionPetPage({ params }: { params: { id: string } }) {
   return (
@@ -164,7 +165,7 @@ function DeletePetContent({ id, type }: { id: string; type: string }) {
             </div>
             <h2 className="text-xl font-semibold">{pet.name || "Pet sem nome"}</h2>
             <p className="text-muted-foreground mt-1">
-              {pet.age || "Idade não informada"} • {pet.size || "Porte não informado"}
+              {mapPetAge(pet.age)} • {mapPetSize(pet.size)}
             </p>
           </CardContent>
           <CardFooter className="flex justify-between">
