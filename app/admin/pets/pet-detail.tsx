@@ -12,6 +12,13 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { PetStatusButton } from "@/components/pet-status-button"
 import { PetResolvedAlert } from "@/components/pet-resolved-alert"
 import { Loader2, AlertCircle, ArrowLeft, Edit, Trash2 } from "lucide-react"
+import {
+  mapPetAge,
+  mapPetColor,
+  mapPetGender,
+  mapPetSize,
+  mapPetSpecies,
+} from "@/lib/utils"
 
 interface PetDetailProps {
   petId: string
@@ -225,7 +232,7 @@ export function PetDetail({ petId, petType }: PetDetailProps) {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <h3 className="text-sm font-medium text-muted-foreground mb-1">Espécie</h3>
-                      <p>{pet.species || "Não informado"}</p>
+                      <p>{mapPetSpecies(pet.species)}</p>
                     </div>
                     <div>
                       <h3 className="text-sm font-medium text-muted-foreground mb-1">Raça</h3>
@@ -233,19 +240,19 @@ export function PetDetail({ petId, petType }: PetDetailProps) {
                     </div>
                     <div>
                       <h3 className="text-sm font-medium text-muted-foreground mb-1">Idade</h3>
-                      <p>{pet.age || "Não informado"}</p>
+                      <p>{mapPetAge(pet.age)}</p>
                     </div>
                     <div>
                       <h3 className="text-sm font-medium text-muted-foreground mb-1">Porte</h3>
-                      <p>{pet.size || "Não informado"}</p>
+                      <p>{mapPetSize(pet.size)}</p>
                     </div>
                     <div>
                       <h3 className="text-sm font-medium text-muted-foreground mb-1">Sexo</h3>
-                      <p>{pet.gender || "Não informado"}</p>
+                      <p>{mapPetGender(pet.gender)}</p>
                     </div>
                     <div>
                       <h3 className="text-sm font-medium text-muted-foreground mb-1">Cor</h3>
-                      <p>{pet.color || "Não informado"}</p>
+                      <p>{mapPetColor(pet.color)}</p>
                     </div>
                   </div>
 

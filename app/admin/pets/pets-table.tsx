@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Search, Eye, Edit, Trash2 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { mapPetSpecies } from "@/lib/utils"
 
 type Pet = {
   id: string
@@ -112,7 +113,7 @@ export function PetsTable() {
             <div>
               <h3 className="font-medium truncate">{pet.name || "Sem nome"}</h3>
               <p className="text-sm text-muted-foreground">
-                {pet.species} {pet.breed && `• ${pet.breed}`}
+                {mapPetSpecies(pet.species)} {pet.breed && `• ${pet.breed}`}
               </p>
               <p className="text-sm text-muted-foreground">
                 {pet.city}, {pet.state}
