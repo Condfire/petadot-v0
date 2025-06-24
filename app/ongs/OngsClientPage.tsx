@@ -85,7 +85,9 @@ export default function OngsClientPage({
                 logo={ong.logo_url || "/placeholder-logo.png"} // Use logo_url
                 city={ong.city}
                 state={ong.state}
-                contact={ong.contact_whatsapp || ong.contact_email || "N/A"} // Use contact_whatsapp
+                contact={
+                  ong.user?.contact_whatsapp || ong.contact_email || "N/A"
+                }
                 petCount={0} // Placeholder for now, as pet count requires a separate query
                 slug={ong.slug} // Pass the slug
               />
