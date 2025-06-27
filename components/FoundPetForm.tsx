@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { toast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, XCircle } from "lucide-react"
+import { AlertCircle, XCircle } from 'lucide-react'
 import ImageUpload from "./ImageUpload"
 import { SimpleLocationSelector } from "./simple-location-selector"
 import { useAuth } from "@/app/auth-provider"
@@ -622,7 +622,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
             <Checkbox
               id="good_with_dogs"
               checked={petData.good_with_dogs}
-              onCheckedChange={(checked) => handleCheckboxChange("good_dogs", checked === true)}
+              onCheckedChange={(checked) => handleCheckboxChange("good_with_dogs", checked === true)}
             />
             <Label htmlFor="good_with_dogs" className="cursor-pointer">
               Parece bom com cães

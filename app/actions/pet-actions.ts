@@ -1,131 +1,132 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { generatePetSlug, generateUniqueSlug } from "@/lib/slug-utils"
+import { generateSlug, generateUniqueSlug } from "@/lib/slug-utils"
 import type { PetFormUI } from "@/lib/types" // Importar o tipo PetFormUI
 
 // Função para cadastrar um pet perdido
 export async function createLostPet(formData: FormData) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = createClient()
 
   try {
-    // Verificar autenticação
+    // Get the current user
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser()
 
-    if (!user) {
+    if (userError || !user) {
       return { success: false, error: "Usuário não autenticado" }
     }
 
-    // Extrair dados do formulário
+    // Extract form data
     const name = formData.get("name") as string
     const species = formData.get("species") as string
-    const species_other = species === "other" ? (formData.get("species_other") as string) : null
     const breed = formData.get("breed") as string
-    const age = formData.get("age") as string
     const size = formData.get("size") as string
-    const size_other = size === "other" ? (formData.get("size_other") as string) : null
     const gender = formData.get("gender") as string
-    const gender_other = gender === "other" ? (formData.get("gender_other") as string) : null
     const color = formData.get("color") as string
-    const color_other = color === "other" ? (formData.get("color_other") as string) : null
     const description = formData.get("description") as string
-    const last_seen_date = formData.get("last_seen_date") as string
-    const last_seen_location = formData.get("last_seen_location") as string
+    const lost_date = formData.get("lost_date") as string
+    const lost_location = formData.get("lost_location") as string
     const contact = formData.get("contact") as string
-    // CORREÇÃO: Usar getAll para obter o array de URLs
-    const image_urls = formData.getAll("image_urls") as string[]
-    const main_image_url = image_urls.length > 0 ? image_urls[0] : null // Pega a primeira imagem
-
+    const main_image_url = formData.get("main_image_url") as string
     const state = formData.get("state") as string
     const city = formData.get("city") as string
-    const is_special_needs = formData.get("is_special_needs") === "on"
-    const special_needs_description = is_special_needs ? (formData.get("special_needs_description") as string) : null
-    const good_with_kids = formData.get("good_with_kids") === "on"
-    const good_with_cats = formData.get("good_with_cats") === "on"
-    const good_with_dogs = formData.get("good_with_dogs") === "on"
-    const is_vaccinated = formData.get("is_vaccinated") === "on"
-    const is_neutered = formData.get("is_neutered") === "on"
+    const is_special_needs = formData.get("is_special_needs") === "true"
+    const special_needs_description = formData.get("special_needs_description") as string
+    const good_with_kids = formData.get("good_with_kids") === "true"
+    const good_with_cats = formData.get("good_with_cats") === "true"
+    const good_with_dogs = formData.get("good_with_dogs") === "true"
+    const is_vaccinated = formData.get("is_vaccinated") === "true"
+    const is_neutered = formData.get("is_neutered") === "true"
 
-    // Inserir no banco de dados para obter o ID
-    const { data: petData, error: insertError } = await supabase
-      .from("pets")
-      .insert([
-        {
-          name,
-          species,
-          species_other,
-          breed,
-          age,
-          size,
-          size_other,
-          gender,
-          gender_other,
-          color,
-          color_other,
-          description,
-          last_seen_date,
-          last_seen_location,
-          contact,
-          main_image_url: main_image_url, // Usar a primeira imagem
-          image_urls: image_urls, // Salvar todas as URLs de imagem
-          user_id: user.id,
-          state,
-          city,
-          is_special_needs,
-          special_needs_description,
-          good_with_kids,
-          good_with_cats,
-          good_with_dogs,
-          is_vaccinated,
-          is_neutered,
-          status: "approved",
-          category: "lost",
-        },
-      ])
-      .select()
-
-    if (insertError) {
-      console.error("Erro ao cadastrar pet perdido:", insertError)
-      return { success: false, error: insertError.message }
+    // Validate required fields
+    if (!species || !size || !gender || !color || !lost_date || !lost_location || !contact || !main_image_url) {
+      return { success: false, error: "Todos os campos obrigatórios devem ser preenchidos" }
     }
 
-    // Gerar slug com o ID obtido
-    if (petData && petData.length > 0) {
-      const pet = petData[0]
-      const petType = "perdido"
+    // Generate slug
+    const slug = generateSlug(name || "pet-perdido", city || "", state || "")
 
-      // Gerar slug base
-      const baseSlug = await generatePetSlug(name || "pet", petType, city || "", state || "", pet.id, "pets")
+    // Check for blocked keywords
+    const contentToCheck = `${name} ${description} ${lost_location}`
+    const { data: keywords } = await supabase.from("moderation_keywords").select("keyword").eq("is_active", true)
 
-      // Garantir que o slug seja único
-      const uniqueSlug = await generateUniqueSlug(baseSlug, "pets", pet.id)
-
-      // Atualizar o registro com o slug
-      const { error: updateError } = await supabase.from("pets").update({ slug: uniqueSlug }).eq("id", pet.id)
-
-      if (updateError) {
-        console.error("Erro ao atualizar slug do pet perdido:", updateError)
+    if (keywords && keywords.length > 0) {
+      const lowerContent = contentToCheck.toLowerCase()
+      for (const kw of keywords) {
+        if (lowerContent.includes(kw.keyword.toLowerCase())) {
+          return {
+            success: false,
+            error: `Conteúdo contém palavra proibida: "${kw.keyword}". Por favor, revise.`,
+          }
+        }
       }
     }
 
-    // Revalidar caminhos
-    revalidatePath("/perdidos")
-    revalidatePath("/")
+    // Insert pet data
+    const { data, error } = await supabase
+      .from("pets")
+      .insert({
+        name,
+        species,
+        breed,
+        size,
+        gender,
+        color,
+        description,
+        lost_date,
+        lost_location,
+        contact,
+        main_image_url, // Use main_image_url instead of image_urls
+        state,
+        city,
+        slug,
+        category: "lost",
+        status: "approved",
+        user_id: user.id,
+        is_special_needs,
+        special_needs_description,
+        good_with_kids,
+        good_with_cats,
+        good_with_dogs,
+        is_vaccinated,
+        is_neutered,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
 
-    return { success: true, data: petData }
+    if (error) {
+      console.error("Error creating lost pet:", error)
+      return { success: false, error: "Erro ao salvar pet perdido: " + error.message }
+    }
+
+    // Revalidate relevant paths
+    revalidatePath("/perdidos")
+    revalidatePath("/dashboard")
+    revalidatePath(`/perdidos/${slug}`)
+
+    return {
+      success: true,
+      data,
+      message: "Pet perdido cadastrado com sucesso!",
+    }
   } catch (error) {
-    console.error("Erro não tratado:", error)
-    return { success: false, error: "Ocorreu um erro ao cadastrar o pet perdido" }
+    console.error("Unexpected error creating lost pet:", error)
+    return {
+      success: false,
+      error: "Erro inesperado ao cadastrar pet perdido",
+    }
   }
 }
 
 // Função para cadastrar um pet encontrado
 export async function createFoundPet(formData: FormData) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = createClient()
 
   try {
     // Verificar autenticação
@@ -176,6 +177,7 @@ export async function createFoundPet(formData: FormData) {
           species,
           species_other,
           breed,
+          age: formData.get("age") as string, // Declare the age variable here
           size,
           size_other,
           gender,
@@ -216,7 +218,7 @@ export async function createFoundPet(formData: FormData) {
       const petType = "encontrado"
 
       // Gerar slug base
-      const baseSlug = await generatePetSlug(name || "pet", petType, city || "", state || "", pet.id, "pets")
+      const baseSlug = await generateSlug(name || "pet-encontrado", city || "", state || "")
 
       // Garantir que o slug seja único
       const uniqueSlug = await generateUniqueSlug(baseSlug, "pets", pet.id)
@@ -231,7 +233,7 @@ export async function createFoundPet(formData: FormData) {
 
     // Revalidar caminhos
     revalidatePath("/encontrados")
-    revalidatePath("/")
+    revalidatePath("/dashboard")
 
     return { success: true, data: petData }
   } catch (error) {
@@ -245,8 +247,8 @@ export async function createAdoptionPetClientSide(petData: PetFormUI, userId: st
   console.log("createAdoptionPetClientSide chamado com:", petData, "userId:", userId)
 
   try {
-    // Usar createServerActionClient com cookies para manter a sessão
-    const supabase = createServerActionClient({ cookies })
+    // Usar createClient com cookies para manter a sessão
+    const supabase = createClient()
     console.log("Cliente Supabase criado")
 
     // Verificar se é uma edição ou criação
@@ -310,6 +312,7 @@ export async function createAdoptionPetClientSide(petData: PetFormUI, userId: st
       status: "available",
       category: "adoption",
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
 
     console.log("Inserindo novo pet:", newPet)
@@ -326,7 +329,7 @@ export async function createAdoptionPetClientSide(petData: PetFormUI, userId: st
     // Gerar slug com o ID obtido
     if (insertedPet) {
       const petType = "adocao"
-      const baseSlug = await generatePetSlug(
+      const baseSlug = await generateSlug(
         petData.name || "pet",
         petType,
         petData.city || "",
@@ -359,7 +362,7 @@ export async function createAdoptionPet(petData: PetFormUI) {
   console.log("createAdoptionPet chamado com:", petData)
 
   try {
-    const supabase = createServerActionClient({ cookies })
+    const supabase = createClient()
     console.log("Cliente Supabase criado")
 
     const {
@@ -381,7 +384,7 @@ export async function createAdoptionPet(petData: PetFormUI) {
   }
 }
 
-// RE-ADICIONADO: Função genérica para criar pet, para resolver o erro de exportação ausente.
+// Função genérica para criar pet, para resolver o erro de exportação ausente.
 export async function createPet(input: FormData | PetFormUI) {
   console.warn("createPet foi chamado. Considere usar createLostPet, createFoundPet ou createAdoptionPet diretamente.")
 
@@ -429,5 +432,227 @@ export async function createPet(input: FormData | PetFormUI) {
     }
   } else {
     return createAdoptionPet(input)
+  }
+}
+
+// Função para atualizar o status de um pet
+export async function updatePetStatus(petId: string, status: "found" | "lost" | "adopted") {
+  const supabase = createClient()
+
+  try {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return { success: false, error: "Usuário não autenticado" }
+    }
+
+    // Check if user owns the pet
+    const { data: pet, error: petError } = await supabase.from("pets").select("user_id").eq("id", petId).single()
+
+    if (petError || !pet) {
+      return { success: false, error: "Pet não encontrado" }
+    }
+
+    if (pet.user_id !== user.id) {
+      return { success: false, error: "Você não tem permissão para alterar este pet" }
+    }
+
+    // Update pet status
+    const { error: updateError } = await supabase
+      .from("pets")
+      .update({
+        status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", petId)
+
+    if (updateError) {
+      console.error("Error updating pet status:", updateError)
+      return { success: false, error: "Erro ao atualizar status do pet" }
+    }
+
+    // Revalidate paths
+    revalidatePath("/dashboard")
+    revalidatePath("/perdidos")
+    revalidatePath("/encontrados")
+    revalidatePath("/adocao")
+
+    return { success: true, message: "Status do pet atualizado com sucesso!" }
+  } catch (error) {
+    console.error("Unexpected error updating pet status:", error)
+    return { success: false, error: "Erro inesperado ao atualizar status" }
+  }
+}
+
+// Função para deletar um pet
+export async function deletePet(petId: string) {
+  const supabase = createClient()
+
+  try {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return { success: false, error: "Usuário não autenticado" }
+    }
+
+    // Check if user owns the pet
+    const { data: pet, error: petError } = await supabase
+      .from("pets")
+      .select("user_id, main_image_url")
+      .eq("id", petId)
+      .single()
+
+    if (petError || !pet) {
+      return { success: false, error: "Pet não encontrado" }
+    }
+
+    if (pet.user_id !== user.id) {
+      return { success: false, error: "Você não tem permissão para excluir este pet" }
+    }
+
+    // Delete the pet
+    const { error: deleteError } = await supabase.from("pets").delete().eq("id", petId)
+
+    if (deleteError) {
+      console.error("Error deleting pet:", deleteError)
+      return { success: false, error: "Erro ao excluir pet" }
+    }
+
+    // TODO: Delete associated image from storage if needed
+    // if (pet.main_image_url) {
+    //   // Delete image from Supabase storage
+    // }
+
+    // Revalidate paths
+    revalidatePath("/dashboard")
+    revalidatePath("/perdidos")
+    revalidatePath("/encontrados")
+    revalidatePath("/adocao")
+
+    return { success: true, message: "Pet excluído com sucesso!" }
+  } catch (error) {
+    console.error("Unexpected error deleting pet:", error)
+    return { success: false, error: "Erro inesperado ao excluir pet" }
+  }
+}
+
+// Função para atualizar um pet
+export async function updatePet(petId: string, formData: FormData) {
+  const supabase = createClient()
+
+  try {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return { success: false, error: "Usuário não autenticado" }
+    }
+
+    // Check if user owns the pet
+    const { data: existingPet, error: petError } = await supabase
+      .from("pets")
+      .select("user_id, slug")
+      .eq("id", petId)
+      .single()
+
+    if (petError || !existingPet) {
+      return { success: false, error: "Pet não encontrado" }
+    }
+
+    if (existingPet.user_id !== user.id) {
+      return { success: false, error: "Você não tem permissão para editar este pet" }
+    }
+
+    // Extract form data
+    const name = formData.get("name") as string
+    const species = formData.get("species") as string
+    const breed = formData.get("breed") as string
+    const size = formData.get("size") as string
+    const gender = formData.get("gender") as string
+    const color = formData.get("color") as string
+    const description = formData.get("description") as string
+    const lost_date = formData.get("lost_date") as string
+    const lost_location = formData.get("lost_location") as string
+    const contact = formData.get("contact") as string
+    const main_image_url = formData.get("main_image_url") as string
+    const state = formData.get("state") as string
+    const city = formData.get("city") as string
+    const is_special_needs = formData.get("is_special_needs") === "true"
+    const special_needs_description = formData.get("special_needs_description") as string
+    const good_with_kids = formData.get("good_with_kids") === "true"
+    const good_with_cats = formData.get("good_with_cats") === "true"
+    const good_with_dogs = formData.get("good_with_dogs") === "true"
+    const is_vaccinated = formData.get("is_vaccinated") === "true"
+    const is_neutered = formData.get("is_neutered") === "true"
+
+    // Validate required fields
+    if (!species || !size || !gender || !color || !lost_date || !lost_location || !contact) {
+      return { success: false, error: "Todos os campos obrigatórios devem ser preenchidos" }
+    }
+
+    // Generate new slug if name, city, or state changed
+    const newSlug = generateSlug(name || "pet-perdido", city || "", state || "")
+
+    // Update pet data
+    const { data, error } = await supabase
+      .from("pets")
+      .update({
+        name,
+        species,
+        breed,
+        size,
+        gender,
+        color,
+        description,
+        lost_date,
+        lost_location,
+        contact,
+        main_image_url,
+        state,
+        city,
+        slug: newSlug,
+        is_special_needs,
+        special_needs_description,
+        good_with_kids,
+        good_with_cats,
+        good_with_dogs,
+        is_vaccinated,
+        is_neutered,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", petId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Error updating pet:", error)
+      return { success: false, error: "Erro ao atualizar pet: " + error.message }
+    }
+
+    // Revalidate relevant paths
+    revalidatePath("/perdidos")
+    revalidatePath("/dashboard")
+    revalidatePath(`/perdidos/${existingPet.slug}`)
+    revalidatePath(`/perdidos/${newSlug}`)
+
+    return {
+      success: true,
+      data,
+      message: "Pet atualizado com sucesso!",
+    }
+  } catch (error) {
+    console.error("Unexpected error updating pet:", error)
+    return {
+      success: false,
+      error: "Erro inesperado ao atualizar pet",
+    }
   }
 }
