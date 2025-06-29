@@ -1,39 +1,15 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
 import { useState, useEffect } from "react"
-import {
-  Menu,
-  X,
-  PawPrint,
-  Search,
-  Heart,
-  Calendar,
-  Users,
-  Info,
-  Sun,
-  Moon,
-  LogIn,
-  LogOut,
-  User,
-  Shield,
-  Handshake,
-  BookOpen,
-} from "lucide-react"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/app/auth-provider"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { withRetry, isRateLimitError } from "@/lib/api-helpers"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { MenuIcon, PawPrintIcon } from "lucide-react"
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -42,7 +18,7 @@ export default function Navbar() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userEmail, setUserEmail] = useState("")
   const { theme, setTheme } = useTheme()
-  const { user, signOut } = useAuth()
+  const { user, signOut, loading } = useAuth()
   const supabase = createClientComponentClient()
 
   // Construir a URL do logo do bucket do Supabase
@@ -379,277 +355,133 @@ export default function Navbar() {
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full border-b border-border/40 backdrop-blur transition-all duration-300 ${
-        isScrolled
-          ? "bg-background/95 supports-[backdrop-filter]:bg-background/60"
-          : "bg-background/80 supports-[backdrop-filter]:bg-background/40"
-      }`}
+      className={`sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60`}
     >
-      <div className="container flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="relative w-10 h-10 overflow-hidden">
-            <Image
-              src={logoUrl || "/placeholder.svg"}
-              alt="PetAdot Logo"
-              width={40}
-              height={40}
-              className="transition-transform duration-300 group-hover:scale-110"
-              unoptimized
-            />
-          </div>
-          <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-            PetAdot
-          </span>
+      <div className="container flex h-14 items-center justify-between px-4 md:px-6">
+        <Link href="/" className="flex items-center gap-2 font-semibold" prefetch={false}>
+          <PawPrintIcon className="h-6 w-6" />
+          <span className="sr-only">PetAdot</span>
+          <span className="hidden md:inline">PetAdot</span>
         </Link>
-
-        {/* Mobile menu button */}
-        <div className="flex items-center gap-2 md:hidden">
-          <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Alternar tema">
-            {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
-          </Button>
-          <button className="p-2" onClick={toggleMenu} aria-label={isMenuOpen ? "Fechar menu" : "Abrir menu"}>
-            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-
-        {/* Desktop navigation */}
-        <nav className="hidden md:flex items-center gap-1">
-          <Link
-            href="/perdidos"
-            className="group px-3 py-2 text-sm font-medium rounded-md hover:bg-muted transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <Search size={16} className="text-primary group-hover:text-primary/80 transition-colors" />
-              Perdidos
-            </span>
+        <nav className="hidden md:flex items-center gap-4 text-sm lg:gap-6">
+          <Link href="/adocao" className="font-medium hover:underline underline-offset-4" prefetch={false}>
+            Adoção
           </Link>
-          <Link
-            href="/encontrados"
-            className="group px-3 py-2 text-sm font-medium rounded-md hover:bg-muted transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <PawPrint size={16} className="text-primary group-hover:text-primary/80 transition-colors" />
-              Encontrados
-            </span>
+          <Link href="/perdidos" className="font-medium hover:underline underline-offset-4" prefetch={false}>
+            Perdidos
           </Link>
-          <Link
-            href="/adocao"
-            className="group px-3 py-2 text-sm font-medium rounded-md hover:bg-muted transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <Heart size={16} className="text-primary group-hover:text-primary/80 transition-colors" />
-              Adoção
-            </span>
+          <Link href="/encontrados" className="font-medium hover:underline underline-offset-4" prefetch={false}>
+            Encontrados
           </Link>
-          <Link
-            href="/eventos"
-            className="group px-3 py-2 text-sm font-medium rounded-md hover:bg-muted transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <Calendar size={16} className="text-primary group-hover:text-primary/80 transition-colors" />
-              Eventos
-            </span>
+          <Link href="/historias" className="font-medium hover:underline underline-offset-4" prefetch={false}>
+            Histórias de Sucesso
           </Link>
-          <Link
-            href="/ongs"
-            className="group px-3 py-2 text-sm font-medium rounded-md hover:bg-muted transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <Users size={16} className="text-primary group-hover:text-primary/80 transition-colors" />
-              ONGs
-            </span>
+          <Link href="/ongs" className="font-medium hover:underline underline-offset-4" prefetch={false}>
+            ONGs
           </Link>
-          <Link
-            href="/parceiros"
-            className="group px-3 py-2 text-sm font-medium rounded-md hover:bg-muted transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <Handshake size={16} className="text-primary group-hover:text-primary/80 transition-colors" />
-              Parceiros
-            </span>
+          <Link href="/eventos" className="font-medium hover:underline underline-offset-4" prefetch={false}>
+            Eventos
           </Link>
-          <Link
-            href="/sobre"
-            className="group px-3 py-2 text-sm font-medium rounded-md hover:bg-muted transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <Info size={16} className="text-primary group-hover:text-primary/80 transition-colors" />
-              Sobre
-            </span>
+          <Link href="/sobre" className="font-medium hover:underline underline-offset-4" prefetch={false}>
+            Sobre
           </Link>
-          <div className="ml-2 border-l border-border h-6"></div>
-          <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Alternar tema" className="ml-2">
-            {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
-          </Button>
-
-          {isAuthenticated ? (
+        </nav>
+        <div className="flex items-center gap-2">
+          {loading ? (
+            <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
+          ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="ml-2 gap-2">
-                  <User size={16} />
-                  {userEmail ? userEmail.split("@")[0] : "Minha Conta"}
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.avatar_url || "/placeholder-user.jpg"} alt={user.name || "User"} />
+                    <AvatarFallback>{user.name ? user.name[0] : user.email[0]}</AvatarFallback>
+                  </Avatar>
+                  <span className="sr-only">Toggle user menu</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard">Dashboard</Link>
+                <DropdownMenuItem>
+                  <Link href="/dashboard" className="w-full">
+                    Meu Painel
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/my-pets">Meus Pets</Link>
+                <DropdownMenuItem>
+                  <Link href="/dashboard/profile" className="w-full">
+                    Perfil
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/profile">Meu Perfil</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/historias">Minhas Histórias</Link>
-                </DropdownMenuItem>
-
-                {/* Verificação explícita para administrador */}
-                {isAdmin && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin" className="flex items-center">
-                        <Shield size={16} className="mr-2 text-primary" />
-                        Administração
-                      </Link>
-                    </DropdownMenuItem>
-                  </>
+                {user.type === "admin" && (
+                  <DropdownMenuItem>
+                    <Link href="/admin/dashboard" className="w-full">
+                      Painel Admin
+                    </Link>
+                  </DropdownMenuItem>
                 )}
-
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-                  <LogOut size={16} className="mr-2" />
-                  Sair
-                </DropdownMenuItem>
+                {user.type === "ngo_admin" && (
+                  <DropdownMenuItem>
+                    <Link href="/ongs/dashboard" className="w-full">
+                      Painel ONG
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={signOut}>Sair</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Link href="/login" className="ml-2">
-              <Button variant="outline" size="sm" className="gap-2">
-                <LogIn size={16} />
-                Entrar
-              </Button>
-            </Link>
-          )}
-        </nav>
-      </div>
-
-      {/* Mobile navigation */}
-      {isMenuOpen && (
-        <div className="md:hidden absolute w-full bg-background border-b border-border/40 py-4 animate-fade-in">
-          <nav className="container flex flex-col gap-4">
-            <Link
-              href="/perdidos"
-              className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors p-2 rounded-md hover:bg-muted"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <Search size={18} />
-              Perdidos
-            </Link>
-            <Link
-              href="/encontrados"
-              className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors p-2 rounded-md hover:bg-muted"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <PawPrint size={18} />
-              Encontrados
-            </Link>
-            <Link
-              href="/adocao"
-              className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors p-2 rounded-md hover:bg-muted"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <Heart size={18} />
-              Adoção
-            </Link>
-            <Link
-              href="/eventos"
-              className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors p-2 rounded-md hover:bg-muted"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <Calendar size={18} />
-              Eventos
-            </Link>
-            <Link
-              href="/ongs"
-              className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors p-2 rounded-md hover:bg-muted"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <Users size={18} />
-              ONGs
-            </Link>
-            <Link
-              href="/parceiros"
-              className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors p-2 rounded-md hover:bg-muted"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <Handshake size={18} />
-              Parceiros
-            </Link>
-            <Link
-              href="/sobre"
-              className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors p-2 rounded-md hover:bg-muted"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              <Info size={18} />
-              Sobre
-            </Link>
-
-            {isAuthenticated ? (
-              <>
-                <Link
-                  href="/dashboard"
-                  className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors p-2 rounded-md hover:bg-muted"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <User size={18} />
-                  Dashboard
-                </Link>
-                <Link
-                  href="/dashboard/historias"
-                  className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors p-2 rounded-md hover:bg-muted"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <BookOpen size={18} />
-                  Minhas Histórias
-                </Link>
-
-                {/* Verificação explícita para administrador */}
-                {isAdmin && (
-                  <Link
-                    href="/admin"
-                    className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors p-2 rounded-md hover:bg-muted"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    <Shield size={18} />
-                    Administração
-                  </Link>
-                )}
-
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center gap-2 text-sm font-medium text-destructive transition-colors p-2 rounded-md hover:bg-muted"
-                >
-                  <LogOut size={18} />
-                  Sair
-                </button>
-              </>
-            ) : (
-              <Link
-                href="/login"
-                className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors p-2 rounded-md hover:bg-muted"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <LogIn size={18} />
-                Entrar
+            <Button asChild>
+              <Link href="/login" prefetch={false}>
+                Login
               </Link>
-            )}
-          </nav>
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild className="md:hidden">
+              <Button variant="outline" size="icon">
+                <MenuIcon className="h-6 w-6" />
+                <span className="sr-only">Toggle navigation menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem>
+                <Link href="/adocao" className="w-full" prefetch={false}>
+                  Adoção
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link href="/perdidos" className="w-full" prefetch={false}>
+                  Perdidos
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link href="/encontrados" className="w-full" prefetch={false}>
+                  Encontrados
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link href="/historias" className="w-full" prefetch={false}>
+                  Histórias de Sucesso
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link href="/ongs" className="w-full" prefetch={false}>
+                  ONGs
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link href="/eventos" className="w-full" prefetch={false}>
+                  Eventos
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link href="/sobre" className="w-full" prefetch={false}>
+                  Sobre
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      )}
+      </div>
     </header>
   )
 }

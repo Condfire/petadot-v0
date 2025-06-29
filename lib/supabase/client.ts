@@ -1,21 +1,38 @@
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import type { Database } from "@/lib/types"
+import { createClient } from "@supabase/supabase-js"
+import type { Database } from "@/lib/types" // Corrected import path for Database type
 
-// Singleton pattern to ensure we only create one client instance
-let supabaseInstance: ReturnType<typeof createClientComponentClient<Database>> | null = null
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-export function createClient() {
-  if (!supabaseInstance) {
-    supabaseInstance = createClientComponentClient<Database>({
-      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    })
-  }
-  return supabaseInstance
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error("Missing Supabase environment variables")
 }
 
-// Create and export a default client instance
-export const supabase = createClient()
+// Create a singleton client instance
+let supabaseClient: ReturnType<typeof createClient<Database>> | null = null
 
-// Export default
+export function createClientComponentClient() {
+  if (!supabaseClient) {
+    supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: "pkce",
+        storage: typeof window !== "undefined" ? window.localStorage : undefined,
+      },
+      global: {
+        headers: {
+          "X-Client-Info": "petadot-web",
+        },
+      },
+    })
+  }
+  return supabaseClient
+}
+
+// Export the client instance
+export const supabase = createClientComponentClient()
+
+// Default export
 export default supabase
