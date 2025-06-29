@@ -1,173 +1,456 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
-import type { User, Session } from "@supabase/supabase-js"
-import { createClientComponentClient } from "@/lib/supabase/client"
+import type React from "react"
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from "react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { Session, User as SupabaseUser } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
-import { toast } from "sonner"
-import type { UserProfile } from "@/lib/types" // Import UserProfile
+import { toast } from "@/hooks/use-toast"
 
-interface AuthContextType {
-  user: UserProfile | null // Use UserProfile here
-  session: Session | null
-  loading: boolean
-  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }> // Added signIn method
-  signInWithGoogle: () => Promise<{ success: boolean; error?: string }> // Updated return type
-  signOut: () => Promise<void>
-  refreshSession: () => Promise<void>
-  isInitialized: boolean // Added isInitialized
+// Enhanced User type with additional fields
+export type User = {
+  id: string
+  email: string
+  name?: string
+  avatar_url?: string
+  type?: string // 'regular', 'ngo_admin', 'admin'
+  state?: string
+  city?: string
+  provider?: string // 'email', 'google', etc.
+  email_verified?: boolean
 }
 
+type AuthContextType = {
+  user: User | null
+  session: Session | null
+  isLoading: boolean
+  error: string | null
+  isInitialized: boolean
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  signInWithGoogle: () => Promise<{ success: boolean; error?: string }>
+  signUp: (
+    email: string,
+    password: string,
+    name: string,
+    userType?: string,
+    state?: string,
+    city?: string,
+  ) => Promise<{ success: boolean; error?: string; userId?: string }>
+  signOut: () => Promise<void>
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>
+  refreshSession: () => Promise<void>
+  clearError: () => void
+  isAuthenticated: boolean
+}
+
+// Create the authentication context
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function useAuth() {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+// Singleton for the Supabase client
+let supabaseInstance: ReturnType<typeof createClientComponentClient> | null = null
+
+function getSupabaseClient() {
+  if (!supabaseInstance) {
+    supabaseInstance = createClientComponentClient()
   }
-  return context
+  return supabaseInstance
 }
 
-// Export useSession for backward compatibility
-export function useSession() {
-  const { user, session, loading } = useAuth()
-  return { user, session, loading }
-}
-
-interface AuthProviderProps {
-  children: ReactNode
-}
-
-export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<UserProfile | null>(null) // Change type here
+// Enhanced AuthProvider with Google authentication and better session management
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [isInitialized, setIsInitialized] = useState(false) // Add isInitialized state
+  const [isLoading, setIsLoading] = useState(true)
+  const [isInitialized, setIsInitialized] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  const supabase = getSupabaseClient()
 
-  // Sync user profile with database
-  const syncUserProfile = async (supabaseUser: User): Promise<UserProfile | null> => {
+  // Refs to prevent multiple initializations and cleanup
+  const initCalled = useRef(false)
+  const authListenerRef = useRef<{ subscription: { unsubscribe: () => void } } | null>(null)
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Clear any existing error
+  const clearError = useCallback(() => {
+    setError(null)
+  }, [])
+
+  // Enhanced session refresh with retry logic
+  const refreshSession = useCallback(async () => {
     try {
-      const { data: existingUser, error: fetchError } = await supabase
-        .from("users")
-        .select("id, email, name, avatar_url, provider, email_verified, user_type, created_at, updated_at")
-        .eq("id", supabaseUser.id)
-        .single()
-
-      if (fetchError && fetchError.code !== "PGRST116") {
-        // PGRST116 means no rows found
-        console.error("Error fetching user profile:", fetchError)
-        return null // Indicate failure
-      }
-
-      let userProfileDataFromDB: {
-        id: string
-        email: string
-        name: string | null
-        avatar_url: string | null
-        provider: string
-        email_verified: boolean
-        user_type: "regular" | "admin" | "ngo_admin" | null
-        created_at: string
-        updated_at: string
-      }
-
-      if (!existingUser) {
-        // Create new user profile
-        const newUserProfile = {
-          id: supabaseUser.id,
-          email: supabaseUser.email!,
-          name: supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || "",
-          avatar_url: supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture || "",
-          provider: supabaseUser.app_metadata?.provider || "email",
-          email_verified: supabaseUser.email_confirmed_at ? true : false,
-          user_type: "regular" as const, // Default type
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }
-        const { data: insertedUser, error: insertError } = await supabase
-          .from("users")
-          .insert(newUserProfile)
-          .select()
-          .single()
-
-        if (insertError) {
-          console.error("Error creating user profile:", insertError)
-          return null
-        }
-        userProfileDataFromDB = insertedUser
-      } else {
-        // Update existing user profile
-        const updatedFields = {
-          name: supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || existingUser.name,
-          avatar_url:
-            supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture || existingUser.avatar_url,
-          email_verified: supabaseUser.email_confirmed_at ? true : false,
-          updated_at: new Date().toISOString(),
-        }
-        const { data: updatedUser, error: updateError } = await supabase
-          .from("users")
-          .update(updatedFields)
-          .eq("id", supabaseUser.id)
-          .select()
-          .single()
-
-        if (updateError) {
-          console.error("Error updating user profile:", updateError)
-          return null
-        }
-        userProfileDataFromDB = updatedUser
-      }
-
-      // Merge Supabase User object with our custom user profile data
-      return {
-        ...supabaseUser,
-        ...userProfileDataFromDB, // This will overwrite common fields like id, email, name, avatar_url
-        user_type: userProfileDataFromDB.user_type,
-      }
-    } catch (error) {
-      console.error("Error syncing user profile:", error)
-      return null
-    }
-  }
-
-  // Sign in with email and password
-  const signIn = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    setLoading(true)
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      console.log("Refreshing session...")
+      const { data, error } = await supabase.auth.refreshSession()
 
       if (error) {
-        console.error("Email/password sign in error:", error)
-        return { success: false, error: error.message }
+        console.warn("Session refresh failed:", error.message)
+        // Try to get current session as fallback
+        const { data: currentSession } = await supabase.auth.getSession()
+        if (currentSession.session) {
+          setSession(currentSession.session)
+          return currentSession.session
+        }
+        return null
       }
 
-      if (data.user) {
-        const profile = await syncUserProfile(data.user)
-        if (profile) {
-          setUser(profile)
-          setSession(data.session)
-          toast.success("Login realizado com sucesso!")
-          router.push("/dashboard") // Redirect after successful login
-          return { success: true }
+      if (data.session) {
+        setSession(data.session)
+        console.log("Session refreshed successfully")
+        return data.session
+      }
+
+      return null
+    } catch (error) {
+      console.error("Session refresh error:", error)
+      return null
+    }
+  }, [supabase])
+
+  // Sync user with database with retry logic
+  const syncUserWithDatabase = useCallback(
+    async (supabaseUser: SupabaseUser, retries = 3): Promise<void> => {
+      try {
+        const userMetadata = supabaseUser.user_metadata
+        const appMetadata = supabaseUser.app_metadata
+
+        // Extract provider information
+        const provider = appMetadata?.provider || supabaseUser.app_metadata?.providers?.[0] || "email"
+
+        const userDataToSync = {
+          id: supabaseUser.id,
+          email: supabaseUser.email,
+          name: userMetadata?.full_name || userMetadata?.name || supabaseUser.email?.split("@")[0],
+          type: userMetadata?.type || "regular",
+          state: userMetadata?.state,
+          city: userMetadata?.city,
+          avatar_url: userMetadata?.avatar_url || userMetadata?.picture,
+          provider: provider,
+          email_verified: supabaseUser.email_confirmed_at ? true : false,
+          updated_at: new Date().toISOString(),
+        }
+
+        // Check if user exists
+        const { data: existingUser, error: checkError } = await supabase
+          .from("users")
+          .select("id, type")
+          .eq("id", supabaseUser.id)
+          .single()
+
+        if (checkError && checkError.code !== "PGRST116") {
+          throw checkError
+        }
+
+        if (existingUser) {
+          // Update existing user, but preserve existing type if not set in metadata
+          const updateData = { ...userDataToSync }
+          if (!userMetadata?.type && existingUser.type) {
+            updateData.type = existingUser.type
+          }
+
+          const { error: updateError } = await supabase.from("users").update(updateData).eq("id", supabaseUser.id)
+
+          if (updateError) throw updateError
         } else {
-          return { success: false, error: "Erro ao carregar perfil do usuário." }
+          // Insert new user
+          const { error: insertError } = await supabase
+            .from("users")
+            .insert({ ...userDataToSync, created_at: new Date().toISOString() })
+
+          if (insertError) throw insertError
+        }
+      } catch (error) {
+        console.error("Error syncing user with database:", error)
+
+        // Retry logic
+        if (retries > 0) {
+          console.log(`Retrying user sync... (${retries} attempts left)`)
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+          return syncUserWithDatabase(supabaseUser, retries - 1)
+        }
+
+        console.error("Failed to sync user after all retries")
+      }
+    },
+    [supabase],
+  )
+
+  // Update user state from session
+  const updateUserFromSession = useCallback(
+    async (currentSession: Session | null) => {
+      if (currentSession?.user) {
+        const supabaseUser = currentSession.user
+
+        // Sync with database first
+        await syncUserWithDatabase(supabaseUser)
+
+        try {
+          // Fetch user data from database
+          const { data: userDataFromDb, error: userDbError } = await supabase
+            .from("users")
+            .select("id, email, name, avatar_url, type, state, city, provider")
+            .eq("id", supabaseUser.id)
+            .single()
+
+          if (userDbError && userDbError.code !== "PGRST116") {
+            console.warn("Error fetching user from database:", userDbError)
+          }
+
+          // Extract provider info
+          const provider = supabaseUser.app_metadata?.provider || supabaseUser.app_metadata?.providers?.[0] || "email"
+
+          // Create final user object
+          const finalUserData: User = {
+            id: supabaseUser.id,
+            email: supabaseUser.email || "",
+            name:
+              userDataFromDb?.name ||
+              supabaseUser.user_metadata?.full_name ||
+              supabaseUser.user_metadata?.name ||
+              supabaseUser.email?.split("@")[0],
+            avatar_url:
+              userDataFromDb?.avatar_url ||
+              supabaseUser.user_metadata?.avatar_url ||
+              supabaseUser.user_metadata?.picture,
+            type: userDataFromDb?.type || supabaseUser.user_metadata?.type || "regular",
+            state: userDataFromDb?.state || supabaseUser.user_metadata?.state,
+            city: userDataFromDb?.city || supabaseUser.user_metadata?.city,
+            provider: provider,
+            email_verified: supabaseUser.email_confirmed_at ? true : false,
+          }
+
+          setUser(finalUserData)
+        } catch (error) {
+          console.error("Error updating user from session:", error)
+
+          // Fallback to auth metadata if DB fetch fails
+          const provider = supabaseUser.app_metadata?.provider || supabaseUser.app_metadata?.providers?.[0] || "email"
+
+          setUser({
+            id: supabaseUser.id,
+            email: supabaseUser.email || "",
+            name:
+              supabaseUser.user_metadata?.full_name ||
+              supabaseUser.user_metadata?.name ||
+              supabaseUser.email?.split("@")[0],
+            avatar_url: supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture,
+            type: supabaseUser.user_metadata?.type || "regular",
+            state: supabaseUser.user_metadata?.state,
+            city: supabaseUser.user_metadata?.city,
+            provider: provider,
+            email_verified: supabaseUser.email_confirmed_at ? true : false,
+          })
+        }
+      } else {
+        setUser(null)
+      }
+    },
+    [supabase, syncUserWithDatabase],
+  )
+
+  // Schedule automatic token refresh
+  const scheduleTokenRefresh = useCallback(
+    (session: Session) => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current)
+      }
+
+      if (session.expires_at) {
+        const expiresAt = session.expires_at * 1000
+        const now = Date.now()
+        const refreshTime = expiresAt - now - 60000 // Refresh 1 minute before expiry
+
+        if (refreshTime > 0) {
+          refreshTimeoutRef.current = setTimeout(async () => {
+            console.log("Auto-refreshing token...")
+            await refreshSession()
+          }, refreshTime)
         }
       }
-      return { success: false, error: "Nenhum usuário retornado." }
-    } catch (error: any) {
-      console.error("Email/password sign in error:", error)
-      return { success: false, error: error.message || "Ocorreu um erro inesperado." }
-    } finally {
-      setLoading(false)
-    }
-  }
+    },
+    [refreshSession],
+  )
 
-  // Sign in with Google
-  const signInWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
+  // Periodic session validation
+  const startSessionValidation = useCallback(() => {
+    if (sessionCheckIntervalRef.current) {
+      clearInterval(sessionCheckIntervalRef.current)
+    }
+
+    sessionCheckIntervalRef.current = setInterval(
+      async () => {
+        try {
+          const {
+            data: { user },
+            error,
+          } = await supabase.auth.getUser()
+
+          if (error || !user) {
+            console.log("Session validation failed, user might be logged out")
+            // Don't automatically sign out here, let the auth state change handler deal with it
+          }
+        } catch (error) {
+          console.error("Session validation error:", error)
+        }
+      },
+      5 * 60 * 1000,
+    ) // Check every 5 minutes
+  }, [supabase])
+
+  // Initialize authentication
+  const initializeAuth = useCallback(async () => {
+    if (initCalled.current) return
+    initCalled.current = true
+
     try {
-      setLoading(true)
+      setIsLoading(true)
+      console.log("Initializing authentication...")
+
+      // Get current session
+      const { data, error } = await supabase.auth.getSession()
+
+      if (error) {
+        console.error("Error getting session:", error)
+        setError(error.message)
+      } else {
+        setSession(data.session)
+        if (data.session) {
+          await updateUserFromSession(data.session)
+          scheduleTokenRefresh(data.session)
+          startSessionValidation()
+        }
+      }
+    } catch (e) {
+      console.error("Error initializing authentication:", e)
+      setError("Failed to initialize authentication")
+    } finally {
+      setIsLoading(false)
+      setIsInitialized(true)
+    }
+  }, [supabase, updateUserFromSession, scheduleTokenRefresh, startSessionValidation])
+
+  // Setup auth state listener
+  const setupAuthListener = useCallback(() => {
+    if (authListenerRef.current) return
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log("Auth state changed:", event, newSession?.user?.email)
+
+      setSession(newSession)
+
+      switch (event) {
+        case "SIGNED_IN":
+          if (newSession) {
+            await updateUserFromSession(newSession)
+            scheduleTokenRefresh(newSession)
+            startSessionValidation()
+            clearError()
+
+            toast({
+              title: "Login realizado com sucesso!",
+              description: `Bem-vindo${newSession.user?.user_metadata?.name ? `, ${newSession.user.user_metadata.name}` : ""}!`,
+            })
+          }
+          break
+
+        case "SIGNED_OUT":
+          setUser(null)
+          clearError()
+          if (refreshTimeoutRef.current) {
+            clearTimeout(refreshTimeoutRef.current)
+          }
+          if (sessionCheckIntervalRef.current) {
+            clearInterval(sessionCheckIntervalRef.current)
+          }
+
+          toast({
+            title: "Logout realizado",
+            description: "Você foi desconectado com sucesso.",
+          })
+          break
+
+        case "TOKEN_REFRESHED":
+          if (newSession) {
+            await updateUserFromSession(newSession)
+            scheduleTokenRefresh(newSession)
+            console.log("Token refreshed successfully")
+          }
+          break
+
+        case "USER_UPDATED":
+          if (newSession) {
+            await updateUserFromSession(newSession)
+            console.log("User updated")
+          }
+          break
+
+        case "PASSWORD_RECOVERY":
+          toast({
+            title: "Email de recuperação enviado",
+            description: "Verifique sua caixa de entrada para redefinir sua senha.",
+          })
+          break
+      }
+    })
+
+    authListenerRef.current = authListener
+    return authListener
+  }, [supabase, updateUserFromSession, scheduleTokenRefresh, startSessionValidation, clearError])
+
+  // Initialize auth on mount
+  useEffect(() => {
+    initializeAuth()
+    const authListener = setupAuthListener()
+
+    // Cleanup function
+    return () => {
+      if (authListener) {
+        authListener.subscription.unsubscribe()
+      }
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current)
+      }
+      if (sessionCheckIntervalRef.current) {
+        clearInterval(sessionCheckIntervalRef.current)
+      }
+    }
+  }, [initializeAuth, setupAuthListener])
+
+  // Email/password sign in
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+
+        if (signInError) {
+          setError(signInError.message)
+          return { success: false, error: signInError.message }
+        }
+
+        return { success: true }
+      } catch (e: any) {
+        const errorMessage = e.message || "An unknown error occurred"
+        setError(errorMessage)
+        return { success: false, error: errorMessage }
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [supabase],
+  )
+
+  // Google sign in
+  const signInWithGoogle = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -180,164 +463,171 @@ export function AuthProvider({ children }: AuthProviderProps) {
       })
 
       if (error) {
-        console.error("Google sign in error:", error)
-        toast.error("Erro ao fazer login com Google")
+        setError(error.message)
         return { success: false, error: error.message }
       }
-      return { success: true } // OAuth redirect handles the rest
-    } catch (error: any) {
-      console.error("Google sign in error:", error)
-      toast.error("Erro ao fazer login com Google")
-      return { success: false, error: error.message || "Ocorreu um erro inesperado." }
+
+      return { success: true }
+    } catch (e: any) {
+      const errorMessage = e.message || "An unknown error occurred"
+      setError(errorMessage)
+      return { success: false, error: errorMessage }
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
-  }
+  }, [supabase])
 
-  // Sign out
-  const signOut = async () => {
-    try {
-      setLoading(true)
-      const { error } = await supabase.auth.signOut()
+  // Sign up function
+  const signUp = useCallback(
+    async (email: string, password: string, name: string, userType = "regular", state?: string, city?: string) => {
+      setIsLoading(true)
+      setError(null)
 
-      if (error) {
-        console.error("Sign out error:", error)
-        toast.error("Erro ao fazer logout")
-      } else {
-        setUser(null)
-        setSession(null)
-        toast.success("Logout realizado com sucesso")
-        router.push("/")
-      }
-    } catch (error) {
-      console.error("Sign out error:", error)
-      toast.error("Erro ao fazer logout")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Refresh session
-  const refreshSession = async () => {
-    try {
-      const { data, error } = await supabase.auth.refreshSession()
-
-      if (error) {
-        console.error("Session refresh error:", error)
-        return
-      }
-
-      if (data.session) {
-        setSession(data.session)
-        const profile = await syncUserProfile(data.session.user)
-        setUser(profile)
-      }
-    } catch (error) {
-      console.error("Session refresh error:", error)
-    }
-  }
-
-  // Initialize auth state
-  useEffect(() => {
-    let mounted = true
-
-    const initializeAuth = async () => {
       try {
-        // Get initial session
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession()
+        const metadata: any = { name, type: userType }
+        if (state) metadata.state = state
+        if (city) metadata.city = city
 
-        if (error) {
-          console.error("Error getting session:", error)
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: metadata,
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        })
+
+        if (signUpError) {
+          setError(signUpError.message)
+          return { success: false, error: signUpError.message }
         }
 
-        if (mounted) {
-          setSession(session)
-          if (session?.user) {
-            const profile = await syncUserProfile(session.user)
-            setUser(profile)
-          } else {
-            setUser(null)
+        return { success: true, userId: data.user?.id }
+      } catch (e: any) {
+        const errorMessage = e.message || "An unknown error occurred"
+        setError(errorMessage)
+        return { success: false, error: errorMessage }
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [supabase],
+  )
+
+  // Enhanced sign out function
+  const signOut = useCallback(async () => {
+    setIsLoading(true)
+
+    try {
+      // Clear all timers
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current)
+        refreshTimeoutRef.current = null
+      }
+      if (sessionCheckIntervalRef.current) {
+        clearInterval(sessionCheckIntervalRef.current)
+        sessionCheckIntervalRef.current = null
+      }
+
+      // Clear local storage
+      if (typeof window !== "undefined") {
+        Object.keys(localStorage).forEach((key) => {
+          if (key.startsWith("sb-") || key.includes("supabase") || key.includes("petadot")) {
+            localStorage.removeItem(key)
           }
-          setLoading(false)
-          setIsInitialized(true) // Mark as initialized
-        }
-      } catch (error) {
-        console.error("Auth initialization error:", error)
-        if (mounted) {
-          setLoading(false)
-          setIsInitialized(true) // Mark as initialized even on error
-        }
+        })
+        Object.keys(sessionStorage).forEach((key) => {
+          if (key.startsWith("sb-") || key.includes("supabase") || key.includes("petadot")) {
+            sessionStorage.removeItem(key)
+          }
+        })
       }
+
+      // Sign out from Supabase
+      const { error: signOutError } = await supabase.auth.signOut({ scope: "global" })
+      if (signOutError) {
+        console.error("Sign out error:", signOutError)
+      }
+
+      // Clear state
+      setUser(null)
+      setSession(null)
+      clearError()
+
+      // Redirect to home
+      router.push("/")
+      router.refresh()
+    } catch (e: any) {
+      console.error("Error during sign out:", e)
+      // Still clear state and redirect even if there's an error
+      setUser(null)
+      setSession(null)
+      router.push("/")
+      router.refresh()
+    } finally {
+      setIsLoading(false)
     }
+  }, [supabase, router, clearError])
 
-    initializeAuth()
+  // Reset password function
+  const resetPassword = useCallback(
+    async (email: string) => {
+      setIsLoading(true)
+      setError(null)
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return
+      try {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${typeof window !== "undefined" ? window.location.origin : ""}/auth/callback?next=/reset-password`,
+        })
 
-      console.log("Auth state changed:", event, session?.user?.email)
-
-      setSession(session)
-      setLoading(false) // Set loading to false on any auth state change
-
-      if (session?.user) {
-        const profile = await syncUserProfile(session.user)
-        setUser(profile)
-        if (event === "SIGNED_IN") {
-          toast.success("Login realizado com sucesso!")
+        if (resetError) {
+          setError(resetError.message)
+          return { success: false, error: resetError.message }
         }
-      } else {
-        setUser(null)
+
+        return { success: true }
+      } catch (e: any) {
+        const errorMessage = e.message || "An unknown error occurred"
+        setError(errorMessage)
+        return { success: false, error: errorMessage }
+      } finally {
+        setIsLoading(false)
       }
+    },
+    [supabase],
+  )
 
-      if (event === "SIGNED_OUT") {
-        // No need to set user/session to null here, it's handled by the else block above
-      }
-    })
-
-    // Auto-refresh token before expiry
-    const refreshInterval = setInterval(async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (session?.expires_at) {
-        const expiresAt = new Date(session.expires_at * 1000)
-        const now = new Date()
-        const timeUntilExpiry = expiresAt.getTime() - now.getTime()
-
-        // Refresh if expires in less than 1 minute
-        if (timeUntilExpiry < 60000) {
-          await refreshSession()
-        }
-      }
-    }, 30000) // Check every 30 seconds
-
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-      clearInterval(refreshInterval)
-    }
-  }, [])
-
+  // Context value
   const value = {
     user,
     session,
-    loading,
-    signIn, // Add signIn
+    isLoading,
+    error,
+    isInitialized,
+    signIn,
     signInWithGoogle,
+    signUp,
     signOut,
+    resetPassword,
     refreshSession,
-    isInitialized, // Add isInitialized
+    clearError,
+    isAuthenticated: !!user,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export default AuthProvider
+// Hook to use the authentication context
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider")
+  }
+  return context
+}
+
+// Export session hook for backward compatibility - REQUIRED EXPORT
+export const useSession = () => useContext(AuthContext)?.session
+
+// Export Supabase client for direct access
+export const supabaseClient = getSupabaseClient()

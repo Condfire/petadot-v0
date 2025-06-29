@@ -6,445 +6,653 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Upload, X } from "lucide-react"
-import { toast } from "sonner"
-import { createAdoptionPet, type PetFormData } from "@/lib/client-pet-actions"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { CheckCircle } from "lucide-react"
+import { ImageUpload } from "@/components/ImageUpload"
+import { SimpleLocationSelector } from "@/components/simple-location-selector"
 import { useAuth } from "@/app/auth-provider"
+import { createAdoptionPetClient } from "@/lib/client-pet-actions" // Importa a função client-side
 
-const BRAZILIAN_STATES = [
-  { value: "AC", label: "Acre" },
-  { value: "AL", label: "Alagoas" },
-  { value: "AP", label: "Amapá" },
-  { value: "AM", label: "Amazonas" },
-  { value: "BA", label: "Bahia" },
-  { value: "CE", label: "Ceará" },
-  { value: "DF", label: "Distrito Federal" },
-  { value: "ES", label: "Espírito Santo" },
-  { value: "GO", label: "Goiás" },
-  { value: "MA", label: "Maranhão" },
-  { value: "MT", label: "Mato Grosso" },
-  { value: "MS", label: "Mato Grosso do Sul" },
-  { value: "MG", label: "Minas Gerais" },
-  { value: "PA", label: "Pará" },
-  { value: "PB", label: "Paraíba" },
-  { value: "PR", label: "Paraná" },
-  { value: "PE", label: "Pernambuco" },
-  { value: "PI", label: "Piauí" },
-  { value: "RJ", label: "Rio de Janeiro" },
-  { value: "RN", label: "Rio Grande do Norte" },
-  { value: "RS", label: "Rio Grande do Sul" },
-  { value: "RO", label: "Rondônia" },
-  { value: "RR", label: "Roraima" },
-  { value: "SC", label: "Santa Catarina" },
-  { value: "SP", label: "São Paulo" },
-  { value: "SE", label: "Sergipe" },
-  { value: "TO", label: "Tocantins" },
-]
+interface AdoptionPetFormProps {
+  ongId: string
+  ongName: string
+  onSuccess?: () => void
+  onError?: (message: string) => void
+}
 
-export function AdoptionPetForm() {
-  const { user, loading: authLoading } = useAuth()
-  const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [images, setImages] = useState<File[]>([])
-  const [imagePreviews, setImagePreviews] = useState<string[]>([])
-
-  const [formData, setFormData] = useState<PetFormData>({
+export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: AdoptionPetFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [formData, setFormData] = useState({
     name: "",
     species: "",
+    species_other: "",
     breed: "",
-    color: "",
-    size: "",
-    gender: "",
     age: "",
+    gender: "",
+    gender_other: "",
+    size: "",
+    size_other: "",
+    color: "",
+    color_other: "",
     description: "",
+    image_url: "", // Continua usando image_url localmente no estado do formulário
+    is_vaccinated: false,
+    is_neutered: false,
+    special_needs: "",
+    temperament: "",
+    energy_level: "",
+    sociability: "",
+    shedding: "",
+    trainability: "",
+    location: "",
     city: "",
     state: "",
-    contact_whatsapp: "",
-    contact_email: "",
-    special_needs: "",
-    good_with_kids: false,
-    good_with_dogs: false,
-    good_with_cats: false,
-    vaccinated: false,
-    neutered: false,
+    contact: "",
   })
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+  const [submitSuccess, setSubmitSuccess] = useState(false)
+  const router = useRouter()
+  const { user } = useAuth()
 
-  // Redirect if not authenticated
-  if (!authLoading && !user) {
-    router.push("/login?returnUrl=" + encodeURIComponent("/cadastrar-pet-adocao"))
-    return null
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+
+    // Limpar erro do campo quando o usuário digita
+    if (formErrors[name]) {
+      setFormErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors[name]
+        return newErrors
+      })
+    }
   }
 
-  const handleInputChange = (field: keyof PetFormData, value: string | boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }))
+
+    // Limpar erro do campo quando o usuário seleciona
+    if (formErrors[name]) {
+      setFormErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors[name]
+        return newErrors
+      })
+    }
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length === 0) return
-
-    // Limit to 5 images
-    const selectedFiles = files.slice(0, 5)
-    setImages(selectedFiles)
-
-    // Create previews
-    const previews = selectedFiles.map((file) => URL.createObjectURL(file))
-    setImagePreviews(previews)
+  const handleCheckboxChange = (name: string, checked: boolean) => {
+    setFormData((prev) => ({ ...prev, [name]: checked }))
   }
 
-  const removeImage = (index: number) => {
-    const newImages = images.filter((_, i) => i !== index)
-    const newPreviews = imagePreviews.filter((_, i) => i !== index)
+  const handleOtherOptionChange = (field: string, value: string) => {
+    const fieldName = `${field}_other`
+    setFormData((prev) => ({ ...prev, [fieldName]: value }))
 
-    // Revoke the URL to prevent memory leaks
-    URL.revokeObjectURL(imagePreviews[index])
+    // Limpar erro do campo quando o usuário digita
+    if (formErrors[fieldName]) {
+      setFormErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors[fieldName]
+        return newErrors
+      })
+    }
+  }
 
-    setImages(newImages)
-    setImagePreviews(newPreviews)
+  const handleStateChange = (state: string) => {
+    setFormData((prev) => ({ ...prev, state }))
+
+    if (formErrors.state) {
+      setFormErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors.state
+        return newErrors
+      })
+    }
+  }
+
+  const handleCityChange = (city: string) => {
+    setFormData((prev) => ({ ...prev, city }))
+
+    if (formErrors.city) {
+      setFormErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors.city
+        return newErrors
+      })
+    }
+  }
+
+  const handleImageChange = (url: string) => {
+    setFormData((prev) => ({ ...prev, image_url: url }))
+
+    if (formErrors.image_url) {
+      setFormErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors.image_url
+        return newErrors
+      })
+    }
+  }
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {}
+
+    // Validar campos obrigatórios
+    if (!formData.name) errors.name = "Nome do pet é obrigatório"
+    if (!formData.species) errors.species = "Espécie é obrigatória"
+    if (formData.species === "other" && !formData.species_other) errors.species_other = "Especifique a espécie"
+
+    if (!formData.breed) errors.breed = "Raça é obrigatória"
+    if (!formData.age) errors.age = "Idade é obrigatória"
+
+    if (!formData.gender) errors.gender = "Gênero é obrigatório"
+    if (formData.gender === "other" && !formData.gender_other) errors.gender_other = "Especifique o gênero"
+
+    if (!formData.size) errors.size = "Porte é obrigatório"
+    if (formData.size === "other" && !formData.size_other) errors.size_other = "Especifique o porte"
+
+    if (!formData.color) errors.color = "Cor é obrigatória"
+    if (formData.color === "other" && !formData.color_other) errors.color_other = "Especifique a cor"
+
+    if (!formData.description || formData.description.length < 10) {
+      errors.description = "Descrição deve ter pelo menos 10 caracteres"
+    }
+
+    if (!formData.state) errors.state = "Estado é obrigatório"
+    if (!formData.city) errors.city = "Cidade é obrigatória"
+    if (!formData.contact) errors.contact = "Contato é obrigatório"
+    if (!formData.image_url) errors.image_url = "Imagem do pet é obrigatória"
+
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("Formulário enviado", formData)
 
+    // Verificar se o usuário está autenticado
     if (!user) {
-      toast.error("Você precisa estar logado para cadastrar um pet")
-      router.push("/login")
+      onError?.("Usuário não autenticado")
       return
     }
 
-    // Validate required fields
-    if (
-      !formData.name ||
-      !formData.species ||
-      !formData.breed ||
-      !formData.city ||
-      !formData.state ||
-      !formData.contact_whatsapp
-    ) {
-      toast.error("Por favor, preencha todos os campos obrigatórios")
+    // Validar formulário
+    if (!validateForm()) {
+      console.log("Formulário inválido", formErrors)
+      onError?.("Por favor, preencha todos os campos obrigatórios.")
       return
     }
 
-    setLoading(true)
+    setIsSubmitting(true)
 
     try {
-      const result = await createAdoptionPet({
-        ...formData,
-        images,
-      })
+      // Adicionar localização formatada
+      const location = formData.city && formData.state ? `${formData.city}, ${formData.state}` : ""
 
-      if (result.success) {
-        toast.success("Pet cadastrado com sucesso!")
-        router.push("/dashboard")
+      // Preparar dados para envio, substituindo valores "other" pelos valores personalizados
+      const processedData = {
+        ...formData,
+        species: formData.species === "other" ? formData.species_other : formData.species,
+        size: formData.size === "other" ? formData.size_other : formData.size,
+        gender: formData.gender === "other" ? formData.gender_other : formData.gender,
+        color: formData.color === "other" ? formData.color_other : formData.color,
+        location,
+        ong_id: ongId,
+      }
+
+      console.log("Enviando dados para o servidor:", processedData)
+
+      // Preparar dados no formato PetFormUI
+      const petFormData = {
+        name: processedData.name,
+        species: processedData.species,
+        species_other: processedData.species_other,
+        breed: processedData.breed,
+        age: processedData.age,
+        size: processedData.size,
+        size_other: processedData.size_other,
+        gender: processedData.gender,
+        gender_other: processedData.gender_other,
+        color: processedData.color,
+        color_other: processedData.color_other,
+        description: processedData.description,
+        // CORREÇÃO: Passar image_url para main_image_url
+        main_image_url: processedData.image_url,
+        is_vaccinated: processedData.is_vaccinated,
+        is_castrated: processedData.is_neutered,
+        is_special_needs: !!processedData.special_needs,
+        special_needs_description: processedData.special_needs || null,
+        temperament: processedData.temperament || null,
+        energy_level: processedData.energy_level || null,
+        good_with_kids: false,
+        good_with_cats: false,
+        good_with_dogs: false,
+        city: processedData.city,
+        state: processedData.state,
+        whatsapp_contact: processedData.contact,
+        ong_id: processedData.ong_id,
+      }
+
+      // Enviar os dados usando a função client-side
+      const result = await createAdoptionPetClient(petFormData, user.id)
+
+      console.log("Resultado do cadastro:", result)
+
+      if (result.error) {
+        onError?.(result.error)
       } else {
-        toast.error(result.error || "Erro ao cadastrar pet")
+        setSubmitSuccess(true)
+        onSuccess?.()
+
+        // Aguardar 2 segundos antes de redirecionar
+        setTimeout(() => {
+          router.push("/ongs/dashboard")
+          router.refresh()
+        }, 2000)
       }
     } catch (error) {
-      console.error("Form submission error:", error)
-      toast.error("Erro ao cadastrar pet")
+      console.error("Erro ao cadastrar pet:", error)
+      onError?.("Erro ao cadastrar pet: " + (error instanceof Error ? error.message : String(error)))
     } finally {
-      setLoading(false)
+      setIsSubmitting(false)
     }
-  }
-
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Carregando...</span>
-      </div>
-    )
   }
 
   return (
-    <Card className="max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>Cadastrar Pet para Adoção</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="name">Nome do Pet *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => handleInputChange("name", e.target.value)}
-                required
-              />
-            </div>
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
+      {submitSuccess && (
+        <Alert className="bg-green-50 border-green-200 mb-4">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-700">
+            Pet cadastrado com sucesso! Você será redirecionado em instantes...
+          </AlertDescription>
+        </Alert>
+      )}
 
-            <div>
-              <Label htmlFor="species">Espécie *</Label>
-              <Select value={formData.species} onValueChange={(value) => handleInputChange("species", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a espécie" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="dog">Cachorro</SelectItem>
-                  <SelectItem value="cat">Gato</SelectItem>
-                  <SelectItem value="other">Outro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="space-y-4">
+        <div>
+          <Label htmlFor="name" className="flex">
+            Nome do Pet<span className="text-red-500 ml-1">*</span>
+          </Label>
+          <Input
+            id="name"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            placeholder="Ex: Rex"
+            required
+            className={formErrors.name ? "border-red-500" : ""}
+          />
+          {formErrors.name && <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>}
+        </div>
 
-            <div>
-              <Label htmlFor="breed">Raça *</Label>
-              <Input
-                id="breed"
-                value={formData.breed}
-                onChange={(e) => handleInputChange("breed", e.target.value)}
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="color">Cor *</Label>
-              <Input
-                id="color"
-                value={formData.color}
-                onChange={(e) => handleInputChange("color", e.target.value)}
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="size">Porte *</Label>
-              <Select value={formData.size} onValueChange={(value) => handleInputChange("size", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o porte" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="small">Pequeno</SelectItem>
-                  <SelectItem value="medium">Médio</SelectItem>
-                  <SelectItem value="large">Grande</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="gender">Sexo *</Label>
-              <Select value={formData.gender} onValueChange={(value) => handleInputChange("gender", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o sexo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">Macho</SelectItem>
-                  <SelectItem value="female">Fêmea</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="age">Idade</Label>
-              <Input
-                id="age"
-                value={formData.age}
-                onChange={(e) => handleInputChange("age", e.target.value)}
-                placeholder="Ex: 2 anos, 6 meses"
-              />
-            </div>
-          </div>
-
-          {/* Location */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="city">Cidade *</Label>
-              <Input
-                id="city"
-                value={formData.city}
-                onChange={(e) => handleInputChange("city", e.target.value)}
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="state">Estado *</Label>
-              <Select value={formData.state} onValueChange={(value) => handleInputChange("state", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  {BRAZILIAN_STATES.map((state) => (
-                    <SelectItem key={state.value} value={state.value}>
-                      {state.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Description */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="description">Descrição *</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleInputChange("description", e.target.value)}
-              placeholder="Descreva o temperamento, características especiais, etc."
+            <Label htmlFor="species" className="flex">
+              Espécie<span className="text-red-500 ml-1">*</span>
+            </Label>
+            <Select
+              name="species"
+              value={formData.species}
+              onValueChange={(value) => handleSelectChange("species", value)}
               required
-            />
-          </div>
+            >
+              <SelectTrigger className={formErrors.species ? "border-red-500" : ""}>
+                <SelectValue placeholder="Selecione a espécie" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dog">Cachorro</SelectItem>
+                <SelectItem value="cat">Gato</SelectItem>
+                <SelectItem value="bird">Pássaro</SelectItem>
+                <SelectItem value="rabbit">Coelho</SelectItem>
+                <SelectItem value="other">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+            {formErrors.species && <p className="text-red-500 text-sm mt-1">{formErrors.species}</p>}
 
-          {/* Special Needs */}
-          <div>
-            <Label htmlFor="special_needs">Necessidades Especiais</Label>
-            <Textarea
-              id="special_needs"
-              value={formData.special_needs}
-              onChange={(e) => handleInputChange("special_needs", e.target.value)}
-              placeholder="Medicamentos, cuidados especiais, etc."
-            />
-          </div>
-
-          {/* Contact Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="contact_whatsapp">WhatsApp *</Label>
-              <Input
-                id="contact_whatsapp"
-                value={formData.contact_whatsapp}
-                onChange={(e) => handleInputChange("contact_whatsapp", e.target.value)}
-                placeholder="(11) 99999-9999"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="contact_email">Email</Label>
-              <Input
-                id="contact_email"
-                type="email"
-                value={formData.contact_email}
-                onChange={(e) => handleInputChange("contact_email", e.target.value)}
-                placeholder="seu@email.com"
-              />
-            </div>
-          </div>
-
-          {/* Characteristics */}
-          <div className="space-y-4">
-            <Label>Características</Label>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="good_with_kids"
-                  checked={formData.good_with_kids}
-                  onCheckedChange={(checked) => handleInputChange("good_with_kids", checked as boolean)}
+            {formData.species === "other" && (
+              <div className="mt-2">
+                <Label htmlFor="species_other" className="flex">
+                  Especifique a espécie<span className="text-red-500 ml-1">*</span>
+                </Label>
+                <Input
+                  id="species_other"
+                  name="species_other"
+                  value={formData.species_other}
+                  onChange={handleChange}
+                  className={formErrors.species_other ? "border-red-500" : ""}
+                  required={formData.species === "other"}
                 />
-                <Label htmlFor="good_with_kids">Bom com crianças</Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="good_with_dogs"
-                  checked={formData.good_with_dogs}
-                  onCheckedChange={(checked) => handleInputChange("good_with_dogs", checked as boolean)}
-                />
-                <Label htmlFor="good_with_dogs">Bom com cães</Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="good_with_cats"
-                  checked={formData.good_with_cats}
-                  onCheckedChange={(checked) => handleInputChange("good_with_cats", checked as boolean)}
-                />
-                <Label htmlFor="good_with_cats">Bom com gatos</Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="vaccinated"
-                  checked={formData.vaccinated}
-                  onCheckedChange={(checked) => handleInputChange("vaccinated", checked as boolean)}
-                />
-                <Label htmlFor="vaccinated">Vacinado</Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="neutered"
-                  checked={formData.neutered}
-                  onCheckedChange={(checked) => handleInputChange("neutered", checked as boolean)}
-                />
-                <Label htmlFor="neutered">Castrado</Label>
-              </div>
-            </div>
-          </div>
-
-          {/* Image Upload */}
-          <div>
-            <Label htmlFor="images">Fotos do Pet (máximo 5)</Label>
-            <div className="mt-2">
-              <input
-                type="file"
-                id="images"
-                multiple
-                accept="image/*"
-                onChange={handleImageChange}
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => document.getElementById("images")?.click()}
-                className="w-full"
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Selecionar Fotos
-              </Button>
-            </div>
-
-            {imagePreviews.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-                {imagePreviews.map((preview, index) => (
-                  <div key={index} className="relative">
-                    <img
-                      src={preview || "/placeholder.svg"}
-                      alt={`Preview ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-2 right-2 h-6 w-6 p-0"
-                      onClick={() => removeImage(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                {formErrors.species_other && <p className="text-red-500 text-sm mt-1">{formErrors.species_other}</p>}
               </div>
             )}
           </div>
 
-          {/* Submit Button */}
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Cadastrando...
-              </>
-            ) : (
-              "Cadastrar Pet"
+          <div>
+            <Label htmlFor="breed" className="flex">
+              Raça<span className="text-red-500 ml-1">*</span>
+            </Label>
+            <Input
+              id="breed"
+              name="breed"
+              value={formData.breed}
+              onChange={handleChange}
+              placeholder="Ex: Vira-lata"
+              required
+              className={formErrors.breed ? "border-red-500" : ""}
+            />
+            {formErrors.breed && <p className="text-red-500 text-sm mt-1">{formErrors.breed}</p>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="age" className="flex">
+              Idade<span className="text-red-500 ml-1">*</span>
+            </Label>
+            <Select
+              name="age"
+              value={formData.age}
+              onValueChange={(value) => handleSelectChange("age", value)}
+              required
+            >
+              <SelectTrigger className={formErrors.age ? "border-red-500" : ""}>
+                <SelectValue placeholder="Selecione a idade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Filhote">Filhote</SelectItem>
+                <SelectItem value="Jovem">Jovem</SelectItem>
+                <SelectItem value="Adulto">Adulto</SelectItem>
+                <SelectItem value="Idoso">Idoso</SelectItem>
+              </SelectContent>
+            </Select>
+            {formErrors.age && <p className="text-red-500 text-sm mt-1">{formErrors.age}</p>}
+          </div>
+
+          <div>
+            <Label htmlFor="gender" className="flex">
+              Gênero<span className="text-red-500 ml-1">*</span>
+            </Label>
+            <Select
+              name="gender"
+              value={formData.gender}
+              onValueChange={(value) => handleSelectChange("gender", value)}
+              required
+            >
+              <SelectTrigger className={formErrors.gender ? "border-red-500" : ""}>
+                <SelectValue placeholder="Selecione o gênero" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Macho">Macho</SelectItem>
+                <SelectItem value="Fêmea">Fêmea</SelectItem>
+                <SelectItem value="other">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+            {formErrors.gender && <p className="text-red-500 text-sm mt-1">{formErrors.gender}</p>}
+
+            {formData.gender === "other" && (
+              <div className="mt-2">
+                <Label htmlFor="gender_other" className="flex">
+                  Especifique o gênero<span className="text-red-500 ml-1">*</span>
+                </Label>
+                <Input
+                  id="gender_other"
+                  name="gender_other"
+                  value={formData.gender_other}
+                  onChange={handleChange}
+                  className={formErrors.gender_other ? "border-red-500" : ""}
+                  required={formData.gender === "other"}
+                />
+                {formErrors.gender_other && <p className="text-red-500 text-sm mt-1">{formErrors.gender_other}</p>}
+              </div>
             )}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="size" className="flex">
+              Porte<span className="text-red-500 ml-1">*</span>
+            </Label>
+            <Select
+              name="size"
+              value={formData.size}
+              onValueChange={(value) => handleSelectChange("size", value)}
+              required
+            >
+              <SelectTrigger className={formErrors.size ? "border-red-500" : ""}>
+                <SelectValue placeholder="Selecione o porte" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Pequeno">Pequeno</SelectItem>
+                <SelectItem value="Médio">Médio</SelectItem>
+                <SelectItem value="Grande">Grande</SelectItem>
+                <SelectItem value="other">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+            {formErrors.size && <p className="text-red-500 text-sm mt-1">{formErrors.size}</p>}
+
+            {formData.size === "other" && (
+              <div className="mt-2">
+                <Label htmlFor="size_other" className="flex">
+                  Especifique o porte<span className="text-red-500 ml-1">*</span>
+                </Label>
+                <Input
+                  id="size_other"
+                  name="size_other"
+                  value={formData.size_other}
+                  onChange={handleChange}
+                  className={formErrors.size_other ? "border-red-500" : ""}
+                  required={formData.size === "other"}
+                />
+                {formErrors.size_other && <p className="text-red-500 text-sm mt-1">{formErrors.size_other}</p>}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="color" className="flex">
+              Cor<span className="text-red-500 ml-1">*</span>
+            </Label>
+            <Select
+              name="color"
+              value={formData.color}
+              onValueChange={(value) => handleSelectChange("color", value)}
+              required
+            >
+              <SelectTrigger className={formErrors.color ? "border-red-500" : ""}>
+                <SelectValue placeholder="Selecione a cor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Preto">Preto</SelectItem>
+                <SelectItem value="Branco">Branco</SelectItem>
+                <SelectItem value="Marrom">Marrom</SelectItem>
+                <SelectItem value="Cinza">Cinza</SelectItem>
+                <SelectItem value="Dourado">Dourado</SelectItem>
+                <SelectItem value="Malhado">Malhado</SelectItem>
+                <SelectItem value="Tricolor">Tricolor</SelectItem>
+                <SelectItem value="other">Outra</SelectItem>
+              </SelectContent>
+            </Select>
+            {formErrors.color && <p className="text-red-500 text-sm mt-1">{formErrors.color}</p>}
+
+            {formData.color === "other" && (
+              <div className="mt-2">
+                <Label htmlFor="color_other" className="flex">
+                  Especifique a cor<span className="text-red-500 ml-1">*</span>
+                </Label>
+                <Input
+                  id="color_other"
+                  name="color_other"
+                  value={formData.color_other}
+                  onChange={handleChange}
+                  className={formErrors.color_other ? "border-red-500" : ""}
+                  required={formData.color === "other"}
+                />
+                {formErrors.color_other && <p className="text-red-500 text-sm mt-1">{formErrors.color_other}</p>}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <SimpleLocationSelector
+          onStateChange={handleStateChange}
+          onCityChange={handleCityChange}
+          required={true}
+          initialState={formData.state}
+          initialCity={formData.city}
+        />
+        {formErrors.state && <p className="text-red-500 text-sm mt-1">{formErrors.state}</p>}
+        {formErrors.city && <p className="text-red-500 text-sm mt-1">{formErrors.city}</p>}
+
+        <div>
+          <Label htmlFor="contact" className="flex">
+            Contato (WhatsApp)<span className="text-red-500 ml-1">*</span>
+          </Label>
+          <Input
+            id="contact"
+            name="contact"
+            value={formData.contact}
+            onChange={handleChange}
+            placeholder="Ex: (11) 98765-4321"
+            required
+            className={formErrors.contact ? "border-red-500" : ""}
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Número de telefone ou WhatsApp para contato sobre este pet
+          </p>
+          {formErrors.contact && <p className="text-red-500 text-sm mt-1">{formErrors.contact}</p>}
+        </div>
+
+        <div>
+          <Label htmlFor="description" className="flex">
+            Descrição do Pet<span className="text-red-500 ml-1">*</span>
+          </Label>
+          <Textarea
+            id="description"
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            placeholder="Descreva o pet, sua personalidade, história, etc."
+            className={`min-h-32 ${formErrors.description ? "border-red-500" : ""}`}
+            required
+          />
+          {formErrors.description && <p className="text-red-500 text-sm mt-1">{formErrors.description}</p>}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="is_vaccinated"
+              checked={formData.is_vaccinated}
+              onCheckedChange={(checked) => handleCheckboxChange("is_vaccinated", checked === true)}
+            />
+            <Label htmlFor="is_vaccinated" className="cursor-pointer">
+              Vacinado
+            </Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="is_neutered"
+              checked={formData.is_neutered}
+              onCheckedChange={(checked) => handleCheckboxChange("is_neutered", checked === true)}
+            />
+            <Label htmlFor="is_neutered" className="cursor-pointer">
+              Castrado
+            </Label>
+          </div>
+        </div>
+
+        <div>
+          <Label htmlFor="special_needs">Necessidades Especiais</Label>
+          <Textarea
+            id="special_needs"
+            name="special_needs"
+            value={formData.special_needs}
+            onChange={handleChange}
+            placeholder="Descreva se o pet tem alguma necessidade especial, condição médica, etc."
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="temperament">Temperamento</Label>
+            <Select
+              name="temperament"
+              value={formData.temperament}
+              onValueChange={(value) => handleSelectChange("temperament", value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o temperamento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Calmo">Calmo</SelectItem>
+                <SelectItem value="Equilibrado">Equilibrado</SelectItem>
+                <SelectItem value="Ativo">Ativo</SelectItem>
+                <SelectItem value="Brincalhão">Brincalhão</SelectItem>
+                <SelectItem value="Tímido">Tímido</SelectItem>
+                <SelectItem value="Protetor">Protetor</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="energy_level">Nível de Energia</Label>
+            <RadioGroup
+              value={formData.energy_level}
+              onValueChange={(value) => handleSelectChange("energy_level", value)}
+              className="flex space-x-4 mt-2"
+            >
+              <div className="flex items-center space-x-1">
+                <RadioGroupItem value="Baixo" id="energy_low" />
+                <Label htmlFor="energy_low" className="cursor-pointer font-normal">
+                  Baixo
+                </Label>
+              </div>
+              <div className="flex items-center space-x-1">
+                <RadioGroupItem value="Médio" id="energy_medium" />
+                <Label htmlFor="energy_medium" className="cursor-pointer font-normal">
+                  Médio
+                </Label>
+              </div>
+              <div className="flex items-center space-x-1">
+                <RadioGroupItem value="Alto" id="energy_high" />
+                <Label htmlFor="energy_high" className="cursor-pointer font-normal">
+                  Alto
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+        </div>
+
+        <div>
+          <Label className="flex">
+            Foto do Pet<span className="text-red-500 ml-1">*</span>
+          </Label>
+          <ImageUpload value={formData.image_url} onChange={handleImageChange} required folder="pets_adoption" />
+          <p className="text-xs text-muted-foreground mt-1">
+            Esta será a imagem principal exibida nos resultados de busca.
+          </p>
+          {formErrors.image_url && <p className="text-red-500 text-sm mt-1">{formErrors.image_url}</p>}
+        </div>
+      </div>
+
+      <div className="flex justify-end space-x-4">
+        <Button type="button" variant="outline" onClick={() => router.back()}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Cadastrando..." : "Cadastrar Pet"}
+        </Button>
+      </div>
+    </form>
   )
 }
-
-export default AdoptionPetForm

@@ -1,20 +1,28 @@
 "use client"
 
+import type React from "react"
 import { useAuth } from "@/app/auth-provider"
-import type { ReactNode } from "react"
 import { Loader2 } from "lucide-react"
 
 interface AuthCheckProps {
-  children: ReactNode
-  fallback?: ReactNode
+  children: React.ReactNode
+  fallback?: React.ReactNode
   requireAuth?: boolean
-  loadingComponent?: ReactNode
+  loadingComponent?: React.ReactNode
+  allowedUserTypes?: string[]
 }
 
-export function AuthCheck({ children, fallback = null, requireAuth = false, loadingComponent }: AuthCheckProps) {
-  const { user, loading } = useAuth()
+export function AuthCheck({
+  children,
+  fallback,
+  requireAuth = false,
+  loadingComponent,
+  allowedUserTypes,
+}: AuthCheckProps) {
+  const { user, isLoading, isInitialized } = useAuth()
 
-  if (loading) {
+  // Show loading state while initializing
+  if (!isInitialized || isLoading) {
     return (
       loadingComponent || (
         <div className="flex items-center justify-center p-4">
@@ -24,14 +32,15 @@ export function AuthCheck({ children, fallback = null, requireAuth = false, load
     )
   }
 
-  if (requireAuth && !user) {
-    return <>{fallback}</>
+  // Check user type requirements
+  const hasValidUserType = !allowedUserTypes || (user?.type && allowedUserTypes.includes(user.type))
+
+  // If auth is required and user is not authenticated or doesn't have valid type
+  if (requireAuth && (!user || !hasValidUserType)) {
+    return fallback || null
   }
 
-  if (!requireAuth && !user) {
-    return <>{fallback}</>
-  }
-
+  // If auth is not required or user is authenticated with valid type
   return <>{children}</>
 }
 
