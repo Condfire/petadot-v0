@@ -5,267 +5,29 @@ import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/app/auth-provider"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { withRetry, isRateLimitError } from "@/lib/api-helpers"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { MenuIcon, PawPrintIcon } from "lucide-react"
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userEmail, setUserEmail] = useState("")
   const { theme, setTheme } = useTheme()
-  const { user, signOut, loading } = useAuth()
-  const supabase = createClientComponentClient()
+  const { user, signOut, loading, isInitialized } = useAuth() // Get isInitialized from useAuth
 
   // Construir a URL do logo do bucket do Supabase
   const logoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/sppetadot/logo/logo.png`
 
-  // Vamos melhorar a verificação de autenticação no Navbar
-
-  // Substitua o useEffect de verificação de autenticação pelo seguinte:
+  // Simplify auth check to rely on useAuth context
   useEffect(() => {
-    // Função para verificar autenticação
-    const checkAuth = async () => {
-      try {
-        console.log("Navbar: Verificando autenticação...")
-
-        // Obter sessão com retry
-        const {
-          data: { session },
-          error: sessionError,
-        } = await withRetry(() => supabase.auth.getSession(), {
-          onRetry: (attempt, error, delay) => {
-            console.warn(
-              `Navbar: Erro de limitação de taxa ao verificar sessão. Tentando novamente em ${delay}ms (tentativa ${attempt})`,
-              error,
-            )
-          },
-        })
-
-        if (sessionError) {
-          console.error("Navbar: Erro ao verificar sessão:", sessionError)
-          setIsAuthenticated(false)
-          setUserEmail("")
-          setIsAdmin(false)
-          return
-        }
-
-        if (session) {
-          console.log("Navbar: Usuário autenticado:", session.user.id)
-          setIsAuthenticated(true)
-          setUserEmail(session.user.email || "")
-
-          // Verificar se o usuário é admin
-          try {
-            // Verificar status de admin com retry
-            const { data, error } = await withRetry(
-              () => supabase.from("users").select("is_admin").eq("id", session.user.id).maybeSingle(),
-              {
-                onRetry: (attempt, error, delay) => {
-                  console.warn(
-                    `Navbar: Erro de limitação de taxa ao verificar status de admin. Tentando novamente em ${delay}ms (tentativa ${attempt})`,
-                    error,
-                  )
-                },
-              },
-            )
-
-            if (error) {
-              // Verificar se é um erro de limitação de taxa
-              if (isRateLimitError(error)) {
-                console.warn(
-                  "Navbar: Erro de limitação de taxa ao verificar status de admin. Tentaremos novamente mais tarde.",
-                )
-              } else {
-                console.error("Navbar: Erro ao verificar status de admin:", error.message)
-              }
-            } else if (data) {
-              // Log do valor bruto e seu tipo
-              console.log("Navbar: Status de admin (raw):", data.is_admin, typeof data.is_admin)
-
-              // Converter para boolean explicitamente e registrar
-              const isAdminBool = data.is_admin === true || data.is_admin === "true" || data.is_admin === 1
-              console.log("Navbar: Status de admin (converted):", isAdminBool)
-
-              setIsAdmin(isAdminBool)
-            }
-          } catch (error) {
-            // Tratar erros de forma mais robusta
-            if (isRateLimitError(error)) {
-              console.warn(
-                "Navbar: Erro de limitação de taxa ao verificar status de admin. Tentaremos novamente mais tarde.",
-                error,
-              )
-            } else {
-              console.error("Navbar: Erro ao verificar status de admin:", error)
-            }
-          }
-        } else {
-          console.log("Navbar: Usuário não autenticado")
-          setIsAuthenticated(false)
-          setUserEmail("")
-          setIsAdmin(false)
-        }
-      } catch (error) {
-        // Tratar erros de forma mais robusta
-        if (isRateLimitError(error)) {
-          console.warn(
-            "Navbar: Erro de limitação de taxa ao verificar autenticação. Tentaremos novamente mais tarde.",
-            error,
-          )
-        } else {
-          console.error("Navbar: Erro ao verificar autenticação:", error)
-        }
-
-        setIsAuthenticated(false)
-        setUserEmail("")
-        setIsAdmin(false)
-      }
+    if (isInitialized) {
+      // Ensure auth context has finished its initial load
+      setIsAuthenticated(!!user)
+      setUserEmail(user?.email || "")
     }
-
-    // Verificar autenticação inicialmente
-    checkAuth()
-
-    // Configurar listener para mudanças de autenticação
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Navbar: Evento de autenticação:", event)
-
-      if (event === "SIGNED_OUT") {
-        console.log("Navbar: Usuário desconectado")
-        setIsAuthenticated(false)
-        setUserEmail("")
-        setIsAdmin(false)
-        return
-      }
-
-      if (session) {
-        console.log("Navbar: Usuário autenticado (listener):", session.user.id)
-        setIsAuthenticated(true)
-        setUserEmail(session.user.email || "")
-
-        // Verificar se o usuário é admin
-        try {
-          // Verificar status de admin com retry
-          const { data, error } = await withRetry(
-            () => supabase.from("users").select("is_admin").eq("id", session.user.id).maybeSingle(),
-            {
-              onRetry: (attempt, error, delay) => {
-                console.warn(
-                  `Navbar: Erro de limitação de taxa ao verificar status de admin (listener). Tentando novamente em ${delay}ms (tentativa ${attempt})`,
-                  error,
-                )
-              },
-            },
-          )
-
-          if (error) {
-            // Verificar se é um erro de limitação de taxa
-            if (isRateLimitError(error)) {
-              console.warn(
-                "Navbar: Erro de limitação de taxa ao verificar status de admin (listener). Tentaremos novamente mais tarde.",
-              )
-            } else {
-              console.error("Navbar: Erro ao verificar status de admin (listener):", error.message)
-            }
-          } else if (data) {
-            // Log do valor bruto e seu tipo
-            console.log("Navbar: Status de admin (listener raw):", data.is_admin, typeof data.is_admin)
-
-            // Converter para boolean explicitamente e registrar
-            const isAdminBool = data.is_admin === true || data.is_admin === "true" || data.is_admin === 1
-            console.log("Navbar: Status de admin (listener converted):", isAdminBool)
-
-            setIsAdmin(isAdminBool)
-          }
-        } catch (error) {
-          // Tratar erros de forma mais robusta
-          if (isRateLimitError(error)) {
-            console.warn(
-              "Navbar: Erro de limitação de taxa ao verificar status de admin (listener). Tentaremos novamente mais tarde.",
-              error,
-            )
-          } else {
-            console.error("Navbar: Erro ao verificar status de admin (listener):", error)
-          }
-        }
-      } else if (event !== "TOKEN_REFRESHED") {
-        console.log("Navbar: Usuário não autenticado (listener)")
-        setIsAuthenticated(false)
-        setUserEmail("")
-        setIsAdmin(false)
-      }
-    })
-
-    // Verificar autenticação quando a visibilidade da página muda
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        console.log("Navbar: Página visível, verificando autenticação...")
-        checkAuth()
-      }
-    }
-
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-
-    // Cleanup function
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-      if (authListener && authListener.subscription) {
-        authListener.subscription.unsubscribe()
-      }
-    }
-  }, [supabase])
-
-  // Usar o estado local em vez de depender apenas do contexto useAuth
-  useEffect(() => {
-    if (user) {
-      setIsAuthenticated(true)
-      setUserEmail(user.email || "")
-
-      // Verificar se o usuário é admin quando o contexto de autenticação muda
-      const checkAdminStatus = async () => {
-        try {
-          // Verificar status de admin com retry
-          const { data, error } = await withRetry(
-            () => supabase.from("users").select("is_admin").eq("id", user.id).single(),
-            {
-              onRetry: (attempt, error, delay) => {
-                console.warn(
-                  `Navbar: Erro de limitação de taxa ao verificar status de admin (useAuth). Tentando novamente em ${delay}ms (tentativa ${attempt})`,
-                  error,
-                )
-              },
-            },
-          )
-
-          if (!error && data) {
-            console.log("Navbar: Status de admin (useAuth raw):", data.is_admin, typeof data.is_admin)
-
-            // Convert to boolean explicitly and log
-            const isAdminBool = data.is_admin === true || data.is_admin === "true" || data.is_admin === 1
-            console.log("Navbar: Status de admin (useAuth converted):", isAdminBool)
-
-            setIsAdmin(isAdminBool)
-          }
-        } catch (error) {
-          // Tratar erros de forma mais robusta
-          if (isRateLimitError(error)) {
-            console.warn(
-              "Navbar: Erro de limitação de taxa ao verificar status de admin (useAuth). Tentaremos novamente mais tarde.",
-              error,
-            )
-          } else {
-            console.error("Navbar: Erro ao verificar status de admin:", error)
-          }
-        }
-      }
-
-      checkAdminStatus()
-    }
-  }, [user, supabase])
+  }, [user, isInitialized]) // Depend on user and isInitialized from useAuth
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
@@ -283,7 +45,6 @@ export default function Navbar() {
       // Atualizar estado local imediatamente para feedback visual
       setIsAuthenticated(false)
       setUserEmail("")
-      setIsAdmin(false)
       setIsMenuOpen(false)
 
       // Limpar cookies e localStorage relacionados à autenticação
@@ -328,7 +89,6 @@ export default function Navbar() {
       // Mesmo com erro, atualizar estado local
       setIsAuthenticated(false)
       setUserEmail("")
-      setIsAdmin(false)
       setIsMenuOpen(false)
 
       // Forçar redirecionamento para a página inicial
@@ -387,7 +147,7 @@ export default function Navbar() {
           </Link>
         </nav>
         <div className="flex items-center gap-2">
-          {loading ? (
+          {loading || !isInitialized ? ( // Show loading until auth context is initialized
             <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
           ) : user ? (
             <DropdownMenu>
@@ -395,7 +155,7 @@ export default function Navbar() {
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user.avatar_url || "/placeholder-user.jpg"} alt={user.name || "User"} />
-                    <AvatarFallback>{user.name ? user.name[0] : user.email[0]}</AvatarFallback>
+                    <AvatarFallback>{user.name ? user.name[0] : user.email ? user.email[0] : "U"}</AvatarFallback>
                   </Avatar>
                   <span className="sr-only">Toggle user menu</span>
                 </Button>
@@ -411,21 +171,21 @@ export default function Navbar() {
                     Perfil
                   </Link>
                 </DropdownMenuItem>
-                {user.type === "admin" && (
+                {user.user_type === "admin" && ( // Use user.user_type
                   <DropdownMenuItem>
                     <Link href="/admin/dashboard" className="w-full">
                       Painel Admin
                     </Link>
                   </DropdownMenuItem>
                 )}
-                {user.type === "ngo_admin" && (
+                {user.user_type === "ngo_admin" && ( // Use user.user_type
                   <DropdownMenuItem>
                     <Link href="/ongs/dashboard" className="w-full">
                       Painel ONG
                     </Link>
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem onClick={signOut}>Sair</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSignOut}>Sair</DropdownMenuItem> {/* Call handleSignOut */}
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (

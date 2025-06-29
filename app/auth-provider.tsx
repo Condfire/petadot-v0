@@ -5,14 +5,17 @@ import type { User, Session } from "@supabase/supabase-js"
 import { createClientComponentClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import type { UserProfile } from "@/lib/types" // Import UserProfile
 
 interface AuthContextType {
-  user: User | null
+  user: UserProfile | null // Use UserProfile here
   session: Session | null
   loading: boolean
-  signInWithGoogle: () => Promise<void>
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }> // Added signIn method
+  signInWithGoogle: () => Promise<{ success: boolean; error?: string }> // Updated return type
   signOut: () => Promise<void>
   refreshSession: () => Promise<void>
+  isInitialized: boolean // Added isInitialized
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -36,57 +39,133 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<UserProfile | null>(null) // Change type here
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isInitialized, setIsInitialized] = useState(false) // Add isInitialized state
   const router = useRouter()
   const supabase = createClientComponentClient()
 
   // Sync user profile with database
-  const syncUserProfile = async (user: User) => {
+  const syncUserProfile = async (supabaseUser: User): Promise<UserProfile | null> => {
     try {
-      const { data: existingUser } = await supabase.from("users").select("*").eq("id", user.id).single()
+      const { data: existingUser, error: fetchError } = await supabase
+        .from("users")
+        .select("id, email, name, avatar_url, provider, email_verified, user_type, created_at, updated_at")
+        .eq("id", supabaseUser.id)
+        .single()
+
+      if (fetchError && fetchError.code !== "PGRST116") {
+        // PGRST116 means no rows found
+        console.error("Error fetching user profile:", fetchError)
+        return null // Indicate failure
+      }
+
+      let userProfileDataFromDB: {
+        id: string
+        email: string
+        name: string | null
+        avatar_url: string | null
+        provider: string
+        email_verified: boolean
+        user_type: "regular" | "admin" | "ngo_admin" | null
+        created_at: string
+        updated_at: string
+      }
 
       if (!existingUser) {
         // Create new user profile
-        const { error } = await supabase.from("users").insert({
-          id: user.id,
-          email: user.email!,
-          name: user.user_metadata?.full_name || user.user_metadata?.name || "",
-          avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || "",
-          provider: user.app_metadata?.provider || "email",
-          email_verified: user.email_confirmed_at ? true : false,
-          user_type: "regular",
+        const newUserProfile = {
+          id: supabaseUser.id,
+          email: supabaseUser.email!,
+          name: supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || "",
+          avatar_url: supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture || "",
+          provider: supabaseUser.app_metadata?.provider || "email",
+          email_verified: supabaseUser.email_confirmed_at ? true : false,
+          user_type: "regular" as const, // Default type
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        })
-
-        if (error) {
-          console.error("Error creating user profile:", error)
         }
+        const { data: insertedUser, error: insertError } = await supabase
+          .from("users")
+          .insert(newUserProfile)
+          .select()
+          .single()
+
+        if (insertError) {
+          console.error("Error creating user profile:", insertError)
+          return null
+        }
+        userProfileDataFromDB = insertedUser
       } else {
         // Update existing user profile
-        const { error } = await supabase
-          .from("users")
-          .update({
-            name: user.user_metadata?.full_name || user.user_metadata?.name || existingUser.name,
-            avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || existingUser.avatar_url,
-            email_verified: user.email_confirmed_at ? true : false,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", user.id)
-
-        if (error) {
-          console.error("Error updating user profile:", error)
+        const updatedFields = {
+          name: supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || existingUser.name,
+          avatar_url:
+            supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture || existingUser.avatar_url,
+          email_verified: supabaseUser.email_confirmed_at ? true : false,
+          updated_at: new Date().toISOString(),
         }
+        const { data: updatedUser, error: updateError } = await supabase
+          .from("users")
+          .update(updatedFields)
+          .eq("id", supabaseUser.id)
+          .select()
+          .single()
+
+        if (updateError) {
+          console.error("Error updating user profile:", updateError)
+          return null
+        }
+        userProfileDataFromDB = updatedUser
+      }
+
+      // Merge Supabase User object with our custom user profile data
+      return {
+        ...supabaseUser,
+        ...userProfileDataFromDB, // This will overwrite common fields like id, email, name, avatar_url
+        user_type: userProfileDataFromDB.user_type,
       }
     } catch (error) {
       console.error("Error syncing user profile:", error)
+      return null
+    }
+  }
+
+  // Sign in with email and password
+  const signIn = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    setLoading(true)
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+
+      if (error) {
+        console.error("Email/password sign in error:", error)
+        return { success: false, error: error.message }
+      }
+
+      if (data.user) {
+        const profile = await syncUserProfile(data.user)
+        if (profile) {
+          setUser(profile)
+          setSession(data.session)
+          toast.success("Login realizado com sucesso!")
+          router.push("/dashboard") // Redirect after successful login
+          return { success: true }
+        } else {
+          return { success: false, error: "Erro ao carregar perfil do usuário." }
+        }
+      }
+      return { success: false, error: "Nenhum usuário retornado." }
+    } catch (error: any) {
+      console.error("Email/password sign in error:", error)
+      return { success: false, error: error.message || "Ocorreu um erro inesperado." }
+    } finally {
+      setLoading(false)
     }
   }
 
   // Sign in with Google
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
     try {
       setLoading(true)
       const { error } = await supabase.auth.signInWithOAuth({
@@ -103,10 +182,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (error) {
         console.error("Google sign in error:", error)
         toast.error("Erro ao fazer login com Google")
+        return { success: false, error: error.message }
       }
-    } catch (error) {
+      return { success: true } // OAuth redirect handles the rest
+    } catch (error: any) {
       console.error("Google sign in error:", error)
       toast.error("Erro ao fazer login com Google")
+      return { success: false, error: error.message || "Ocorreu um erro inesperado." }
     } finally {
       setLoading(false)
     }
@@ -147,7 +229,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (data.session) {
         setSession(data.session)
-        setUser(data.session.user)
+        const profile = await syncUserProfile(data.session.user)
+        setUser(profile)
       }
     } catch (error) {
       console.error("Session refresh error:", error)
@@ -172,18 +255,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         if (mounted) {
           setSession(session)
-          setUser(session?.user ?? null)
-
           if (session?.user) {
-            await syncUserProfile(session.user)
+            const profile = await syncUserProfile(session.user)
+            setUser(profile)
+          } else {
+            setUser(null)
           }
-
           setLoading(false)
+          setIsInitialized(true) // Mark as initialized
         }
       } catch (error) {
         console.error("Auth initialization error:", error)
         if (mounted) {
           setLoading(false)
+          setIsInitialized(true) // Mark as initialized even on error
         }
       }
     }
@@ -199,17 +284,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log("Auth state changed:", event, session?.user?.email)
 
       setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
+      setLoading(false) // Set loading to false on any auth state change
 
-      if (session?.user && event === "SIGNED_IN") {
-        await syncUserProfile(session.user)
-        toast.success("Login realizado com sucesso!")
+      if (session?.user) {
+        const profile = await syncUserProfile(session.user)
+        setUser(profile)
+        if (event === "SIGNED_IN") {
+          toast.success("Login realizado com sucesso!")
+        }
+      } else {
+        setUser(null)
       }
 
       if (event === "SIGNED_OUT") {
-        setUser(null)
-        setSession(null)
+        // No need to set user/session to null here, it's handled by the else block above
       }
     })
 
@@ -242,9 +330,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     user,
     session,
     loading,
+    signIn, // Add signIn
     signInWithGoogle,
     signOut,
     refreshSession,
+    isInitialized, // Add isInitialized
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

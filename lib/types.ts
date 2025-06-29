@@ -45,3 +45,17 @@ export type PetFormUI = {
   found_location?: string | null
   current_location?: string | null
 }
+
+import type { User } from "@supabase/supabase-js"
+
+export interface UserProfile extends User {
+  user_type?: "regular" | "admin" | "ngo_admin" | null
+  name?: string | null
+  avatar_url?: string | null
+}
+
+// Add other existing types here if they were in the original lib/types.ts
+// For example:
+// export type PetStatus = "lost" | "found" | "for_adoption";
+// export interface Pet { /* ... */ }
+// etc.
