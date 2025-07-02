@@ -193,7 +193,7 @@ export default function PopulateSlugsUtility() {
       // Update each event with a slug
       for (const event of events || []) {
         try {
-          const slug = await generateEventSlug(event.name || "evento", event.city, event.state, event.id)
+          const slug = await generateEventSlug(event.title || "evento", event.city, event.state, event.id)
 
           const { error: updateError } = await supabase.from("events").update({ slug }).eq("id", event.id)
 

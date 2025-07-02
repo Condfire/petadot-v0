@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -18,24 +18,19 @@ export default function OngDashboardPage() {
   const [events, setEvents] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const urlError = searchParams.get("error")
-  const urlSuccess = searchParams.get("success")
 
   useEffect(() => {
     async function loadOngData() {
       try {
         // Verificar se o usuário está autenticado
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+        const { data: session } = await supabase.auth.getSession()
 
-        if (!session) {
+        if (!session.session) {
           router.push("/ongs/login?message=Faça login para acessar o dashboard")
           return
         }
 
-        const userId = session.user.id
+        const userId = session.session.user.id
 
         // Buscar dados da ONG
         const { data: ongData, error: ongError } = await supabase
@@ -71,7 +66,7 @@ export default function OngDashboardPage() {
           .from("events")
           .select("*")
           .eq("ong_id", ongData.id)
-          .order("start_date", { ascending: true })
+          .order("date", { ascending: true }) // Alterado de event_date para date
 
         if (eventsError) {
           console.error("Erro ao buscar eventos:", eventsError)
@@ -137,18 +132,6 @@ export default function OngDashboardPage() {
         </div>
       </div>
 
-      {urlSuccess && (
-        <Alert className="mb-6 bg-green-50 border-green-200">
-          <AlertDescription className="text-green-800">{urlSuccess}</AlertDescription>
-        </Alert>
-      )}
-
-      {urlError && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertDescription>{urlError}</AlertDescription>
-        </Alert>
-      )}
-
       {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertDescription>{error}</AlertDescription>
@@ -199,12 +182,7 @@ export default function OngDashboardPage() {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <CardTitle>Pets para Adoção</CardTitle>
-                  <Button
-                    onClick={() => {
-                      console.log("Clicando para cadastrar pet...")
-                      router.push("/ongs/dashboard/pets/cadastrar")
-                    }}
-                  >
+                  <Button onClick={() => router.push("/ongs/dashboard/pets/cadastrar")}>
                     <Plus className="mr-2 h-4 w-4" />
                     Cadastrar Pet
                   </Button>
@@ -218,7 +196,7 @@ export default function OngDashboardPage() {
                       <div key={pet.id} className="flex items-center gap-4 p-3 rounded-md border">
                         <div className="relative h-16 w-16 rounded-md overflow-hidden">
                           <Image
-                            src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=64&width=64&query=pet"}
+                            src={pet.image_url || "/placeholder.svg?height=64&width=64&query=pet"}
                             alt={pet.name}
                             fill
                             className="object-cover"
@@ -257,13 +235,7 @@ export default function OngDashboardPage() {
                     <p className="mt-2 text-sm text-muted-foreground">
                       Cadastre pets para adoção para que eles apareçam aqui.
                     </p>
-                    <Button
-                      className="mt-4"
-                      onClick={() => {
-                        console.log("Clicando para cadastrar pet (sem pets)...")
-                        router.push("/ongs/dashboard/pets/cadastrar")
-                      }}
-                    >
+                    <Button className="mt-4" onClick={() => router.push("/ongs/dashboard/pets/cadastrar")}>
                       Cadastrar Pet
                     </Button>
                   </div>
@@ -291,14 +263,14 @@ export default function OngDashboardPage() {
                         <div className="relative h-16 w-16 rounded-md overflow-hidden">
                           <Image
                             src={event.image_url || "/placeholder.svg?height=64&width=64&query=event"}
-                            alt={event.name}
+                            alt={event.title || event.name}
                             fill
                             className="object-cover"
                           />
                         </div>
                         <div className="flex-grow">
-                          <h3 className="font-medium">{event.name}</h3>
-                          <p className="text-sm text-muted-foreground">{formatEventDate(event.start_date)}</p>
+                          <h3 className="font-medium">{event.title || event.name}</h3>
+                          <p className="text-sm text-muted-foreground">{formatEventDate(event.date)}</p>
                           <div className="text-xs mt-1 inline-block px-2 py-0.5 rounded-full bg-gray-100">
                             Status:{" "}
                             {event.status === "approved"

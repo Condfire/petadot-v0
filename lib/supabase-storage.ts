@@ -53,9 +53,9 @@ export async function ensureBucketExists(): Promise<boolean> {
 export async function checkStoragePermissions(): Promise<boolean> {
   try {
     const supabase = createClientComponentClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: session } = await supabase.auth.getSession()
 
-    if (!session) {
+    if (!session.session) {
       return false
     }
 

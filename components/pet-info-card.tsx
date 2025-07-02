@@ -1,70 +1,63 @@
-import type React from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { mapPetSpecies, mapPetSize, mapPetGender, mapPetColor } from "@/lib/utils"
-import type { Pet } from "@/lib/types"
-import { cn } from "@/lib/utils"
+import { Calendar, MapPin, Tag } from "lucide-react"
 
-interface PetInfoCardProps extends React.HTMLAttributes<HTMLDivElement> {
-  pet: Pet | null | undefined
+interface PetInfoCardProps {
+  species: string
+  breed?: string | null
+  age?: string | null
+  gender?: string | null
+  size?: string | null
+  color?: string | null
+  location?: string | null
+  date?: string
+  className?: string
 }
 
-export const PetInfoCard = ({ pet, className, ...props }: PetInfoCardProps) => {
-  // Handle case where pet is null or undefined
-  if (!pet) {
-    return (
-      <Card className={cn("w-full", className)} {...props}>
-        <CardContent className="p-4">
-          <p className="text-muted-foreground">Informações do pet não disponíveis</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  // Safely map pet properties with fallbacks
-  const speciesText = mapPetSpecies(pet.species, pet.species_other) || "Não informada"
-  const sizeText = mapPetSize(pet.size, pet.size_other) || "Não informado"
-  const genderText = mapPetGender(pet.gender, pet.gender_other) || "Não informado"
-  const colorText = mapPetColor(pet.color) || "Não informada"
-  const location = pet.city && pet.state ? `${pet.city}, ${pet.state}` : pet.city || pet.state || "Não informada"
-
+export function PetInfoCard({ species, breed, age, gender, size, color, location, date, className }: PetInfoCardProps) {
   return (
-    <Card className={cn("w-full", className)} {...props}>
-      <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-        <div className="flex items-center">
-          <span className="font-medium w-24">Espécie:</span>
-          <span>{speciesText}</span>
+    <div className={`bg-muted p-4 rounded-lg ${className}`}>
+      <h3 className="text-lg font-semibold mb-4">Informações do Pet</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <InfoItem label="Espécie" value={species} />
+          {breed && <InfoItem label="Raça" value={breed} />}
+          {age && <InfoItem label="Idade" value={age} />}
+          {gender && <InfoItem label="Gênero" value={gender} />}
         </div>
-        <div className="flex items-center">
-          <span className="font-medium w-24">Raça:</span>
-          <span>{pet.breed || "Não informada"}</span>
+
+        <div className="space-y-2">
+          {size && <InfoItem label="Porte" value={size} />}
+          {color && <InfoItem label="Cor" value={color} />}
+          {location && (
+            <div className="flex items-start gap-2">
+              <MapPin className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+              <div>
+                <span className="font-medium">Localização:</span>
+                <p className="text-sm">{location}</p>
+              </div>
+            </div>
+          )}
+          {date && (
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <span className="font-medium">Data:</span> {date}
+              </div>
+            </div>
+          )}
         </div>
-        <div className="flex items-center">
-          <span className="font-medium w-24">Idade:</span>
-          <span>{pet.age || "Não informada"}</span>
-        </div>
-        <div className="flex items-center">
-          <span className="font-medium w-24">Porte:</span>
-          <span>{sizeText}</span>
-        </div>
-        <div className="flex items-center">
-          <span className="font-medium w-24">Gênero:</span>
-          <span>{genderText}</span>
-        </div>
-        <div className="flex items-center">
-          <span className="font-medium w-24">Cor:</span>
-          <span>{colorText}</span>
-        </div>
-        <div className="flex items-center sm:col-span-2">
-          <span className="font-medium w-24">Localização:</span>
-          <span>{location}</span>
-        </div>
-        {pet.special_needs && (
-          <div className="flex items-start sm:col-span-2">
-            <span className="font-medium w-24">Necessidades Especiais:</span>
-            <span>{pet.special_needs}</span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
+  )
+}
+
+function InfoItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Tag className="h-5 w-5 text-muted-foreground" />
+      <div>
+        <span className="font-medium">{label}:</span> {value}
+      </div>
+    </div>
   )
 }

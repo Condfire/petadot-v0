@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { Suspense } from "react"
 import AdocaoClientPage from "./AdocaoClientPage"
-import { getPetsForAdoption } from "@/lib/supabase" // Assumindo que esta função existe e busca os pets
+import { getPetsForAdoption } from "@/lib/supabase"
 
 export const metadata: Metadata = {
   title: "Adoção | PetAdot",
@@ -22,7 +22,6 @@ interface AdocaoPageProps {
     state?: string
     city?: string
     search?: string
-    isSpecialNeeds?: string // Adicionado para filtro
   }
 }
 
@@ -43,16 +42,10 @@ export default async function AdocaoPage({ searchParams }: AdocaoPageProps) {
     state: searchParams.state || "",
     city: searchParams.city || "",
     search: searchParams.search || "",
-    isSpecialNeeds: searchParams.isSpecialNeeds === "true", // Converter para boolean
   }
 
   // Buscar pets para adoção com paginação e filtros
   const petsResult = await getPetsForAdoption(validPage, validPageSize, filters)
-
-  console.log(
-    `[AdocaoPage] Fetched initial pets: ${petsResult.data.length}. Total: ${petsResult.total}. Page: ${petsResult.page}`,
-  )
-  petsResult.data.forEach((p) => console.log(`[AdocaoPage] Initial Pet ${p.id}: main_image_url=${p.main_image_url}`))
 
   return (
     <Suspense fallback={<div className="container py-12 text-center">Carregando...</div>}>

@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { generateEntitySlug } from "@/lib/slug-utils"
@@ -8,7 +8,7 @@ import { generateEntitySlug } from "@/lib/slug-utils"
 // Função para verificar conteúdo contra palavras-chave bloqueadas
 async function checkContentForBlockedKeywords(
   content: string,
-  supabaseClient: ReturnType<typeof createServerActionClient>,
+  supabaseClient: ReturnType<typeof createServerComponentClient>,
 ): Promise<{ blocked: boolean; keyword?: string }> {
   try {
     console.log("Verificando conteúdo para palavras-chave bloqueadas:", content)
@@ -73,7 +73,7 @@ async function checkContentForBlockedKeywords(
 }
 
 export async function createFoundPet(formData: FormData) {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = createServerComponentClient({ cookies })
 
   try {
     console.log("Iniciando cadastro de pet encontrado")
@@ -107,20 +107,11 @@ export async function createFoundPet(formData: FormData) {
     const city = formData.get("city") as string
     const state = formData.get("state") as string
 
-    // Extrair e parsear campos booleanos e de texto relacionados a necessidades especiais/compatibilidade
-    const is_special_needs = formData.get("is_special_needs") === "true"
-    const special_needs_description = formData.get("special_needs_description") as string
-    const good_with_kids = formData.get("good_with_kids") === "true"
-    const good_with_cats = formData.get("good_with_cats") === "true"
-    const good_with_dogs = formData.get("good_with_dogs") === "true"
-    const is_vaccinated = formData.get("is_vaccinated") === "true"
-    const is_neutered = formData.get("is_neutered") === "true"
-
     // Verificar conteúdo contra palavras-chave bloqueadas
     const contentToCheck = `${name || ""} ${description || ""} ${found_location || ""} ${current_location || ""}`
     const { blocked, keyword } = await checkContentForBlockedKeywords(contentToCheck, supabase)
 
-    let status = "approved"
+    let status = "pending"
     let rejection_reason = null
 
     if (blocked) {
@@ -130,17 +121,7 @@ export async function createFoundPet(formData: FormData) {
     }
 
     // Gerar slug para o pet
-    const baseSlug = await generateEntitySlug(
-      "pet",
-      {
-        name: name || "pet-encontrado",
-        type: "found",
-        city: city || "",
-        state: state || "",
-        table: "pets",
-      },
-      undefined,
-    )
+    const baseSlug = generateEntitySlug(name || "pet-encontrado", species || "unknown", city || "", undefined)
 
     // Preparar dados para inserção
     const petDataToInsert = {
@@ -164,14 +145,6 @@ export async function createFoundPet(formData: FormData) {
       rejection_reason,
       created_at: new Date().toISOString(),
       slug: baseSlug,
-      // Adicionando os campos que estavam faltando
-      is_special_needs,
-      special_needs_description: is_special_needs ? special_needs_description : null, // Salva apenas se is_special_needs for true
-      good_with_kids,
-      good_with_cats,
-      good_with_dogs,
-      is_vaccinated,
-      is_neutered,
     }
 
     console.log("Dados preparados para inserção:", JSON.stringify(petDataToInsert, null, 2))
@@ -189,17 +162,7 @@ export async function createFoundPet(formData: FormData) {
     // Atualizar o slug com o ID real
     if (data && data.length > 0) {
       const petId = data[0].id
-      const finalSlug = await generateEntitySlug(
-        "pet",
-        {
-          name: name || "pet-encontrado",
-          type: "found",
-          city: city || "",
-          state: state || "",
-          table: "pets",
-        },
-        petId,
-      )
+      const finalSlug = generateEntitySlug(name || "pet-encontrado", species || "unknown", city || "", petId)
 
       const { error: slugUpdateError } = await supabase.from("pets").update({ slug: finalSlug }).eq("id", petId)
 
@@ -212,8 +175,8 @@ export async function createFoundPet(formData: FormData) {
 
     // Revalidar páginas
     revalidatePath("/encontrados")
-    revalidatePath("/my-pets")
-    revalidatePath("/admin/moderation")
+    revalidatePath("/dashboard/pets")
+    revalidatePath("/admin-alt/moderation")
 
     if (blocked) {
       return {

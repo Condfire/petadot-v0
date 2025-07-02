@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
@@ -13,7 +13,7 @@ export async function updatePetStatus(
   status: ResolutionStatus,
   notes?: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = createServerComponentClient({ cookies })
 
   try {
     console.log("updatePetStatus chamada com:", { petId, petType, status, notes })
@@ -96,8 +96,8 @@ export async function updatePetStatus(
     console.log("Pet atualizado com sucesso")
 
     // Revalidar páginas relevantes
-    revalidatePath("/my-pets")
-    revalidatePath("/admin/pets")
+    revalidatePath("/dashboard/pets")
+    revalidatePath("/admin-alt/pets")
     revalidatePath("/")
 
     // Revalidar páginas específicas baseadas na categoria do pet

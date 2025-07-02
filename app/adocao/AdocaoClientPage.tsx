@@ -2,50 +2,39 @@
 
 import { useState, useEffect } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { PetCard } from "@/components/PetCard" // Importação nomeada
+import PetCard from "@/components/pet-card"
+import { PetFilters } from "@/components/pet-filters"
 import { PaginationControls } from "@/components/pagination-controls"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Plus } from "lucide-react"
-import { PetFilters } from "@/components/pet-filters"
-import type { Pet } from "@/utils/types" // Importar a interface Pet
 
 interface AdocaoClientPageProps {
-  initialPets: Pet[]
-  pagination: {
-    currentPage: number
-    totalPages: number
-    totalItems: number
-  }
+  initialPets: any[]
+  totalCount: number
+  initialPage?: number
   initialFilters?: any
 }
 
-export default function AdocaoClientPage({ initialPets, pagination, initialFilters = {} }: AdocaoClientPageProps) {
-  const [pets, setPets] = useState<Pet[]>(initialPets)
+export default function AdocaoClientPage({
+  initialPets,
+  totalCount,
+  initialPage = 1,
+  initialFilters = {},
+}: AdocaoClientPageProps) {
+  const [pets, setPets] = useState(initialPets)
   const [loading, setLoading] = useState(false)
-  const [page, setPage] = useState(pagination.currentPage)
+  const [page, setPage] = useState(initialPage)
   const [filters, setFilters] = useState(initialFilters)
-  const [total, setTotal] = useState(pagination.totalItems)
+  const [total, setTotal] = useState(totalCount)
   const supabase = createClientComponentClient()
-  const itemsPerPage = 12 // Definido aqui ou passado como prop se for variável
-
-  useEffect(() => {
-    // Atualiza os estados quando as props iniciais mudam (ex: navegação de página no servidor)
-    setPets(initialPets)
-    setPage(pagination.currentPage)
-    setTotal(pagination.totalItems)
-    setFilters(initialFilters)
-  }, [initialPets, pagination, initialFilters])
+  const itemsPerPage = 12
 
   useEffect(() => {
     const fetchPets = async () => {
       setLoading(true)
       try {
-        let query = supabase
-          .from("pets")
-          .select("*", { count: "exact" })
-          .eq("status", "available")
-          .eq("category", "adoption") // Adicionar filtro de categoria
+        let query = supabase.from("pets").select("*", { count: "exact" })
 
         // Aplicar filtros
         if (filters.species) {
@@ -82,11 +71,6 @@ export default function AdocaoClientPage({ initialPets, pagination, initialFilte
         if (count !== null) {
           setTotal(count)
         }
-        console.log(
-          `[AdocaoClientPage] Fetched ${data?.length} pets. Total: ${count}. Page: ${page}. Filters:`,
-          filters,
-        )
-        data?.forEach((p) => console.log(`[AdocaoClientPage] Pet ${p.id}: main_image_url=${p.main_image_url}`))
       } catch (error) {
         console.error("Erro ao buscar pets para adoção:", error)
       } finally {
@@ -94,12 +78,8 @@ export default function AdocaoClientPage({ initialPets, pagination, initialFilte
       }
     }
 
-    // Só busca se a página ou filtros mudarem E não for a carga inicial (já veio do servidor)
-    // Ou se os filtros mudarem na interação do cliente
-    if (page !== pagination.currentPage || JSON.stringify(filters) !== JSON.stringify(initialFilters)) {
-      fetchPets()
-    }
-  }, [page, filters, supabase, initialPets, pagination, initialFilters]) // Adicionado initialPets, pagination, initialFilters para o useEffect
+    fetchPets()
+  }, [page, filters, supabase])
 
   const handleFilterChange = (newFilters: any) => {
     setFilters(newFilters)
@@ -140,7 +120,7 @@ export default function AdocaoClientPage({ initialPets, pagination, initialFilte
                   key={pet.id}
                   id={pet.id}
                   name={pet.name || "Pet sem nome"}
-                  main_image_url={pet.main_image_url} // Passando main_image_url
+                  image={pet.image_url}
                   species={pet.species}
                   species_other={pet.species_other}
                   breed={pet.breed}
@@ -149,14 +129,11 @@ export default function AdocaoClientPage({ initialPets, pagination, initialFilte
                   size_other={pet.size_other}
                   gender={pet.gender}
                   gender_other={pet.gender_other}
-                  city={pet.city}
-                  state={pet.state}
+                  location={pet.city && pet.state ? `${pet.city}, ${pet.state}` : null}
                   status={pet.status}
                   type="adoption"
                   isSpecialNeeds={pet.is_special_needs}
                   slug={pet.slug}
-                  category={pet.category}
-                  created_at={pet.created_at}
                 />
               ))}
             </div>

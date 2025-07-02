@@ -1,11 +1,11 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { v4 as uuidv4 } from "uuid"
 
 export async function createTestPets() {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = createServerComponentClient({ cookies })
 
   try {
     // Verificar se já existem pets

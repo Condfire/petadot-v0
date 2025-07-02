@@ -13,13 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { toast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, XCircle } from 'lucide-react'
+import { AlertCircle, XCircle } from "lucide-react"
 import ImageUpload from "./ImageUpload"
 import { SimpleLocationSelector } from "./simple-location-selector"
-import { useAuth } from "@/app/auth-provider"
-import { speciesEnum, petSizeEnum } from "@/lib/validators/animal"
-import { useActionState } from "react"
-import { createFoundPet } from "@/app/actions/found-pet-actions"
 
 interface FoundPetData {
   id?: string
@@ -38,7 +34,7 @@ interface FoundPetData {
   found_location: string
   current_location?: string
   contact: string
-  main_image_url: string
+  image_url: string
   is_special_needs: boolean
   special_needs_description?: string
   good_with_kids?: boolean
@@ -50,8 +46,6 @@ interface FoundPetData {
   user_id?: string
   state?: string
   city?: string
-  category?: string
-  rejection_reason?: string
 }
 
 interface FoundPetFormProps {
@@ -61,10 +55,10 @@ interface FoundPetFormProps {
 
 const defaultFoundPetData: FoundPetData = {
   name: "",
-  species: speciesEnum.enum.dog,
+  species: "dog",
   species_other: "",
   breed: "",
-  size: petSizeEnum.enum.medium,
+  size: "medium",
   size_other: "",
   gender: "male",
   gender_other: "",
@@ -75,7 +69,7 @@ const defaultFoundPetData: FoundPetData = {
   found_location: "",
   current_location: "",
   contact: "",
-  main_image_url: "",
+  image_url: "",
   is_special_needs: false,
   special_needs_description: "",
   good_with_kids: false,
@@ -83,17 +77,18 @@ const defaultFoundPetData: FoundPetData = {
   good_with_dogs: false,
   is_vaccinated: false,
   is_neutered: false,
-  status: "approved",
+  status: "pending",
   state: "",
   city: "",
-  category: "found",
 }
 
+// Função para verificar palavras-chave bloqueadas
 async function checkForBlockedKeywords(
   content: string,
   supabase: any,
 ): Promise<{ blocked: boolean; keyword?: string }> {
   try {
+    // Verificar se a moderação está habilitada
     const { data: setting } = await supabase
       .from("moderation_settings")
       .select("setting_value")
@@ -104,12 +99,14 @@ async function checkForBlockedKeywords(
       return { blocked: false }
     }
 
+    // Buscar palavras-chave ativas
     const { data: keywords } = await supabase.from("moderation_keywords").select("keyword").eq("is_active", true)
 
     if (!keywords || keywords.length === 0) {
       return { blocked: false }
     }
 
+    // Verificar se o conteúdo contém alguma palavra bloqueada
     const lowerContent = content.toLowerCase()
     for (const kw of keywords) {
       if (lowerContent.includes(kw.keyword.toLowerCase())) {
@@ -125,74 +122,22 @@ async function checkForBlockedKeywords(
 }
 
 function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
-  const router = useRouter()
-  const supabase = createClientComponentClient()
-  const { user } = useAuth()
-
   const [petData, setPetData] = useState<FoundPetData>(initialData || defaultFoundPetData)
-  const [imageUrl, setImageUrl] = useState(initialData?.main_image_url || "")
+  const [loading, setLoading] = useState(false)
+  const [imageUrl, setImageUrl] = useState(initialData?.image_url || "")
   const [isSpecialNeeds, setIsSpecialNeeds] = useState(initialData?.is_special_needs || false)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
-
-  const [state, formAction, isPending] = useActionState(
-    async (prevState: any, formData: FormData) => {
-      if (user?.id) {
-        formData.append("user_id", user.id)
-      }
-      formData.append("main_image_url", imageUrl)
-      formData.append("is_special_needs", String(isSpecialNeeds))
-      formData.append("category", "found")
-
-      // Anexar todos os campos booleanos e de texto relacionados a necessidades especiais/compatibilidade
-      formData.append("good_with_kids", String(petData.good_with_kids))
-      formData.append("good_with_cats", String(petData.good_with_cats))
-      formData.append("good_with_dogs", String(petData.good_with_dogs))
-      formData.append("is_vaccinated", String(petData.is_vaccinated))
-      formData.append("is_neutered", String(petData.is_neutered))
-      formData.append("special_needs_description", petData.special_needs_description || "")
-
-      // Ajustar valores 'other' para a Server Action
-      if (petData.species === "other" && petData.species_other) {
-        formData.set("species", petData.species_other)
-      }
-      if (petData.size === "other" && petData.size_other) {
-        formData.set("size", petData.size_other)
-      }
-      if (petData.gender === "other" && petData.gender_other) {
-        formData.set("gender", petData.gender_other)
-      }
-      if (petData.color === "other" && petData.color_other) {
-        formData.set("color", petData.color_other)
-      }
-
-      const result = await createFoundPet(formData)
-
-      if (result.success) {
-        toast({
-          title: "Pet reportado",
-          description: result.warning || "O pet encontrado foi reportado com sucesso!",
-        })
-        setTimeout(() => {
-          router.push("/encontrados")
-          router.refresh()
-        }, 3000)
-      } else {
-        toast({
-          title: "Erro",
-          description: result.error || "Ocorreu um erro ao salvar o pet encontrado. Tente novamente.",
-          variant: "destructive",
-        })
-      }
-      return result
-    },
-    { success: false, error: null, warning: null },
-  )
+  const [submitSuccess, setSubmitSuccess] = useState(false)
+  const [rejectedByModeration, setRejectedByModeration] = useState(false)
+  const [rejectionReason, setRejectionReason] = useState("")
+  const router = useRouter()
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     if (initialData) {
       setPetData(initialData)
-      setImageUrl(initialData.main_image_url || "")
-      setIsSpecialNeeds(initialData.is_special_needs || false)
+      setImageUrl(initialData.image_url)
+      setIsSpecialNeeds(initialData.is_special_needs)
     }
   }, [initialData])
 
@@ -254,7 +199,7 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
     }
   }
 
-  const validateForm = async (): Promise<boolean> => {
+  const validateForm = (): boolean => {
     const errors: Record<string, string> = {}
 
     if (!petData.species) errors.species = "Espécie é obrigatória"
@@ -268,82 +213,151 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
     if (!petData.found_date) errors.found_date = "Data em que foi encontrado é obrigatória"
     if (!petData.found_location) errors.found_location = "Local onde foi encontrado é obrigatório"
     if (!petData.contact) errors.contact = "Contato para informações é obrigatório"
-    if (!imageUrl) errors.main_image_url = "Imagem do pet é obrigatória"
+    if (!imageUrl) errors.image_url = "Imagem do pet é obrigatória"
 
     if (isSpecialNeeds && !petData.special_needs_description) {
       errors.special_needs_description = "Descrição das necessidades especiais é obrigatória"
-    }
-
-    const contentToCheck = `${petData.name || ""} ${petData.description || ""} ${petData.found_location || ""} ${petData.current_location || ""}`
-    const { blocked, keyword } = await checkForBlockedKeywords(contentToCheck, supabase)
-    if (blocked) {
-      errors.moderation = `Conteúdo contém palavra proibida: "${keyword}". Por favor, revise.`
     }
 
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
 
-  const handleFormSubmit = async (formData: FormData) => {
-    if (!user) {
-      toast({
-        title: "Erro",
-        description: "Você precisa estar logado para reportar um pet encontrado.",
-        variant: "destructive",
-      })
-      router.push("/login")
-      return
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
 
-    const isValid = await validateForm()
-    if (!isValid) {
+    if (!validateForm()) {
       toast({
         title: "Erro no formulário",
-        description: "Por favor, preencha todos os campos obrigatórios e revise o conteúdo.",
+        description: "Por favor, preencha todos os campos obrigatórios.",
         variant: "destructive",
       })
       return
     }
 
-    formAction(formData)
+    setLoading(true)
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        toast({
+          title: "Erro",
+          description: "Você precisa estar logado para reportar um pet encontrado.",
+          variant: "destructive",
+        })
+        router.push("/login")
+        return
+      }
+
+      // Verificar moderação por palavras-chave
+      const contentToCheck = `${petData.name || ""} ${petData.description || ""} ${petData.found_location || ""} ${petData.current_location || ""}`
+      const { blocked, keyword } = await checkForBlockedKeywords(contentToCheck, supabase)
+
+      let finalStatus = "pending"
+      let finalRejectionReason = null
+
+      if (blocked && keyword) {
+        finalStatus = "rejected"
+        finalRejectionReason = `Rejeitado automaticamente: palavra-chave proibida "${keyword}"`
+        setRejectedByModeration(true)
+        setRejectionReason(finalRejectionReason)
+      }
+
+      // Preparar dados básicos para inserção
+      const newPetData = {
+        name: petData.name,
+        species: petData.species === "other" ? petData.species_other : petData.species,
+        breed: petData.breed,
+        size: petData.size === "other" ? petData.size_other : petData.size,
+        gender: petData.gender === "other" ? petData.gender_other : petData.gender,
+        color: petData.color === "other" ? petData.color_other : petData.color,
+        description: petData.description,
+        found_date: petData.found_date,
+        found_location: petData.found_location,
+        current_location: petData.current_location,
+        contact: petData.contact,
+        main_image_url: imageUrl,
+        is_special_needs: isSpecialNeeds,
+        special_needs_description: petData.special_needs_description,
+        good_with_kids: petData.good_with_kids,
+        good_with_cats: petData.good_with_cats,
+        good_with_dogs: petData.good_with_dogs,
+        is_vaccinated: petData.is_vaccinated,
+        is_neutered: petData.is_neutered,
+        status: finalStatus,
+        user_id: user.id,
+        state: petData.state,
+        city: petData.city,
+        category: "found",
+      }
+
+      // Adicionar rejection_reason apenas se o pet foi rejeitado
+      if (finalStatus === "rejected" && finalRejectionReason) {
+        newPetData.rejection_reason = finalRejectionReason
+      }
+
+      const response = await supabase.from("pets").insert([newPetData])
+
+      if (response.error) {
+        throw response.error
+      }
+
+      setSubmitSuccess(true)
+
+      if (blocked) {
+        toast({
+          title: "Pet cadastrado mas rejeitado",
+          description: `Pet foi rejeitado automaticamente devido à palavra-chave proibida: "${keyword}". Entre em contato com o suporte se isso foi um erro.`,
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Pet reportado",
+          description: "O pet encontrado foi reportado com sucesso e está aguardando aprovação!",
+        })
+      }
+
+      // Redirecionar após 3 segundos
+      setTimeout(() => {
+        router.push("/encontrados")
+        router.refresh()
+      }, 3000)
+    } catch (error) {
+      console.error("Erro ao salvar pet encontrado:", error)
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao salvar o pet encontrado. Tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <form action={handleFormSubmit} className="space-y-6 max-w-2xl mx-auto">
-      {state?.success && !state?.warning && (
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
+      {submitSuccess && !rejectedByModeration && (
         <Alert className="bg-green-50 border-green-200 mb-4">
           <AlertCircle className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-700">
-            Pet reportado com sucesso! Você será redirecionado em instantes...
+            Pet reportado com sucesso! Aguardando aprovação da moderação. Você será redirecionado em instantes...
           </AlertDescription>
         </Alert>
       )}
 
-      {state?.success && state?.warning && (
-        <Alert className="bg-yellow-50 border-yellow-200 mb-4">
-          <AlertCircle className="h-4 w-4 text-yellow-600" />
-          <AlertDescription className="text-yellow-700">
-            <strong>Aviso:</strong> {state.warning}
+      {submitSuccess && rejectedByModeration && (
+        <Alert className="bg-red-50 border-red-200 mb-4">
+          <XCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-700">
+            <strong>Pet rejeitado automaticamente!</strong>
+            <br />
+            {rejectionReason}
             <br />
             <em>Entre em contato com o suporte se isso foi um erro.</em>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {state?.error && (
-        <Alert className="bg-red-50 border-red-200 mb-4">
-          <XCircle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-700">
-            <strong>Erro ao cadastrar:</strong> {state.error}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {formErrors.moderation && (
-        <Alert className="bg-red-50 border-red-200 mb-4">
-          <XCircle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-700">
-            <strong>Erro de Moderação:</strong> {formErrors.moderation}
           </AlertDescription>
         </Alert>
       )}
@@ -369,11 +383,10 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
                 <SelectValue placeholder="Selecione a espécie" />
               </SelectTrigger>
               <SelectContent>
-                {Object.values(speciesEnum.enum).map((species) => (
-                  <SelectItem key={species} value={species}>
-                    {species}
-                  </SelectItem>
-                ))}
+                <SelectItem value="dog">Cachorro</SelectItem>
+                <SelectItem value="cat">Gato</SelectItem>
+                <SelectItem value="bird">Pássaro</SelectItem>
+                <SelectItem value="other">Outro</SelectItem>
               </SelectContent>
             </Select>
             {formErrors.species && <p className="text-red-500 text-sm mt-1">{formErrors.species}</p>}
@@ -417,11 +430,10 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
                 <SelectValue placeholder="Selecione o porte" />
               </SelectTrigger>
               <SelectContent>
-                {Object.values(petSizeEnum.enum).map((size) => (
-                  <SelectItem key={size} value={size}>
-                    {size}
-                  </SelectItem>
-                ))}
+                <SelectItem value="small">Pequeno</SelectItem>
+                <SelectItem value="medium">Médio</SelectItem>
+                <SelectItem value="large">Grande</SelectItem>
+                <SelectItem value="other">Outro</SelectItem>
               </SelectContent>
             </Select>
             {formErrors.size && <p className="text-red-500 text-sm mt-1">{formErrors.size}</p>}
@@ -715,8 +727,8 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
           <Label className="flex">
             Foto do Pet<span className="text-red-500 ml-1">*</span>
           </Label>
-          <ImageUpload value={imageUrl} onChange={setImageUrl} required folder="pets_found" userId={user?.id} />
-          {formErrors.main_image_url && <p className="text-red-500 text-sm mt-1">{formErrors.main_image_url}</p>}
+          <ImageUpload value={imageUrl} onChange={setImageUrl} required folder="pets_found" />
+          {formErrors.image_url && <p className="text-red-500 text-sm mt-1">{formErrors.image_url}</p>}
         </div>
       </div>
 
@@ -724,8 +736,8 @@ function FoundPetForm({ initialData, isEditing = false }: FoundPetFormProps) {
         <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Salvando..." : "Reportar Pet Encontrado"}
+        <Button type="submit" disabled={loading}>
+          {loading ? "Salvando..." : "Reportar Pet Encontrado"}
         </Button>
       </div>
     </form>

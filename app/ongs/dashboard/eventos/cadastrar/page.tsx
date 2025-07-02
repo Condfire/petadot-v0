@@ -13,19 +13,17 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Loader2, AlertCircle, ArrowLeft } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import ImageUpload from "@/components/ImageUpload" // Importação corrigida para o componente ImageUpload
+import ImageUpload from "@/components/image-upload"
 import { mapEventUIToDB } from "@/lib/mappers"
-import type { EventFormUI } from "@/lib/types" // Importar o tipo EventFormUI
 
 // Schema de validação para o formulário de eventos
 const eventFormSchema = z.object({
-  name: z.string().min(3, { message: "O título deve ter pelo menos 3 caracteres" }), // Renomeado de title para name
+  title: z.string().min(3, { message: "O título deve ter pelo menos 3 caracteres" }),
   description: z.string().min(10, { message: "A descrição deve ter pelo menos 10 caracteres" }),
   location: z.string().min(5, { message: "Informe o local do evento" }),
-  start_date_ui: z.string().min(1, { message: "Selecione a data do evento" }), // Renomeado para start_date_ui
-  start_time_ui: z.string().min(1, { message: "Informe o horário do evento" }), // Renomeado para start_time_ui
+  event_date: z.string().min(1, { message: "Selecione a data do evento" }),
+  event_time: z.string().min(1, { message: "Informe o horário do evento" }),
   image_url: z.string().optional(),
-  event_type: z.string().min(1, { message: "Selecione o tipo de evento" }), // Adicionado tipo de evento
 })
 
 type EventFormValues = z.infer<typeof eventFormSchema>
@@ -33,19 +31,18 @@ type EventFormValues = z.infer<typeof eventFormSchema>
 export default function CadastrarEventoPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [imageUrl, setImageUrl] = useState<string | null>(null) // Estado para a URL da imagem
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
   const router = useRouter()
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
-      name: "",
+      title: "",
       description: "",
       location: "",
-      start_date_ui: "",
-      start_time_ui: "",
+      event_date: "",
+      event_time: "",
       image_url: "",
-      event_type: "",
     },
   })
 
@@ -54,39 +51,35 @@ export default function CadastrarEventoPage() {
     setError(null)
 
     try {
-      console.log("Valores do formulário antes do mapeamento:", data)
+      // Verificar se o usuário está autenticado
+      const { data: session } = await supabase.auth.getSession()
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (!session) {
+      if (!session.session) {
         router.push("/ongs/login?message=Faça login para cadastrar eventos")
         return
       }
 
-      const userId = session.user.id
+      const userId = session.session.user.id
 
+      // Buscar a ONG do usuário
       const { data: ongData, error: ongError } = await supabase.from("ongs").select("id").eq("user_id", userId).single()
 
       if (ongError || !ongData) {
-        throw new Error("ONG não encontrada ou você não está associado a uma ONG.")
+        throw new Error("ONG não encontrada")
       }
 
       // Adicionar a URL da imagem se foi enviada
-      const dataWithImageUrl: EventFormUI = {
-        ...data,
-        image_url: imageUrl || undefined, // Usar o estado imageUrl
-      } as EventFormUI // Forçar o tipo para EventFormUI
+      if (imageUrl) {
+        data.image_url = imageUrl
+      }
 
       // Usar o mapper para converter dados da UI para o formato do banco de dados
-      const eventData = mapEventUIToDB(dataWithImageUrl, ongData.id, userId)
+      const eventData = mapEventUIToDB(data, ongData.id, userId)
 
+      // Inserir o evento
       const { error: eventError } = await supabase.from("events").insert({
         ...eventData,
-        ong_id: ongData.id,
-        user_id: userId,
-        status: "approved", // Evento publicado imediatamente
+        status: "pending",
         created_at: new Date().toISOString(),
       })
 
@@ -94,19 +87,19 @@ export default function CadastrarEventoPage() {
         throw new Error(eventError.message)
       }
 
+      // Redirecionar para o dashboard
       router.push("/ongs/dashboard?success=Evento cadastrado com sucesso")
-    } catch (err: any) {
+    } catch (err) {
       console.error("Erro ao cadastrar evento:", err)
-      setError(err.message || "Ocorreu um erro ao cadastrar o evento.")
+      setError("Ocorreu um erro ao cadastrar o evento")
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Função para lidar com o upload da imagem
-  const handleImageChange = (url: string) => {
+  const handleImageUpload = (url: string) => {
     setImageUrl(url)
-    form.setValue("image_url", url) // Atualiza o valor no formulário também
+    form.setValue("image_url", url)
   }
 
   return (
@@ -138,8 +131,8 @@ export default function CadastrarEventoPage() {
           </CardHeader>
           <CardContent>
             <ImageUpload
-              value={imageUrl || ""} // Passa o valor atual da imagem
-              onChange={handleImageChange} // Passa a função de callback
+              onImageUploaded={handleImageUpload}
+              defaultImage={imageUrl || undefined}
               folder="events"
               className="w-full aspect-video object-cover rounded-md"
             />
@@ -156,26 +149,12 @@ export default function CadastrarEventoPage() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="name" // Renomeado para name
+                  name="title"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Título</FormLabel>
                       <FormControl>
                         <Input placeholder="Título do evento" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="event_type" // Campo para tipo de evento
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tipo de Evento</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Feira de Adoção, Campanha de Vacinação" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -199,7 +178,7 @@ export default function CadastrarEventoPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="start_date_ui" // Renomeado para start_date_ui
+                    name="event_date"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Data</FormLabel>
@@ -213,7 +192,7 @@ export default function CadastrarEventoPage() {
 
                   <FormField
                     control={form.control}
-                    name="start_time_ui" // Renomeado para start_time_ui
+                    name="event_time"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Horário</FormLabel>

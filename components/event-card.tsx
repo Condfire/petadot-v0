@@ -1,133 +1,70 @@
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
+"use client"
 import Image from "next/image"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { CalendarDays, MapPin } from "lucide-react"
-import { formatDateTime, mapEventType } from "@/lib/utils" // Importar de lib/utils
+import { CalendarIcon, MapPinIcon } from "lucide-react"
 
 interface EventCardProps {
   id: string
   name: string
+  image?: string
+  date: string
+  location: string
   description: string
-  image_url?: string
-  location?: string
-  city?: string
-  state?: string
-  start_date: string
-  end_date?: string
-  event_type?: string
+  ong?: string
+  isUpcoming?: boolean
   slug?: string
-  /** Mostrar botão de exclusão (para admins) */
-  showDeleteButton?: boolean
 }
 
-export function EventCard({
-  // Exportar como named export
-  id,
-  name,
-  description,
-  image_url,
-  location,
-  city,
-  state,
-  start_date,
-  end_date,
-  event_type,
-  slug,
-  showDeleteButton = false,
-}: EventCardProps) {
-  const displayLocation = location || (city && state ? `${city}, ${state}` : city || state)
-  const displayDate = formatDateTime(start_date)
-  const displayEventType = mapEventType(event_type)
+export function EventCard({ id, name, image, date, location, description, ong, isUpcoming, slug }: EventCardProps) {
+  const formattedDate = new Date(date).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
 
-  const detailUrl = slug ? `/eventos/${slug}` : `/eventos/${id}`
-  if (showDeleteButton) {
-    return (
-      <Card className="overflow-hidden h-full flex flex-col hover:shadow-lg transition-shadow duration-200">
-        <Link href={detailUrl} className="block">
-          <div className="relative w-full h-48">
-            <Image
-              src={image_url || "/placeholder.svg?height=192&width=384&text=Evento"}
-              alt={name}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              priority={false}
-              unoptimized={image_url?.includes("placeholder.svg")}
-            />
-            {event_type && (
-              <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground">{displayEventType}</Badge>
-            )}
-          </div>
-        </Link>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xl font-bold line-clamp-2">{name}</CardTitle>
-          <CardDescription className="flex items-center gap-1 text-sm">
-            <CalendarDays className="w-4 h-4" />
-            {displayDate}
-          </CardDescription>
-          {displayLocation && (
-            <CardDescription className="flex items-center gap-1 text-sm">
-              <MapPin className="w-4 h-4" />
-              {displayLocation}
-            </CardDescription>
-          )}
-        </CardHeader>
-        <CardContent className="flex-grow">
-          <p className="text-sm text-muted-foreground line-clamp-3">{description}</p>
-        </CardContent>
-        <CardFooter className="justify-between">
-          <Button variant="outline" asChild>
-            <Link href={detailUrl}>Ver Detalhes</Link>
-          </Button>
-          <Button variant="destructive" size="sm" asChild>
-            <Link href={`/admin/events/${id}/delete`}>Excluir</Link>
-          </Button>
-        </CardFooter>
-      </Card>
-    )
+  // Atualizar a função getDetailUrl para usar slug quando disponível
+  const getDetailUrl = () => {
+    return `/eventos/${slug || id}`
   }
 
   return (
-    <Link href={detailUrl} className="block">
-      <Card className="overflow-hidden h-full flex flex-col hover:shadow-lg transition-shadow duration-200">
-        <div className="relative w-full h-48">
+    <Card className="overflow-hidden card-hover group">
+      {image && (
+        <Link href={getDetailUrl()} className="block aspect-video relative overflow-hidden">
           <Image
-            src={image_url || "/placeholder.svg?height=192&width=384&text=Evento"}
+            src={image || "/placeholder.svg?height=200&width=400&query=pet+event"}
             alt={name}
             fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            priority={false}
-            unoptimized={image_url?.includes("placeholder.svg")}
+            className="object-cover transition-transform duration-500 group-hover:scale-110"
           />
-          {event_type && (
-            <Badge className="absolute top-2 left-2 bg-primary text-primary-foreground">{displayEventType}</Badge>
-          )}
+        </Link>
+      )}
+      <CardHeader className="p-4">
+        <Link href={getDetailUrl()}>
+          <CardTitle className="text-xl hover:text-primary transition-colors">{name}</CardTitle>
+        </Link>
+        {ong && <CardDescription className="font-medium text-primary">Organizado por: {ong}</CardDescription>}
+      </CardHeader>
+      <CardContent className="p-4 pt-0 space-y-2">
+        <div className="flex items-center text-sm">
+          <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+          <span>{formattedDate}</span>
         </div>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xl font-bold line-clamp-2">{name}</CardTitle>
-          <CardDescription className="flex items-center gap-1 text-sm">
-            <CalendarDays className="w-4 h-4" />
-            {displayDate}
-          </CardDescription>
-          {displayLocation && (
-            <CardDescription className="flex items-center gap-1 text-sm">
-              <MapPin className="w-4 h-4" />
-              {displayLocation}
-            </CardDescription>
-          )}
-        </CardHeader>
-        <CardContent className="flex-grow">
-          <p className="text-sm text-muted-foreground line-clamp-3">{description}</p>
-        </CardContent>
-        <CardFooter>
-          <Button variant="outline" className="w-full">
-            Ver Detalhes
-          </Button>
-        </CardFooter>
-      </Card>
-    </Link>
+        <div className="flex items-center text-sm">
+          <MapPinIcon className="mr-2 h-4 w-4 text-primary" />
+          <span>{location}</span>
+        </div>
+        <p className="text-sm text-muted-foreground line-clamp-3 mt-2">{description}</p>
+      </CardContent>
+      <CardFooter className="p-4">
+        <Button className="w-full group-hover:bg-primary/90 transition-all" asChild>
+          <Link href={getDetailUrl()}>Ver Detalhes</Link>
+        </Button>
+      </CardFooter>
+    </Card>
   )
 }
+
+export default EventCard

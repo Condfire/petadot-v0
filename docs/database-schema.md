@@ -101,7 +101,7 @@ Armazena informações sobre pets encontrados.
 
 ## Tabela: ongs
 
-Armazena informações sobre ONGs parceiras, incluindo formas de contato.
+Armazena informações sobre ONGs parceiras.
 
 | Coluna            | Tipo              | Nullable | Default           | Descrição                                |
 |-------------------|-------------------|----------|-------------------|------------------------------------------|
@@ -109,8 +109,7 @@ Armazena informações sobre ONGs parceiras, incluindo formas de contato.
 | name              | character varying | NO       | null              | Nome da ONG                              |
 | description       | text              | YES      | null              | Descrição da ONG                         |
 | logo_url          | text              | YES      | null              | URL do logo da ONG                       |
-| contact_email     | text              | YES      | null              | Email de contato da ONG                  |
-| contact_phone     | character varying | YES      | null              | Telefone de contato da ONG               |
+| contact           | character varying | YES      | null              | Informações de contato                   |
 | website           | text              | YES      | null              | Website da ONG                           |
 | address           | text              | YES      | null              | Endereço da ONG                          |
 | city              | character varying | YES      | null              | Cidade onde a ONG está localizada        |

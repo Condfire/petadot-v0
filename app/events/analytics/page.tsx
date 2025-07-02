@@ -237,7 +237,7 @@ export default function EventAnalyticsPage() {
                   <div key={event.id} className="border rounded-lg p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <h4 className="font-semibold">{event.name}</h4>
+                        <h4 className="font-semibold">{event.title}</h4>
                         <p className="text-sm text-muted-foreground">
                           {event.city}, {event.state}
                         </p>

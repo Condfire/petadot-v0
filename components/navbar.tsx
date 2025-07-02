@@ -497,7 +497,7 @@ export default function Navbar() {
                   <Link href="/dashboard">Dashboard</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/my-pets">Meus Pets</Link>
+                  <Link href="/dashboard/pets">Meus Pets</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard/profile">Meu Perfil</Link>
@@ -511,7 +511,7 @@ export default function Navbar() {
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href="/admin" className="flex items-center">
+                      <Link href="/admin-alt" className="flex items-center">
                         <Shield size={16} className="mr-2 text-primary" />
                         Administração
                       </Link>
@@ -620,7 +620,7 @@ export default function Navbar() {
                 {/* Verificação explícita para administrador */}
                 {isAdmin && (
                   <Link
-                    href="/admin"
+                    href="/admin-alt"
                     className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors p-2 rounded-md hover:bg-muted"
                     onClick={() => setIsMenuOpen(false)}
                   >

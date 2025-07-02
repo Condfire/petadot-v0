@@ -1,87 +1,19 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter, Lexend } from "next/font/google"
+import { Inter } from "next/font/google"
 import "./globals.css"
-import { AuthProvider } from "./auth-provider"
 import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/toaster"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
+import { AuthProvider } from "./auth-provider"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
-const lexend = Lexend({ subsets: ["latin"], variable: "--font-lexend" })
-
-// Helper function to safely construct URL
-function getMetadataBaseUrl(): URL {
-  try {
-    // Try environment variables in order of preference
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-
-    if (siteUrl) {
-      // Ensure the URL has a protocol
-      const url = siteUrl.startsWith("http") ? siteUrl : `https://${siteUrl}`
-      return new URL(url)
-    }
-
-    // Development fallback
-    if (process.env.NODE_ENV === "development") {
-      return new URL("http://localhost:3000")
-    }
-
-    // Production fallback
-    return new URL("https://petadot.com.br")
-  } catch (error) {
-    console.error("Error constructing metadata base URL:", error)
-    // Final safe fallback
-    return new URL("https://petadot.com.br")
-  }
-}
 
 export const metadata: Metadata = {
-  metadataBase: getMetadataBaseUrl(),
-  title: {
-    default: "Petadot - Encontre seu pet perdido",
-    template: "%s | Petadot",
-  },
+  title: "PetAdot - Adoção, Pets Perdidos e Encontrados",
   description:
-    "Plataforma para ajudar a encontrar pets perdidos, adoção responsável e conectar famílias com seus animais de estimação.",
-  keywords: ["pets", "animais perdidos", "adoção", "cães", "gatos", "Brasil", "pet perdido", "encontrar pet"],
-  authors: [{ name: "Petadot Team" }],
-  creator: "Petadot",
-  publisher: "Petadot",
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
-  },
-  openGraph: {
-    type: "website",
-    locale: "pt_BR",
-    siteName: "Petadot",
-    title: "Petadot - Encontre seu pet perdido",
-    description:
-      "Plataforma para ajudar a encontrar pets perdidos, adoção responsável e conectar famílias com seus animais de estimação.",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Petadot - Encontre seu pet perdido",
-    description:
-      "Plataforma para ajudar a encontrar pets perdidos, adoção responsável e conectar famílias com seus animais de estimação.",
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
-  verification: {
-    google: process.env.GOOGLE_SITE_VERIFICATION,
-  },
+    "Plataforma para adoção de pets, divulgação de pets perdidos e encontrados, e apoio a ONGs de proteção animal.",
   icons: {
     icon: [
       {
@@ -129,7 +61,7 @@ export default function RootLayout({
           }
         />
       </head>
-      <body className={`${inter.className} ${lexend.variable}`}>
+      <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
           <AuthProvider>
             <div className="flex min-h-screen flex-col bg-background">

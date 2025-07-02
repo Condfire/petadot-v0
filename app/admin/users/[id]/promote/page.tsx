@@ -1,188 +1,155 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { toast } from "@/components/ui/use-toast"
-import { Loader2, ShieldCheck, ArrowLeft } from "lucide-react"
-import AdminAuthCheck from "@/components/admin-auth-check"
+import { ArrowLeft, Loader2, Shield } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function PromoteUserPage({ params }: { params: { id: string } }) {
-  return (
-    <AdminAuthCheck>
-      <PromoteUserForm userId={params.id} />
-    </AdminAuthCheck>
-  )
-}
-
-function PromoteUserForm({ userId }: { userId: string }) {
   const router = useRouter()
   const supabase = createClientComponentClient()
+  const userId = params.id
+
   const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [promoting, setPromoting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isPromoting, setIsPromoting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   useEffect(() => {
-    async function loadUser() {
+    const fetchUser = async () => {
       try {
-        setLoading(true)
-        const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
+        const { data, error } = await supabase
+          .from("users")
+          .select("id, email, name, is_admin")
+          .eq("id", userId)
+          .single()
 
         if (error) {
-          throw error
-        }
-
-        if (!data) {
           throw new Error("Usuário não encontrado")
         }
 
+        if (data.is_admin) {
+          setError("Este usuário já é um administrador")
+        }
+
         setUser(data)
-      } catch (error) {
-        console.error("Erro ao carregar usuário:", error)
-        toast({
-          title: "Erro",
-          description: "Não foi possível carregar os dados do usuário.",
-          variant: "destructive",
-        })
+      } catch (err: any) {
+        setError(err.message || "Erro ao carregar usuário")
       } finally {
-        setLoading(false)
+        setIsLoading(false)
       }
     }
 
-    loadUser()
+    fetchUser()
   }, [userId, supabase])
 
   const handlePromote = async () => {
-    setPromoting(true)
+    setIsPromoting(true)
+    setError(null)
 
     try {
-      const { error } = await supabase
-        .from("users")
-        .update({
-          is_admin: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", userId)
+      // Verificar se o usuário atual é um administrador
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
-      if (error) {
-        throw error
+      if (!session) {
+        throw new Error("Você precisa estar logado para realizar esta ação")
       }
 
-      toast({
-        title: "Sucesso",
-        description: "Usuário promovido a administrador com sucesso.",
-      })
+      const { data: currentUser, error: currentUserError } = await supabase
+        .from("users")
+        .select("is_admin")
+        .eq("id", session.user.id)
+        .single()
 
-      router.push("/admin/users")
-    } catch (error) {
-      console.error("Erro ao promover usuário:", error)
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao promover o usuário.",
-        variant: "destructive",
-      })
+      if (currentUserError || !currentUser?.is_admin) {
+        throw new Error("Você não tem permissão para realizar esta ação")
+      }
+
+      // Promover o usuário para administrador
+      const { error: updateError } = await supabase.from("users").update({ is_admin: true }).eq("id", userId)
+
+      if (updateError) {
+        throw new Error("Erro ao promover usuário para administrador")
+      }
+
+      setSuccess("Usuário promovido para administrador com sucesso!")
+      setTimeout(() => {
+        router.push("/admin/users")
+      }, 2000)
+    } catch (err: any) {
+      setError(err.message || "Ocorreu um erro ao promover o usuário")
     } finally {
-      setPromoting(false)
+      setIsPromoting(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="container mx-auto py-10 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
-  if (!user) {
-    return (
-      <div className="container mx-auto py-10">
-        <Card>
-          <CardHeader>
-            <CardTitle>Erro</CardTitle>
-            <CardDescription>Usuário não encontrado.</CardDescription>
-          </CardHeader>
-          <CardFooter>
-            <Button onClick={() => router.push("/admin/users")}>Voltar para Usuários</Button>
-          </CardFooter>
-        </Card>
-      </div>
-    )
-  }
-
-  if (user.is_admin) {
-    return (
-      <div className="container mx-auto py-10">
-        <Button variant="ghost" className="mb-6" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Voltar
-        </Button>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Usuário já é Administrador</CardTitle>
-            <CardDescription>Este usuário já possui privilégios de administrador.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-2 text-primary">
-              <ShieldCheck className="h-5 w-5" />
-              <p>
-                <strong>{user.name || user.email}</strong> já é um administrador do sistema.
-              </p>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button onClick={() => router.push("/admin/users")}>Voltar para Usuários</Button>
-          </CardFooter>
-        </Card>
-      </div>
-    )
-  }
-
   return (
-    <div className="container mx-auto py-10">
-      <Button variant="ghost" className="mb-6" onClick={() => router.back()}>
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Voltar
+    <div className="container py-8 max-w-md">
+      <Button asChild variant="outline" className="mb-6">
+        <Link href="/admin/users">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+        </Link>
       </Button>
 
       <Card>
         <CardHeader>
-          <CardTitle>Promover Usuário a Administrador</CardTitle>
-          <CardDescription>
-            Você está prestes a conceder privilégios de administrador para este usuário.
-          </CardDescription>
+          <CardTitle className="flex items-center">
+            <Shield className="mr-2 h-5 w-5" /> Promover Usuário
+          </CardTitle>
+          <CardDescription>Promover usuário para administrador do sistema</CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="mb-4">
-            Ao promover <strong>{user.name || user.email}</strong> a administrador, você está concedendo acesso completo
-            ao painel administrativo e todas as funcionalidades de gerenciamento do sistema.
-          </p>
-          <div className="bg-amber-50 p-4 rounded-md border border-amber-200">
-            <p className="text-amber-800 text-sm">
-              <strong>Atenção:</strong> Administradores podem gerenciar todos os aspectos do sistema, incluindo outros
-              usuários, pets, ONGs e configurações. Conceda este privilégio apenas a pessoas de confiança.
-            </p>
-          </div>
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertTitle>Erro</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {success && (
+            <Alert className="bg-green-50 border-green-200">
+              <AlertTitle>Sucesso</AlertTitle>
+              <AlertDescription>{success}</AlertDescription>
+            </Alert>
+          )}
+
+          {isLoading ? (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : user ? (
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-medium">Nome</h3>
+                <p>{user.name || "Sem nome"}</p>
+              </div>
+              <div>
+                <h3 className="font-medium">Email</h3>
+                <p>{user.email}</p>
+              </div>
+              <Alert>
+                <AlertTitle>Confirmação</AlertTitle>
+                <AlertDescription>
+                  Você está prestes a promover este usuário para administrador. Administradores têm acesso completo ao
+                  painel administrativo e podem gerenciar todos os aspectos do sistema.
+                </AlertDescription>
+              </Alert>
+            </div>
+          ) : (
+            <p>Usuário não encontrado</p>
+          )}
         </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button variant="outline" onClick={() => router.back()}>
-            Cancelar
-          </Button>
-          <Button onClick={handlePromote} disabled={promoting}>
-            {promoting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Promovendo...
-              </>
-            ) : (
-              <>
-                <ShieldCheck className="mr-2 h-4 w-4" />
-                Promover a Administrador
-              </>
-            )}
+        <CardFooter>
+          <Button onClick={handlePromote} disabled={isPromoting || isLoading || !!error || !user} className="w-full">
+            {isPromoting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isPromoting ? "Promovendo..." : "Promover para Administrador"}
           </Button>
         </CardFooter>
       </Card>

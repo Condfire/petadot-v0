@@ -1,30 +1,10 @@
 import { createClient } from "@supabase/supabase-js"
 import { validate as isUuid } from "uuid"
-import type { Database } from "./types"
-import { unstable_noStore as noStore } from "next/cache"
-import type { Evento } from "@/app/eventos/types"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
-// Client for use in client components
-export const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-)
-
-// Server for use in server components and actions
-export const createServerSupabaseClient = () =>
-  createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!, // Use service role key for server-side operations
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    },
-  )
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Define types for your data - replace 'any' with actual types
 type Pet = any
@@ -87,8 +67,7 @@ export async function getPetsForAdoption(page = 1, pageSize = 12, filters = {}):
       .from("pets")
       .select(`*, ongs(id, name, logo_url, city)`, { count: "exact" })
       .eq("category", "adoption") // Filter for adoption pets
-      // Mostrar apenas pets disponíveis
-      .eq("status", "available")
+      .in("status", ["approved", "pending"]) // Include both approved and pending
       .order("created_at", { ascending: false })
       .range(from, to)
 
@@ -198,8 +177,7 @@ export async function getLostPets(page = 1, pageSize = 12, filters = {}): Promis
       .from("pets")
       .select("*", { count: "exact" })
       .eq("category", "lost") // Filtrar apenas pets perdidos
-      // Mostrar apenas pets aprovados
-      .eq("status", "approved")
+      .in("status", ["approved", "pending"]) // Include both approved and pending
       .order("created_at", { ascending: false })
       .range(from, to)
 
@@ -308,8 +286,7 @@ export async function getFoundPets(page = 1, pageSize = 12, filters = {}): Promi
       .from("pets")
       .select("*", { count: "exact" })
       .eq("category", "found") // Filtrar apenas pets encontrados
-      // Mostrar apenas pets aprovados
-      .eq("status", "approved")
+      .in("status", ["approved", "pending"]) // Include both approved and pending
       .order("created_at", { ascending: false })
       .range(from, to)
 
@@ -388,57 +365,70 @@ export async function getFoundPets(page = 1, pageSize = 12, filters = {}): Promi
 }
 
 // Função para buscar eventos com paginação (sem join com ongs)
-export async function getEvents(
-  page = 1,
-  pageSize = 12,
-  filters: { name?: string; city?: string; state?: string; start_date?: string } = {},
-): Promise<{ data: Evento[]; count: number | null }> {
-  noStore() // Opt-out of Next.js Data Cache
-
-  const supabase = createServerSupabaseClient()
-  let query = supabase.from("events").select("*", { count: "exact" })
-
-  if (filters.name) {
-    query = query.ilike("name", `%${filters.name}%`)
-  }
-  if (filters.city) {
-    query = query.eq("city", filters.city)
-  }
-  if (filters.state) {
-    query = query.eq("state", filters.state)
-  }
-  if (filters.start_date) {
-    query = query.gte("start_date", filters.start_date)
-  }
-
-  query = query.eq("status", "approved") // Reativado o filtro de status
-
-  const { data, error, count } = await query
-    .order("start_date", { ascending: true })
-    .range((page - 1) * pageSize, page * pageSize - 1)
-
-  if (error) {
-    console.error("Error fetching events:", error)
-    return { data: [], count: 0 }
-  }
-
-  return { data: data || [], count }
-}
-
-// Função para buscar ONGs com paginação (usando tabela ongs)
-export async function getOngs(page = 1, pageSize = 12, filters: any = {}) {
+export async function getEvents(page = 1, pageSize = 12, filters: any = {}) {
   try {
-    // Verificar se a tabela ongs existe
-    const ongsTableExists = await checkTableExists("ongs")
-    if (!ongsTableExists) {
-      console.error("Tabela ongs não existe")
+    // Verificar se a tabela events existe
+    const eventsTableExists = await checkTableExists("events")
+    if (!eventsTableExists) {
+      console.error("Tabela events não existe")
       return { data: [], count: 0 }
     }
 
-    // Selecionar dados da tabela ongs e, se possível, o contato do usuário associado
-    let query = supabase
-      .from("ongs")
-      .select("*, user:user_id(contact_whatsapp, email)", { count: "exact" })
+    // Substituir a query por:
+    let query = supabase.from("events").select("*, ongs(id, name, logo_url, city)", { count: "exact" })
+
+    // Mostrar apenas eventos aprovados ou sem status (legados)
+    query = query.in("status", ["approved", "pending"]) // Include both approved and pending
+
+    // Aplicar filtros se existirem
+    if (filters.title) {
+      query = query.ilike("title", `%${filters.title}%`)
+    }
+
+    if (filters.city) {
+      query = query.eq("city", filters.city)
+    }
+
+    if (filters.state) {
+      query = query.eq("state", filters.state)
+    }
+
+    if (filters.date) {
+      query = query.gte("start_date", filters.date)
+    }
+
+    // Aplicar paginação
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+
+    const { data, error, count } = await query.order("start_date", { ascending: true }).range(from, to)
+
+    if (error) {
+      console.error("Erro ao buscar eventos:", error)
+      return { data: [], count: 0 }
+    }
+
+    return { data: data || [], count: count || 0 }
+  } catch (error) {
+    console.error("Erro ao buscar eventos:", error)
+    return { data: [], count: 0 }
+  }
+}
+
+// Função para buscar ONGs com paginação (usando tabela users)
+export async function getOngs(page = 1, pageSize = 12, filters: any = {}) {
+  try {
+    // Verificar se a tabela users existe
+    const usersTableExists = await checkTableExists("users")
+    if (!usersTableExists) {
+      console.error("Tabela users não existe")
+      return { data: [], count: 0 }
+    }
+
+    let query = supabase.from("users").select("*", { count: "exact" })
+
+    // Filtrar apenas usuários do tipo ONG
+    query = query.eq("type", "ong")
 
     // Aplicar filtros se existirem
     if (filters.name) {
@@ -464,8 +454,6 @@ export async function getOngs(page = 1, pageSize = 12, filters: any = {}) {
       return { data: [], count: 0 }
     }
 
-    console.log(`ONGs encontradas: ${data?.length || 0}`) // Added log for ONGs
-    console.log("Dados das ONGs:", data) // Add this line for debugging
     return { data: data || [], count: count || 0 }
   } catch (error) {
     console.error("Erro ao buscar ONGs:", error)
@@ -725,7 +713,7 @@ export async function getOngById(id: string): Promise<Ong | null> {
       return null
     }
 
-    const { data, error } = await supabase.from("users").select(`*`).eq("id", id).eq("type", "ngo_admin").single()
+    const { data, error } = await supabase.from("users").select(`*`).eq("id", id).eq("type", "ong").single()
 
     if (error) {
       console.error("Error fetching ong by ID:", error)
@@ -1006,7 +994,7 @@ export async function createTestPet(userId: string) {
           location_details: "Rua de Teste, 123",
           contact_email: "teste@exemplo.com",
           main_image_url: "/golden-retriever-park.png",
-          status: "approved",
+          status: "pending",
           category: "lost",
           user_id: userId,
         },
@@ -1133,24 +1121,72 @@ export async function getFoundPetById(idOrSlug: string) {
 
 // Function to get event by slug or ID
 export async function getEventBySlugOrId(slugOrId: string) {
-  const supabase = createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  try {
+    console.log(`Buscando evento com slugOrId: ${slugOrId}`)
 
-  let query = supabase.from("events").select("*").limit(1)
+    // Verificar se a tabela events existe
+    const eventsTableExists = await checkTableExists("events")
+    if (!eventsTableExists) {
+      console.error("Tabela events não existe")
+      return null
+    }
 
-  if (isNaN(Number(slugOrId))) {
-    // É um slug
-    query = query.eq("slug", slugOrId)
-  } else {
-    // É um ID
-    query = query.eq("id", slugOrId)
-  }
+    // Use the existing supabase client
+    const isUuidValue = isUuid(slugOrId)
 
-  const { data, error } = await query.single()
+    // First try exact match
+    let query = supabase.from("events").select("*, users!events_user_id_fkey(id, name, avatar_url, city, type)")
 
-  if (error) {
-    console.error("Erro ao buscar evento por slug ou ID:", error)
+    if (isUuidValue) {
+      query = query.eq("id", slugOrId)
+    } else {
+      query = query.eq("slug", slugOrId)
+    }
+
+    let { data, error } = await query.maybeSingle()
+
+    // If no exact match and it's not a UUID, try a LIKE query as fallback
+    if (!data && !isUuidValue) {
+      console.log("No exact match found, trying LIKE query")
+      const { data: likeData, error: likeError } = await supabase
+        .from("events")
+        .select("*, users!events_user_id_fkey(id, name, avatar_url, city, type)")
+        .ilike("slug", `%${slugOrId}%`)
+        .limit(1)
+        .maybeSingle()
+
+      if (!likeError && likeData) {
+        data = likeData
+      }
+    }
+
+    if (error) {
+      console.error("Erro ao buscar evento:", error)
+      return null
+    }
+
+    if (!data) {
+      console.log(`Nenhum evento encontrado para slugOrId: ${slugOrId}`)
+      return null
+    }
+
+    // Transform the data to match the expected structure
+    if (data && data.users && data.users.type === "ong") {
+      // If the user is an ONG, add it to the ongs property for backward compatibility
+      return {
+        ...data,
+        ongs: {
+          id: data.users.id,
+          name: data.users.name,
+          logo_url: data.users.avatar_url,
+          city: data.users.city,
+        },
+      }
+    }
+
+    return data
+  } catch (error) {
+    console.error("Erro ao buscar evento:", error)
     return null
   }
-
-  return data
 }

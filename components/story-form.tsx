@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { ImageUpload } from "@/components/ImageUpload"
+import { ImageUpload } from "@/components/image-upload"
 import { Loader2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -43,14 +43,14 @@ export function StoryForm({ story, isEdit = false }: StoryFormProps) {
     const fetchUserPets = async () => {
       try {
         setIsLoadingPets(true)
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: session } = await supabase.auth.getSession()
 
-        if (!session?.user) {
+        if (!session?.session?.user) {
           setIsLoadingPets(false)
           return
         }
 
-        const userId = session.user.id
+        const userId = session.session.user.id
 
         // Buscar pets de adoção
         const { data: adoptionPets, error: adoptionError } = await supabase

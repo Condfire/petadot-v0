@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
-import { getEvents } from "@/lib/supabase" // <-- ESTA LINHA DEVE SER ASSIM
-import { EventosClientPage } from "./EventosClientPage"
-import { Suspense } from "react"
+import { getEvents } from "@/lib/supabase"
+import EventosClientPage from "./EventosClientPage"
 
 export const metadata: Metadata = {
   title: "Eventos | PetaDot",
@@ -20,26 +19,23 @@ export default async function EventosPage({
 
   // Extrair filtros dos parâmetros de busca
   const filters: any = {}
-  if (searchParams.name) filters.name = searchParams.name
+  if (searchParams.title) filters.title = searchParams.title
   if (searchParams.city) filters.city = searchParams.city
   if (searchParams.state) filters.state = searchParams.state
-  if (searchParams.start_date) filters.start_date = searchParams.start_date
+  if (searchParams.date) filters.date = searchParams.date
 
-  // Desestruturar 'data' e 'count' do objeto retornado por getEvents
   const { data: events, count } = await getEvents(page, pageSize, filters)
 
   return (
     <main className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8 text-center">Eventos</h1>
-      <Suspense fallback={<div>Carregando eventos...</div>}>
-        <EventosClientPage
-          initialEvents={events}
-          totalEvents={count}
-          currentPage={page}
-          pageSize={pageSize}
-          initialFilters={filters}
-        />
-      </Suspense>
+      <EventosClientPage
+        initialEvents={events}
+        totalEvents={count}
+        currentPage={page}
+        pageSize={pageSize}
+        initialFilters={filters}
+      />
     </main>
   )
 }

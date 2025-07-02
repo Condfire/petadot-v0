@@ -100,7 +100,7 @@ export default function SimpleFormContainer() {
         city,
         image_url: imageUrl,
         user_id: user.id,
-        status: "approved",
+        status: "pending",
       }
 
       // Inserir o pet e obter o ID
@@ -122,7 +122,7 @@ export default function SimpleFormContainer() {
       }
 
       alert("Pet reportado com sucesso!")
-      router.push("/my-pets")
+      router.push("/dashboard/pets")
       router.refresh()
     } catch (err: any) {
       console.error("Erro ao salvar pet perdido:", err)

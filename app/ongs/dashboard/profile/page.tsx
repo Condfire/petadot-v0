@@ -22,8 +22,7 @@ const profileFormSchema = z.object({
   address: z.string().min(5, { message: "Endereço muito curto" }),
   city: z.string().min(2, { message: "Cidade inválida" }),
   state: z.string().length(2, { message: "Estado deve ter 2 caracteres (ex: SP)" }),
-  contact_email: z.string().email({ message: "Email de contato inválido" }).optional().or(z.literal("")),
-  contact_phone: z.string().optional(),
+  contact: z.string().min(8, { message: "Contato inválido" }),
   website: z.string().url({ message: "URL inválida" }).optional().or(z.literal("")),
   logo_url: z.string().optional(),
 })
@@ -48,8 +47,7 @@ export default function OngProfilePage() {
       address: "",
       city: "",
       state: "",
-      contact_email: "",
-      contact_phone: "",
+      contact: "",
       website: "",
       logo_url: "",
     },
@@ -59,14 +57,14 @@ export default function OngProfilePage() {
     async function loadOngData() {
       try {
         // Verificar se o usuário está autenticado
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: session } = await supabase.auth.getSession()
 
-        if (!session) {
+        if (!session.session) {
           router.push("/ongs/login?message=Faça login para acessar o dashboard")
           return
         }
 
-        const userId = session.user.id
+        const userId = session.session.user.id
 
         // Buscar dados da ONG
         const { data: ongData, error: ongError } = await supabase
@@ -93,8 +91,7 @@ export default function OngProfilePage() {
           address: ongData.address || "",
           city: ongData.city || "",
           state: ongData.state || "",
-          contact_email: ongData.contact_email || "",
-          contact_phone: ongData.contact_phone || "",
+          contact: ongData.contact || "",
           website: ongData.website || "",
           logo_url: ongData.logo_url || "",
         })
@@ -129,8 +126,7 @@ export default function OngProfilePage() {
           address: data.address,
           city: data.city,
           state: data.state,
-          contact_email: data.contact_email,
-          contact_phone: data.contact_phone,
+          contact: data.contact,
           website: data.website,
           logo_url: data.logo_url,
           updated_at: new Date().toISOString(),
@@ -297,26 +293,12 @@ export default function OngProfilePage() {
 
                 <FormField
                   control={form.control}
-                  name="contact_email"
+                  name="contact"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email de Contato</FormLabel>
+                      <FormLabel>Contato</FormLabel>
                       <FormControl>
-                        <Input placeholder="contato@ong.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="contact_phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Telefone de Contato</FormLabel>
-                      <FormControl>
-                        <Input placeholder="(11) 99999-9999" {...field} />
+                        <Input placeholder="Telefone ou email" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

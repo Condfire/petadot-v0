@@ -92,7 +92,7 @@ function EditPet({ type, id }: { type: string; id: string }) {
       title: "Pet atualizado com sucesso",
       description: "As informações do pet foram atualizadas com sucesso.",
     })
-    router.push("/my-pets")
+    router.push("/dashboard/pets")
   }
 
   const handleError = (message: string) => {
@@ -121,7 +121,7 @@ function EditPet({ type, id }: { type: string; id: string }) {
           </CardHeader>
           <CardContent>
             <p className="text-destructive">{error}</p>
-            <Button className="mt-4" onClick={() => router.push("/my-pets")}>
+            <Button className="mt-4" onClick={() => router.push("/dashboard/pets")}>
               Voltar para Meus Pets
             </Button>
           </CardContent>
@@ -139,7 +139,7 @@ function EditPet({ type, id }: { type: string; id: string }) {
             <CardDescription>O pet que você está procurando não foi encontrado.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => router.push("/my-pets")}>Voltar para Meus Pets</Button>
+            <Button onClick={() => router.push("/dashboard/pets")}>Voltar para Meus Pets</Button>
           </CardContent>
         </Card>
       </div>

@@ -1,449 +1,287 @@
 "use client"
 
-import { useEffect } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
+import type React from "react"
+
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ImageUpload } from "@/components/ImageUpload"
-import { LocationSelector } from "@/components/location-selector"
-import { mapPetSpecies, mapPetSize, mapPetGender, mapPetColor, mapPetAge } from "@/lib/utils" // Importar de lib/utils
-import type { PetFormUI } from "@/lib/types"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/components/ui/use-toast"
+import ImageUpload from "./ImageUpload"
 
-// Esquema de validação para o formulário de pet
-const formSchema = z.object({
-  name: z.string().min(2, { message: "Nome deve ter pelo menos 2 caracteres." }),
-  species: z.string().min(1, { message: "Espécie é obrigatória." }),
-  species_other: z.string().optional(),
-  breed: z.string().optional(),
-  age: z.string().min(1, { message: "Idade é obrigatória." }),
-  size: z.string().min(1, { message: "Porte é obrigatório." }),
-  size_other: z.string().optional(),
-  gender: z.string().min(1, { message: "Gênero é obrigatório." }),
-  gender_other: z.string().optional(),
-  color: z.string().optional(),
-  color_other: z.string().optional(),
-  description: z.string().min(10, { message: "Descrição deve ter pelo menos 10 caracteres." }),
-  whatsapp_contact: z
-    .string()
-    .regex(/^\d{10,11}$/, { message: "Número de WhatsApp inválido (apenas números, 10 ou 11 dígitos)." }),
-  image_urls: z
-    .array(z.string())
-    .min(1, { message: "Pelo menos uma imagem é obrigatória." })
-    .max(5, { message: "Máximo de 5 imagens." }),
-  city: z.string().min(1, { message: "Cidade é obrigatória." }),
-  state: z.string().min(1, { message: "Estado é obrigatório." }),
-  is_castrated: z.boolean().optional(),
-  is_vaccinated: z.boolean().optional(),
-  is_special_needs: z.boolean().optional(),
-  special_needs_description: z.string().optional(),
-  status: z.string().optional(), // Adicionado para permitir status no formulário
-})
-
-interface PetFormProps {
-  initialData?: PetFormUI // Dados iniciais para edição
-  onSubmit: (data: PetFormUI) => Promise<void>
-  isSubmitting: boolean
-  type: "lost" | "found" | "adoption"
+// Tipos para os dados do pet
+interface PetData {
+  id?: string
+  name: string
+  species: string
+  breed: string
+  age: number
+  gender: string
+  size: string
+  color: string
+  description: string
+  is_special_needs: boolean
+  special_needs_description: string
+  contact_phone: string
+  contact_email: string
+  images?: string[]
+  status: string
+  user_id?: string
+  ong_id?: string
 }
 
-// Exportação nomeada para quem usa import { PetForm } from '@/components/PetForm'
-export function PetForm({ initialData, onSubmit, isSubmitting, type }: PetFormProps) {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
-      name: "",
-      species: "",
-      species_other: "",
-      breed: "",
-      age: "",
-      size: "",
-      size_other: "",
-      gender: "",
-      gender_other: "",
-      color: "",
-      color_other: "",
-      description: "",
-      whatsapp_contact: "",
-      image_urls: [],
-      city: "",
-      state: "",
-      is_castrated: false,
-      is_vaccinated: false,
-      is_special_needs: false,
-      special_needs_description: "",
-      status: type === "adoption" ? "available" : "approved", // Default status based on type
-    },
-  })
+interface PetFormProps {
+  initialData?: PetData
+  isEditing?: boolean
+}
 
-  const selectedSpecies = form.watch("species")
-  const selectedSize = form.watch("size")
-  const selectedGender = form.watch("gender")
-  const selectedColor = form.watch("color")
-  const isSpecialNeeds = form.watch("is_special_needs")
+const defaultPetData: PetData = {
+  name: "",
+  species: "dog",
+  breed: "",
+  age: 0,
+  gender: "male",
+  size: "medium",
+  color: "",
+  description: "",
+  is_special_needs: false,
+  special_needs_description: "",
+  contact_phone: "",
+  contact_email: "",
+  images: [],
+  status: "available",
+}
 
-  const handleImageUpload = (urls: string[]) => {
-    form.setValue("image_urls", urls, { shouldValidate: true })
-  }
-
-  const handleLocationChange = (city: string, state: string) => {
-    form.setValue("city", city, { shouldValidate: true })
-    form.setValue("state", state, { shouldValidate: true })
-  }
+export default function PetForm({ initialData, isEditing = false }: PetFormProps) {
+  const [petData, setPetData] = useState<PetData>(initialData || defaultPetData)
+  const [loading, setLoading] = useState(false)
+  const [images, setImages] = useState<string[]>(initialData?.images || [])
+  const router = useRouter()
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     if (initialData) {
-      form.reset(initialData)
+      setPetData(initialData)
+      setImages(initialData.images || [])
     }
-  }, [initialData, form])
+  }, [initialData])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setPetData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleCheckboxChange = (checked: boolean) => {
+    setPetData((prev) => ({ ...prev, is_special_needs: checked }))
+  }
+
+  const handleSelectChange = (name: string, value: string) => {
+    setPetData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        toast({
+          title: "Erro",
+          description: "Você precisa estar logado para cadastrar um pet.",
+          variant: "destructive",
+        })
+        router.push("/login")
+        return
+      }
+
+      const updatedPetData = {
+        ...petData,
+        images,
+        user_id: user.id,
+      }
+
+      let response
+
+      if (isEditing && petData.id) {
+        // Atualizar pet existente
+        response = await supabase.from("pets").update(updatedPetData).eq("id", petData.id)
+      } else {
+        // Criar novo pet
+        response = await supabase.from("pets").insert([updatedPetData])
+      }
+
+      if (response.error) {
+        throw response.error
+      }
+
+      toast({
+        title: isEditing ? "Pet atualizado" : "Pet cadastrado",
+        description: isEditing ? "Seu pet foi atualizado com sucesso!" : "Seu pet foi cadastrado com sucesso!",
+      })
+
+      router.push("/my-pets")
+      router.refresh()
+    } catch (error) {
+      console.error("Erro ao salvar pet:", error)
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao salvar o pet. Tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Nome do Pet</FormLabel>
-              <FormControl>
-                <Input placeholder="Ex: Marley" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="species"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Espécie</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a espécie" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="dog">{mapPetSpecies("dog")}</SelectItem>
-                    <SelectItem value="cat">{mapPetSpecies("cat")}</SelectItem>
-                    <SelectItem value="other">{mapPetSpecies("other")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          {selectedSpecies === "other" && (
-            <FormField
-              control={form.control}
-              name="species_other"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Qual outra espécie?</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Furão" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-        </div>
-
-        <FormField
-          control={form.control}
-          name="breed"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Raça (Opcional)</FormLabel>
-              <FormControl>
-                <Input placeholder="Ex: Golden Retriever" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="age"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Idade</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a idade" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="baby">{mapPetAge("baby")}</SelectItem>
-                    <SelectItem value="young">{mapPetAge("young")}</SelectItem>
-                    <SelectItem value="adult">{mapPetAge("adult")}</SelectItem>
-                    <SelectItem value="senior">{mapPetAge("senior")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="size"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Porte</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o porte" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="small">{mapPetSize("small")}</SelectItem>
-                    <SelectItem value="medium">{mapPetSize("medium")}</SelectItem>
-                    <SelectItem value="large">{mapPetSize("large")}</SelectItem>
-                    <SelectItem value="giant">{mapPetSize("giant")}</SelectItem>
-                    <SelectItem value="other">{mapPetSize("other")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          {selectedSize === "other" && (
-            <FormField
-              control={form.control}
-              name="size_other"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Qual outro porte?</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Miniatura" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
+      <div className="space-y-4">
+        <div>
+          <Label htmlFor="name">Nome do Pet</Label>
+          <Input id="name" name="name" value={petData.name} onChange={handleChange} required />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="gender"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Gênero</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o gênero" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="male">{mapPetGender("male")}</SelectItem>
-                    <SelectItem value="female">{mapPetGender("female")}</SelectItem>
-                    <SelectItem value="unknown">{mapPetGender("unknown")}</SelectItem>
-                    <SelectItem value="other">{mapPetGender("other")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          {selectedGender === "other" && (
-            <FormField
-              control={form.control}
-              name="gender_other"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Qual outro gênero?</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Não binário" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
+          <div>
+            <Label htmlFor="species">Espécie</Label>
+            <Select
+              name="species"
+              value={petData.species}
+              onValueChange={(value) => handleSelectChange("species", value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a espécie" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dog">Cachorro</SelectItem>
+                <SelectItem value="cat">Gato</SelectItem>
+                <SelectItem value="bird">Pássaro</SelectItem>
+                <SelectItem value="other">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="breed">Raça</Label>
+            <Input id="breed" name="breed" value={petData.breed} onChange={handleChange} />
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="color"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Cor (Opcional)</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a cor" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="black">{mapPetColor("black")}</SelectItem>
-                    <SelectItem value="white">{mapPetColor("white")}</SelectItem>
-                    <SelectItem value="brown">{mapPetColor("brown")}</SelectItem>
-                    <SelectItem value="gray">{mapPetColor("gray")}</SelectItem>
-                    <SelectItem value="golden">{mapPetColor("golden")}</SelectItem>
-                    <SelectItem value="spotted">{mapPetColor("spotted")}</SelectItem>
-                    <SelectItem value="tricolor">{mapPetColor("tricolor")}</SelectItem>
-                    <SelectItem value="other">{mapPetColor("other")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          {selectedColor === "other" && (
-            <FormField
-              control={form.control}
-              name="color_other"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Qual outra cor?</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Tigrado" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label htmlFor="age">Idade (anos)</Label>
+            <Input id="age" name="age" type="number" min="0" value={petData.age} onChange={handleChange} />
+          </div>
+
+          <div>
+            <Label htmlFor="gender">Gênero</Label>
+            <Select name="gender" value={petData.gender} onValueChange={(value) => handleSelectChange("gender", value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o gênero" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Macho</SelectItem>
+                <SelectItem value="female">Fêmea</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="size">Porte</Label>
+            <Select name="size" value={petData.size} onValueChange={(value) => handleSelectChange("size", value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o porte" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="small">Pequeno</SelectItem>
+                <SelectItem value="medium">Médio</SelectItem>
+                <SelectItem value="large">Grande</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Descrição</FormLabel>
-              <FormControl>
-                <Textarea placeholder="Conte mais sobre o pet..." rows={5} {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div>
+          <Label htmlFor="color">Cor</Label>
+          <Input id="color" name="color" value={petData.color} onChange={handleChange} />
+        </div>
 
-        <FormField
-          control={form.control}
-          name="whatsapp_contact"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>WhatsApp para Contato</FormLabel>
-              <FormControl>
-                <Input placeholder="Ex: 5511987654321" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div>
+          <Label htmlFor="description">Descrição</Label>
+          <Textarea id="description" name="description" value={petData.description} onChange={handleChange} rows={4} />
+        </div>
 
-        <LocationSelector
-          initialCity={initialData?.city}
-          initialState={initialData?.state}
-          onLocationChange={handleLocationChange}
-        />
-        {form.formState.errors.city && <FormMessage>{form.formState.errors.city.message}</FormMessage>}
-        {form.formState.errors.state && <FormMessage>{form.formState.errors.state.message}</FormMessage>}
+        <div className="flex items-center space-x-2">
+          <Checkbox id="is_special_needs" checked={petData.is_special_needs} onCheckedChange={handleCheckboxChange} />
+          <Label htmlFor="is_special_needs">Possui necessidades especiais</Label>
+        </div>
 
-        <FormField
-          control={form.control}
-          name="image_urls"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Imagens do Pet (1-5)</FormLabel>
-              <FormControl>
-                <ImageUpload value={field.value} onChange={handleImageUpload} maxFiles={5} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {type === "adoption" && (
-          <>
-            <FormField
-              control={form.control}
-              name="is_castrated"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Castrado(a)</FormLabel>
-                  </div>
-                </FormItem>
-              )}
+        {petData.is_special_needs && (
+          <div>
+            <Label htmlFor="special_needs_description">Descreva as necessidades especiais</Label>
+            <Textarea
+              id="special_needs_description"
+              name="special_needs_description"
+              value={petData.special_needs_description}
+              onChange={handleChange}
+              rows={3}
             />
-            <FormField
-              control={form.control}
-              name="is_vaccinated"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Vacinado(a)</FormLabel>
-                  </div>
-                </FormItem>
-              )}
-            />
-          </>
+          </div>
         )}
 
-        <FormField
-          control={form.control}
-          name="is_special_needs"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-              <FormControl>
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-              </FormControl>
-              <div className="space-y-1 leading-none">
-                <FormLabel>Necessidades Especiais</FormLabel>
-              </div>
-            </FormItem>
-          )}
-        />
-        {isSpecialNeeds && (
-          <FormField
-            control={form.control}
-            name="special_needs_description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Descrição das Necessidades Especiais</FormLabel>
-                <FormControl>
-                  <Textarea placeholder="Descreva as necessidades especiais do pet..." rows={3} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
+        <div>
+          <Label htmlFor="contact_phone">Telefone para contato</Label>
+          <Input id="contact_phone" name="contact_phone" value={petData.contact_phone} onChange={handleChange} />
+        </div>
 
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Enviando..." : "Cadastrar Pet"}
+        <div>
+          <Label htmlFor="contact_email">Email para contato</Label>
+          <Input
+            id="contact_email"
+            name="contact_email"
+            type="email"
+            value={petData.contact_email}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div>
+          <Label>Fotos do Pet</Label>
+          <ImageUpload images={images} setImages={setImages} folder="pets" />
+        </div>
+
+        <div>
+          <Label htmlFor="status">Status</Label>
+          <Select name="status" value={petData.status} onValueChange={(value) => handleSelectChange("status", value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione o status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="available">Disponível para adoção</SelectItem>
+              <SelectItem value="pending">Em processo de adoção</SelectItem>
+              <SelectItem value="adopted">Adotado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="flex justify-end space-x-4">
+        <Button type="button" variant="outline" onClick={() => router.back()}>
+          Cancelar
         </Button>
-      </form>
-    </Form>
+        <Button type="submit" disabled={loading}>
+          {loading ? "Salvando..." : isEditing ? "Atualizar Pet" : "Cadastrar Pet"}
+        </Button>
+      </div>
+    </form>
   )
 }
-
-// Exportação default para quem usa import PetForm from '@/components/PetForm'
-export default PetForm

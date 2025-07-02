@@ -13,13 +13,6 @@ import { useToast } from "@/components/ui/use-toast"
 import { getLostPetById, deleteUserPet } from "@/lib/supabase"
 import { ArrowLeft, Pencil, Trash2, Loader2 } from "lucide-react"
 import { format } from "date-fns"
-import {
-  mapPetAge,
-  mapPetColor,
-  mapPetGender,
-  mapPetSize,
-  mapPetSpecies,
-} from "@/lib/utils"
 import { ptBR } from "date-fns/locale"
 
 export default function LostPetDetailsPage({ params }: { params: { id: string } }) {
@@ -83,7 +76,7 @@ function LostPetDetails({ id }: { id: string }) {
           title: "Pet excluído com sucesso",
           description: "O pet foi excluído permanentemente.",
         })
-        router.push("/my-pets")
+        router.push("/dashboard/pets")
       } else {
         toast({
           title: "Erro ao excluir pet",
@@ -114,7 +107,7 @@ function LostPetDetails({ id }: { id: string }) {
   return (
     <div className="container py-8">
       <Button variant="ghost" className="mb-6" asChild>
-        <Link href="/my-pets">
+        <Link href="/dashboard/pets">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar para Meus Pets
         </Link>
@@ -171,7 +164,7 @@ function LostPetDetails({ id }: { id: string }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="relative aspect-square overflow-hidden rounded-lg">
               <Image
-                src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=400&width=400&query=pet"}
+                src={pet.image_url || "/placeholder.svg?height=400&width=400&query=pet"}
                 alt={pet.name || "Pet"}
                 fill
                 className="object-cover"
@@ -183,7 +176,7 @@ function LostPetDetails({ id }: { id: string }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div>
                   <p className="text-sm text-muted-foreground">Espécie</p>
-                  <p className="font-medium">{mapPetSpecies(pet.species)}</p>
+                  <p className="font-medium">{pet.species || "Não informado"}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Raça</p>
@@ -191,19 +184,25 @@ function LostPetDetails({ id }: { id: string }) {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Idade</p>
-                  <p className="font-medium">{mapPetAge(pet.age)}</p>
+                  <p className="font-medium">{pet.age || "Não informado"}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Porte</p>
-                  <p className="font-medium">{mapPetSize(pet.size)}</p>
+                  <p className="font-medium">{pet.size || "Não informado"}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Sexo</p>
-                  <p className="font-medium">{mapPetGender(pet.gender)}</p>
+                  <p className="font-medium">
+                    {pet.gender === "male"
+                      ? "Macho"
+                      : pet.gender === "female"
+                        ? "Fêmea"
+                        : pet.gender || "Não informado"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Cor</p>
-                  <p className="font-medium">{mapPetColor(pet.color)}</p>
+                  <p className="font-medium">{pet.color || "Não informado"}</p>
                 </div>
               </div>
 

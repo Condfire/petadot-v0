@@ -83,36 +83,13 @@ export async function registerUserAndNgoAction(
 
   const newUserId = authData.user.id
 
-  // Ensure user data exists in public.users. Ignore duplicate errors if the row already exists.
-  const { error: userInsertError } = await supabase
-    .from("users")
-    .upsert(
-      [
-        {
-          id: newUserId,
-          email,
-          name: personalName,
-          type: userMetadata.type,
-          state: userState || null,
-          city: userCity || null,
-        },
-      ],
-      { onConflict: "id" },
-    )
-
-  if (userInsertError && userInsertError.code !== "23505") {
-    console.error("Erro ao inserir usuário em public.users:", userInsertError)
-    return { success: false, message: userInsertError.message }
-  }
+  // The AuthProvider's syncUserWithDatabase should handle populating public.users table
+  // including name, email, type, state, city from user_metadata.
 
   if (isNgo) {
     const ngoData = validation.data // This will be the merged schema with NGO fields
     try {
-      const baseSlug = await generateEntitySlug(
-        "ong",
-        { name: ngoData.ngoName, city: ngoData.ngoCity, state: ngoData.ngoState },
-        undefined,
-      )
+      const baseSlug = await generateEntitySlug(ngoData.ngoName, "ong", ngoData.ngoCity, undefined)
       const uniqueSlug = await generateUniqueSlug(baseSlug, "ongs", undefined) // Pass undefined for new ONG ID
 
       const { data: ong, error: ongInsertError } = await supabase
@@ -130,7 +107,7 @@ export async function registerUserAndNgoAction(
           state: ngoData.ngoState,
           postal_code: ngoData.ngoPostalCode || null,
           verification_document_url: ngoData.verificationDocumentUrl || null,
-          is_verified: true, // ONGs são verificadas automaticamente
+          is_verified: false, // NGOs start as unverified
           slug: uniqueSlug,
         })
         .select("id")

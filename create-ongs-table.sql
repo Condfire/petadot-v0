@@ -8,8 +8,7 @@ CREATE TABLE IF NOT EXISTS ongs (
   address VARCHAR(255),
   city VARCHAR(100),
   state VARCHAR(50),
-  contact_email TEXT,
-  contact_phone VARCHAR(20),
+  contact VARCHAR(100),
   website VARCHAR(255),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

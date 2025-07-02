@@ -10,7 +10,7 @@ interface PaginationProps {
   className?: string
 }
 
-function PaginationComponent({ currentPage, totalPages, onPageChange, className = "" }: PaginationProps) {
+export default function Pagination({ currentPage, totalPages, onPageChange, className = "" }: PaginationProps) {
   // Não renderizar paginação se houver apenas uma página
   if (totalPages <= 1) {
     return null
@@ -129,9 +129,3 @@ function PaginationComponent({ currentPage, totalPages, onPageChange, className 
     </div>
   )
 }
-
-// Export nomeado para compatibilidade
-export { PaginationComponent as Pagination }
-
-// Export padrão
-export default PaginationComponent

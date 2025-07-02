@@ -145,10 +145,7 @@ export default function PetCard({
       found: "/encontrados/",
     }[type]
 
-    const validSlug = slug && !["{}", "%7B%7D", "undefined", "null"].includes(slug)
-    const identifier = validSlug ? slug : id
-
-    return `${baseUrl}${identifier}`
+    return `${baseUrl}${slug || id}`
   }
 
   // Determinar a URL de edição com base no tipo de pet
@@ -225,6 +222,11 @@ export default function PetCard({
             {gender && (
               <p>
                 <span className="font-medium">Gênero:</span> {genderDisplay}
+              </p>
+            )}
+            {isPending && isOwner && (
+              <p className="mt-2 text-yellow-400 text-xs">
+                Este pet está aguardando aprovação e só é visível para você.
               </p>
             )}
           </div>

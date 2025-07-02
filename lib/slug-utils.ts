@@ -2,7 +2,7 @@
  * Utilitários para geração e manipulação de slugs
  */
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
 /**
@@ -212,7 +212,7 @@ export function generateSlug(text: string): string {
  * @returns Verdadeiro se o slug já existir
  */
 export async function slugExists(slug: string, table: string, excludeId?: string): Promise<boolean> {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = createServerComponentClient({ cookies })
 
   let query = supabase.from(table).select("id").eq("slug", slug)
 

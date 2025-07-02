@@ -1,47 +1,41 @@
 "use client"
 
 import type React from "react"
+import { useEffect, useState } from "react"
 import { useAuth } from "@/app/auth-provider"
 import { Loader2 } from "lucide-react"
 
 interface AuthCheckProps {
   children: React.ReactNode
   fallback?: React.ReactNode
-  requireAuth?: boolean
-  loadingComponent?: React.ReactNode
-  allowedUserTypes?: string[]
 }
 
-export function AuthCheck({
-  children,
-  fallback,
-  requireAuth = false,
-  loadingComponent,
-  allowedUserTypes,
-}: AuthCheckProps) {
-  const { user, isLoading, isInitialized } = useAuth()
+export default function AuthCheck({ children, fallback }: AuthCheckProps) {
+  const { user, isLoading } = useAuth()
+  const [showContent, setShowContent] = useState(false)
 
-  // Show loading state while initializing
-  if (!isInitialized || isLoading) {
+  useEffect(() => {
+    // Só mostramos o conteúdo quando temos certeza que há um usuário autenticado
+    if (!isLoading && user) {
+      setShowContent(true)
+    }
+  }, [isLoading, user])
+
+  // Enquanto estamos carregando, mostramos um indicador
+  if (isLoading) {
     return (
-      loadingComponent || (
-        <div className="flex items-center justify-center p-4">
-          <Loader2 className="h-6 w-6 animate-spin" />
-        </div>
-      )
+      <div className="flex items-center justify-center p-4">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
     )
   }
 
-  // Check user type requirements
-  const hasValidUserType = !allowedUserTypes || (user?.type && allowedUserTypes.includes(user.type))
-
-  // If auth is required and user is not authenticated or doesn't have valid type
-  if (requireAuth && (!user || !hasValidUserType)) {
-    return fallback || null
+  // Se decidimos mostrar o conteúdo, fazemos isso
+  if (showContent) {
+    return <>{children}</>
   }
 
-  // If auth is not required or user is authenticated with valid type
-  return <>{children}</>
+  // Se não estamos carregando e não decidimos mostrar o conteúdo,
+  // mostramos o fallback
+  return <>{fallback || null}</>
 }
-
-export default AuthCheck

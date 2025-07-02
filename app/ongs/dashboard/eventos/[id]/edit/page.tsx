@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ImageUpload } from "@/components/ImageUpload"
+import { ImageUpload } from "@/components/image-upload"
 import { getEventForEdit, updateEvent } from "@/app/actions/event-actions"
 import { Loader2, Calendar, MapPin } from "lucide-react"
 
@@ -47,7 +47,7 @@ export default function EditEventPage() {
         }
 
         // Formatar a data para o formato YYYY-MM-DD
-        const eventDate = result.event.start_date ? new Date(result.event.start_date) : new Date()
+        const eventDate = result.event.date ? new Date(result.event.date) : new Date()
         const formattedDate = eventDate.toISOString().split("T")[0]
 
         setFormData({

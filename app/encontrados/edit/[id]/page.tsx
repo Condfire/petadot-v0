@@ -16,12 +16,8 @@ export default async function EditFoundPetPage({ params }: { params: { id: strin
     redirect("/login?redirect=/encontrados/edit/" + params.id)
   }
 
-  // Buscar os dados do pet encontrado na tabela unificada
-  const { data: pet, error } = await supabase
-    .from("pets")
-    .select("*")
-    .eq("id", params.id)
-    .single()
+  // Buscar os dados do pet encontrado
+  const { data: pet, error } = await supabase.from("pets_found").select("*").eq("id", params.id).single()
 
   if (error || !pet) {
     console.error("Erro ao buscar pet encontrado:", error)
