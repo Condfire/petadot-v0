@@ -78,7 +78,19 @@ export default function OngsClientPage({
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {initialOngs.map((ong) => (
-              <OngCard key={ong.id} ong={ong} />
+              <OngCard
+                key={ong.id}
+                id={ong.id}
+                name={ong.name}
+                logo={ong.logo_url || "/placeholder-logo.png"} // Use logo_url
+                city={ong.city}
+                state={ong.state}
+                contact={
+                  ong.user?.contact_whatsapp || ong.contact_email || "N/A"
+                }
+                petCount={0} // Placeholder for now, as pet count requires a separate query
+                slug={ong.slug} // Pass the slug
+              />
             ))}
           </div>
 

@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/use-toast"
 import { getPetById, getLostPetById, getFoundPetById, deleteUserPet } from "@/lib/supabase"
 import { ArrowLeft, AlertTriangle, Loader2 } from "lucide-react"
+import { mapPetAge, mapPetSize } from "@/lib/utils"
 
 export default function DeletePetPage({ params }: { params: { type: string; id: string } }) {
   return (
@@ -31,9 +32,19 @@ function DeletePetContent({ params }: { params: { type: string; id: string } }) 
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>
     const fetchPet = async () => {
-      if (!user?.id) return
+      if (!user?.id) {
+        timeout = setTimeout(() => {
+          if (!user?.id) {
+            setError("Não autenticado")
+            setIsLoading(false)
+          }
+        }, 1000)
+        return
+      }
 
+      setError(null)
       setIsLoading(true)
       try {
         let petData = null
@@ -78,6 +89,7 @@ function DeletePetContent({ params }: { params: { type: string; id: string } }) 
     }
 
     fetchPet()
+    return () => clearTimeout(timeout)
   }, [params.id, params.type, user?.id])
 
   const handleDelete = async () => {
@@ -120,11 +132,11 @@ function DeletePetContent({ params }: { params: { type: string; id: string } }) 
         })
 
         // Adicionar um parâmetro de timestamp para forçar a atualização da página
-        router.push(`/dashboard/pets?t=${Date.now()}`)
+        router.push(`/my-pets?t=${Date.now()}`)
 
         // Forçar uma atualização completa da página após um breve atraso
         setTimeout(() => {
-          window.location.href = `/dashboard/pets?refresh=${Date.now()}`
+          window.location.href = `/my-pets?refresh=${Date.now()}`
         }, 500)
       } else {
         toast({
@@ -162,7 +174,7 @@ function DeletePetContent({ params }: { params: { type: string; id: string } }) 
   return (
     <div className="container py-8 md:py-12">
       <Button variant="ghost" className="mb-6" asChild>
-        <Link href="/dashboard/pets">
+        <Link href="/my-pets">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar para Meus Pets
         </Link>
@@ -192,7 +204,7 @@ function DeletePetContent({ params }: { params: { type: string; id: string } }) 
           </CardHeader>
           <CardFooter>
             <Button asChild className="w-full">
-              <Link href="/dashboard/pets">Voltar para Meus Pets</Link>
+              <Link href="/my-pets">Voltar para Meus Pets</Link>
             </Button>
           </CardFooter>
         </Card>
@@ -211,7 +223,7 @@ function DeletePetContent({ params }: { params: { type: string; id: string } }) 
           <CardContent className="flex flex-col items-center">
             <div className="relative w-[200px] h-[200px] rounded-lg overflow-hidden mb-4">
               <Image
-                src={pet.image_url || "/placeholder.svg?height=200&width=200&query=pet"}
+                src={pet.main_image_url || pet.image_url || "/placeholder.svg?height=200&width=200&query=pet"}
                 alt={pet.name || "Pet"}
                 fill
                 className="object-cover"
@@ -220,15 +232,7 @@ function DeletePetContent({ params }: { params: { type: string; id: string } }) 
             <h2 className="text-xl font-semibold">{pet.name || "Pet sem nome"}</h2>
             <p className="text-muted-foreground mt-1">
               {pet.type === "adoption"
-                ? `${pet.age || "Idade não informada"} • ${
-                    pet.size === "small"
-                      ? "Pequeno"
-                      : pet.size === "medium"
-                        ? "Médio"
-                        : pet.size === "large"
-                          ? "Grande"
-                          : pet.size
-                  }`
+                ? `${mapPetAge(pet.age)} • ${mapPetSize(pet.size)}`
                 : pet.type === "lost"
                   ? `Perdido em ${pet.last_seen_location}`
                   : `Encontrado em ${pet.found_location}`}
@@ -236,7 +240,7 @@ function DeletePetContent({ params }: { params: { type: string; id: string } }) 
           </CardContent>
           <CardFooter className="flex justify-between">
             <Button variant="outline" asChild>
-              <Link href="/dashboard/pets">Cancelar</Link>
+              <Link href="/my-pets">Cancelar</Link>
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
               {isDeleting ? (

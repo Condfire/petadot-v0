@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
@@ -16,7 +16,7 @@ export async function createOrPromoteAdmin(
   password: string,
   name: string,
 ): Promise<AdminCreationResult> {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
   console.log(`Tentando criar/promover admin para: ${email}`)
 
   try {
@@ -282,7 +282,7 @@ export async function verifyAndFixAdminStatus(userId: string): Promise<{
   message: string
   isAdmin: boolean
 }> {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Verificar se o usuário existe na tabela users
@@ -323,7 +323,7 @@ export async function verifyAndFixAdminStatus(userId: string): Promise<{
     }
 
     // Revalidar caminhos relevantes
-    revalidatePath("/admin-alt/users")
+    revalidatePath("/admin/users")
     revalidatePath("/admin/users")
 
     return {

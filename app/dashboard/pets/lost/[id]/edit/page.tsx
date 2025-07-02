@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import ImageUpload from "@/components/image-upload"
+import ImageUpload from "@/components/ImageUpload"
 import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 
@@ -59,7 +59,7 @@ function EditLostPetForm({ id }: { id: string }) {
             description: "O pet que você está tentando editar não foi encontrado.",
             variant: "destructive",
           })
-          router.push("/dashboard/pets")
+          router.push("/my-pets")
           return
         }
 
@@ -70,7 +70,7 @@ function EditLostPetForm({ id }: { id: string }) {
             description: "Você não tem permissão para editar este pet.",
             variant: "destructive",
           })
-          router.push("/dashboard/pets")
+          router.push("/my-pets")
           return
         }
 
@@ -155,7 +155,7 @@ function EditLostPetForm({ id }: { id: string }) {
         description: "As informações do pet foram atualizadas com sucesso.",
       })
 
-      router.push("/dashboard/pets")
+      router.push("/my-pets")
     } catch (error) {
       console.error("Erro ao atualizar pet:", error)
       toast({
@@ -184,7 +184,7 @@ function EditLostPetForm({ id }: { id: string }) {
           <h2 className="text-xl font-semibold mb-2">Pet não encontrado</h2>
           <p className="text-gray-500 mb-4">O pet que você está tentando editar não foi encontrado.</p>
           <Button asChild>
-            <a href="/dashboard/pets">Voltar para Meus Pets</a>
+            <a href="/my-pets">Voltar para Meus Pets</a>
           </Button>
         </div>
       </div>

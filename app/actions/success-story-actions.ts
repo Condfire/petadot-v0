@@ -73,7 +73,7 @@ export async function createSuccessStory(formData: FormData) {
     // Revalidar caminhos relevantes
     revalidatePath("/historias")
     revalidatePath(`/historias/${data[0].id}`)
-    revalidatePath("/dashboard/pets")
+    revalidatePath("/my-pets")
 
     return { success: true, data: data[0] }
   } catch (error) {

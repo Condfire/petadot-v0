@@ -1,13 +1,16 @@
-import Link from "next/link"
+"use client"
+
 import Image from "next/image"
+import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle } from "lucide-react"
+import { MapPin, Heart, Calendar } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { PetStatusButtonSimple } from "@/components/pet-status-button-simple"
 
 interface PetCardProps {
   id: string
   name?: string
-  image?: string
   main_image_url?: string
   species?: string
   species_other?: string
@@ -17,17 +20,20 @@ interface PetCardProps {
   size_other?: string
   gender?: string
   gender_other?: string
-  location?: string
+  city?: string
+  state?: string
   status?: string
-  type: "adoption" | "lost" | "found"
-  isSpecialNeeds?: boolean
+  type: "lost" | "found" | "adoption"
   slug?: string
+  category?: string
+  isSpecialNeeds?: boolean
+  created_at?: string
+  isOwner?: boolean
 }
 
-export default function PetCard({
+function PetCard({
   id,
   name,
-  image,
   main_image_url,
   species,
   species_other,
@@ -37,165 +43,197 @@ export default function PetCard({
   size_other,
   gender,
   gender_other,
-  location,
+  city,
+  state,
   status,
   type,
-  isSpecialNeeds,
   slug,
+  category,
+  isSpecialNeeds,
+  created_at,
+  isOwner = false,
 }: PetCardProps) {
-  // Determinar a URL de destino com base no tipo de pet
+  // Debug logs
+  console.log(`[PetCard] Pet ${id}:`, {
+    name,
+    main_image_url,
+    type,
+    slug,
+    category,
+  })
+
+  // Função para gerar a URL de detalhes
   const getDetailUrl = () => {
-    const baseUrl = {
-      adoption: "/adocao/",
-      lost: "/perdidos/",
-      found: "/encontrados/",
-    }[type]
+    const validSlug = slug && !["{}", "%7B%7D", "undefined", "null"].includes(slug)
+    const identifier = validSlug ? slug : id
+    console.log(`[PetCard] Gerando URL para pet ${id}, slug: ${slug}, type: ${type}, identifier: ${identifier}`)
 
-    // Usar slug se disponível, caso contrário usar id
-    return `${baseUrl}${slug || id}`
+    switch (type) {
+      case "adoption":
+        return `/adocao/${identifier}`
+      case "lost":
+        return `/perdidos/${identifier}`
+      case "found":
+        return `/encontrados/${identifier}`
+      default:
+        return `/${type}/${identifier}`
+    }
   }
 
-  // Função para obter a imagem com fallback
-  const getImageSrc = () => {
-    if (main_image_url && main_image_url.trim() !== "") {
-      return main_image_url
-    }
-    if (image && image.trim() !== "") {
-      return image
-    }
-    return "/placeholder.svg?height=300&width=300"
+  // Função para formatar espécie
+  const getSpeciesDisplay = () => {
+    if (species === "dog") return "Cachorro"
+    if (species === "cat") return "Gato"
+    if (species === "other" && species_other) return species_other
+    return species || "Não informado"
   }
 
-  // Mapear espécie para texto legível
-  const getSpeciesText = () => {
-    if (species === "other" && species_other) {
-      return species_other
-    }
-
-    const speciesMap: Record<string, string> = {
-      dog: "Cachorro",
-      cat: "Gato",
-      bird: "Pássaro",
-      rabbit: "Coelho",
-      hamster: "Hamster",
-      fish: "Peixe",
-      turtle: "Tartaruga",
-      other: "Outro",
-    }
-
-    return speciesMap[species || ""] || species || "Não informado"
+  // Função para formatar tamanho
+  const getSizeDisplay = () => {
+    if (size === "small") return "Pequeno"
+    if (size === "medium") return "Médio"
+    if (size === "large") return "Grande"
+    if (size === "other" && size_other) return size_other
+    return size || "Não informado"
   }
 
-  // Mapear tamanho para texto legível
-  const getSizeText = () => {
-    if (size === "other" && size_other) {
-      return size_other
-    }
-
-    const sizeMap: Record<string, string> = {
-      small: "Pequeno",
-      medium: "Médio",
-      large: "Grande",
-      giant: "Gigante",
-    }
-
-    return sizeMap[size || ""] || size || "Não informado"
+  // Função para formatar gênero
+  const getGenderDisplay = () => {
+    if (gender === "male") return "Macho"
+    if (gender === "female") return "Fêmea"
+    if (gender === "other" && gender_other) return gender_other
+    return gender || "Não informado"
   }
 
-  // Mapear gênero para texto legível
-  const getGenderText = () => {
-    if (gender === "other" && gender_other) {
-      return gender_other
+  // Função para obter a cor do badge baseado no tipo
+  const getBadgeVariant = () => {
+    switch (type) {
+      case "lost":
+        return "destructive"
+      case "found":
+        return "secondary"
+      case "adoption":
+        return "default"
+      default:
+        return "default"
     }
-
-    const genderMap: Record<string, string> = {
-      male: "Macho",
-      female: "Fêmea",
-      unknown: "Não informado",
-      other: "Outro",
-    }
-
-    return genderMap[gender || ""] || gender || "Não informado"
   }
 
-  // Mapear status para texto legível
-  const getStatusText = () => {
-    const statusMap: Record<string, { text: string; color: string }> = {
-      available: { text: "Disponível", color: "bg-green-500" },
-      pending: { text: "Pendente", color: "bg-yellow-500" },
-      adopted: { text: "Adotado", color: "bg-blue-500" },
-      approved: { text: "Aprovado", color: "bg-green-500" },
-      rejected: { text: "Rejeitado", color: "bg-red-500" },
-      resolved: { text: "Encontrado", color: "bg-blue-500" },
-      reunited: { text: "Reunido", color: "bg-blue-500" },
+  // Função para obter o texto do badge
+  const getBadgeText = () => {
+    switch (type) {
+      case "lost":
+        return "PERDIDO"
+      case "found":
+        return "ENCONTRADO"
+      case "adoption":
+        return "ADOÇÃO"
+      default:
+        return type?.toUpperCase()
     }
-
-    return statusMap[status || ""] || { text: status || "Desconhecido", color: "bg-gray-500" }
   }
 
-  const statusInfo = getStatusText()
-  const imageSrc = getImageSrc()
+  const detailUrl = getDetailUrl()
+  const location = city && state ? `${city}, ${state}` : city || state || "Localização não informada"
+
+  // Melhor tratamento da imagem
+  const imageUrl = main_image_url || "/placeholder.svg?height=200&width=300&text=Sem+foto"
+  console.log(`[PetCard] Imagem para pet ${id}:`, imageUrl)
+
+  const resolvedStatuses = ["adopted", "resolved", "reunited"]
+  const isResolved = status ? resolvedStatuses.includes(status) : false
 
   return (
-    <Link href={getDetailUrl()}>
-      <Card className="overflow-hidden h-full flex flex-col hover:shadow-md transition-shadow">
-        <div className="relative aspect-square">
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300 bg-card border">
+      <div className="relative">
+        <div className="relative h-48 w-full">
           <Image
-            src={imageSrc || "/placeholder.svg"}
+            src={imageUrl || "/placeholder.svg"}
             alt={name || "Pet"}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            priority={false}
-            unoptimized={imageSrc.includes("placeholder.svg")}
+            onError={(e) => {
+              console.error(`[PetCard] Erro ao carregar imagem para pet ${id}:`, e)
+            }}
+            onLoad={() => {
+              console.log(`[PetCard] Imagem carregada com sucesso para pet ${id}`)
+            }}
           />
-          {isSpecialNeeds && (
-            <div className="absolute top-2 right-2 bg-amber-500 text-white p-1 rounded-full">
-              <AlertTriangle size={16} />
+        </div>
+        <div className="absolute top-2 left-2">
+          <Badge variant={getBadgeVariant()} className="font-semibold">
+            {getBadgeText()}
+          </Badge>
+        </div>
+        {isSpecialNeeds && (
+          <div className="absolute top-2 right-2">
+            <Badge variant="outline" className="bg-background/80">
+              <Heart className="h-3 w-3 mr-1" />
+              Especial
+            </Badge>
+          </div>
+        )}
+      </div>
+
+      <CardContent className="p-4 space-y-3">
+        <div>
+          <h3 className="font-bold text-lg text-foreground line-clamp-1">{name || "Pet sem nome"}</h3>
+          <div className="flex items-center text-muted-foreground text-sm mt-1">
+            <MapPin className="h-3 w-3 mr-1" />
+            <span className="line-clamp-1">{location}</span>
+          </div>
+        </div>
+
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Espécie:</span>
+            <span className="font-medium text-foreground">{getSpeciesDisplay()}</span>
+          </div>
+          {breed && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Raça:</span>
+              <span className="font-medium text-foreground line-clamp-1">{breed}</span>
             </div>
           )}
-          {status && (
-            <Badge
-              className={`absolute top-2 left-2 ${statusInfo.color} hover:${statusInfo.color} text-white border-none`}
-            >
-              {statusInfo.text}
-            </Badge>
-          )}
-        </div>
-        <CardContent className="flex-grow p-4">
-          <h3 className="font-bold text-lg mb-2 truncate">{name || "Pet sem nome"}</h3>
-          <div className="space-y-1 text-sm text-muted-foreground">
-            <p>
-              <span className="font-medium">Espécie:</span> {getSpeciesText()}
-            </p>
-            {breed && (
-              <p>
-                <span className="font-medium">Raça:</span> {breed}
-              </p>
-            )}
-            {age && (
-              <p>
-                <span className="font-medium">Idade:</span> {age}
-              </p>
-            )}
-            {size && (
-              <p>
-                <span className="font-medium">Porte:</span> {getSizeText()}
-              </p>
-            )}
-            {gender && (
-              <p>
-                <span className="font-medium">Gênero:</span> {getGenderText()}
-              </p>
-            )}
-            {location && (
-              <p>
-                <span className="font-medium">Localização:</span> {location}
-              </p>
-            )}
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Tamanho:</span>
+            <span className="font-medium text-foreground">{getSizeDisplay()}</span>
           </div>
-        </CardContent>
-      </Card>
-    </Link>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Gênero:</span>
+            <span className="font-medium text-foreground">{getGenderDisplay()}</span>
+          </div>
+        </div>
+
+        {created_at && (
+          <div className="flex items-center text-muted-foreground text-xs">
+            <Calendar className="h-3 w-3 mr-1" />
+            <span>Publicado em {new Date(created_at).toLocaleDateString("pt-BR")}</span>
+          </div>
+        )}
+
+        <Link href={detailUrl} className="block">
+          <Button className="w-full mt-3">Ver Detalhes</Button>
+        </Link>
+
+        {isOwner && (
+          <div className="flex flex-col gap-2 mt-3">
+            {!isResolved && (
+              <PetStatusButtonSimple petId={id} petType={type} />
+            )}
+            <Button variant="destructive" asChild>
+              <Link href={`/dashboard/pets/${type}/${id}/delete`}>Excluir</Link>
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
+
+// Named export
+export { PetCard }
+
+// Default export
+export default PetCard

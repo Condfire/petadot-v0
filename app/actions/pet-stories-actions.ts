@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
@@ -32,16 +32,14 @@ export type PetStory = {
 // Verificar se a tabela existe
 async function checkTableExists(supabase, tableName) {
   try {
-    const { data, error } = await supabase
-      .from("information_schema.tables")
-      .select("table_name")
-      .eq("table_schema", "public")
-      .eq("table_name", tableName)
-      .single()
+    const { error } = await supabase
+      .from(tableName)
+      .select("*", { count: "exact", head: true })
+      .limit(1)
 
-    return !error && data
-  } catch (error) {
-    console.error(`Erro ao verificar tabela ${tableName}:`, error)
+    return !error
+  } catch (err) {
+    console.error(`Erro ao verificar tabela ${tableName}:`, err)
     return false
   }
 }
@@ -75,7 +73,7 @@ async function createPetStoriesTable(supabase) {
 // Criar uma nova história
 export async function createPetStory(formData: FormData) {
   try {
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = createServerActionClient({ cookies })
 
     // Verificar se o usuário está autenticado
     const {
@@ -150,7 +148,7 @@ export async function createPetStory(formData: FormData) {
 // Obter todas as histórias (aprovadas para usuários não autenticados, todas para admin)
 export async function getPetStories(page = 1, limit = 10) {
   try {
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = createServerActionClient({ cookies })
 
     // Verificar se o usuário está autenticado
     const {
@@ -261,7 +259,7 @@ export async function getPetStoryById(id: string) {
     console.log("Buscando história com ID:", id)
 
     // Usar o cliente do servidor para autenticação
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = createServerActionClient({ cookies })
 
     // Verificar se o usuário está autenticado
     const {
@@ -335,7 +333,7 @@ export async function getPetStoryById(id: string) {
 // Atualizar uma história
 export async function updatePetStory(storyId: string, formData: FormData) {
   try {
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = createServerActionClient({ cookies })
 
     // Verificar se o usuário está autenticado
     const {
@@ -440,7 +438,7 @@ export async function deletePetStory(id: string) {
     console.log("Tentando excluir história com ID:", id)
 
     // Usar o cliente do servidor para autenticação
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = createServerActionClient({ cookies })
 
     // Verificar se o usuário está autenticado
     const {
@@ -533,7 +531,7 @@ export async function deletePetStory(id: string) {
 // Aprovar uma história (apenas admin)
 export async function approvePetStory(id: string) {
   try {
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = createServerActionClient({ cookies })
 
     // Verificar se o usuário está autenticado
     const {
@@ -600,7 +598,7 @@ export async function approvePetStory(id: string) {
 // Rejeitar uma história (apenas admin)
 export async function rejectPetStory(id: string) {
   try {
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = createServerActionClient({ cookies })
 
     // Verificar se o usuário está autenticado
     const {
@@ -647,7 +645,7 @@ export async function rejectPetStory(id: string) {
 // Curtir uma história
 export async function likeStory(id: string) {
   try {
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = createServerActionClient({ cookies })
 
     // Verificar se o usuário está autenticado
     const {
@@ -698,7 +696,7 @@ export async function likeStory(id: string) {
 // Obter histórias pendentes (apenas admin)
 export async function getPendingPetStories() {
   try {
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = createServerActionClient({ cookies })
 
     // Verificar se o usuário está autenticado
     const {
@@ -789,7 +787,7 @@ export async function getPendingPetStories() {
 // Obter histórias do usuário atual
 export async function getUserPetStories() {
   try {
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = createServerActionClient({ cookies })
 
     // Verificar se o usuário está autenticado
     const {

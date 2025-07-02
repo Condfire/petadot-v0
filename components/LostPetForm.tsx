@@ -14,7 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { toast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
-import ImageUpload from "./image-upload"
+import ImageUpload from "./ImageUpload"
 import SimpleStateCitySelector from "@/components/simple-state-city-selector"
 import OtherOptionField from "@/components/other-option-field"
 import { createLostPet } from "@/app/actions/pet-actions"
@@ -75,7 +75,7 @@ const defaultLostPetData: LostPetData = {
   good_with_dogs: false,
   is_vaccinated: false,
   is_neutered: false,
-  status: "pending",
+  status: "approved",
   state: "",
   city: "",
 }
@@ -249,7 +249,7 @@ export function LostPetForm({ initialData, isEditing = false }: LostPetFormProps
 
         // Aguardar 2 segundos antes de redirecionar
         setTimeout(() => {
-          router.push("/dashboard/pets")
+          router.push("/my-pets")
           router.refresh()
         }, 2000)
       } else {

@@ -1,246 +1,186 @@
-import type { Metadata } from "next"
+import { notFound } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { notFound } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
 import { getEventBySlugOrId } from "@/lib/supabase"
-import { Calendar, Clock, MapPin, Users, ExternalLink, ArrowLeft, Share2 } from "lucide-react"
-import { validate as isUuid } from "uuid"
+import { formatDateTime, mapEventType } from "@/lib/utils"
+import { getImagePath } from "@/lib/image-path" // Importar getImagePath
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { CalendarDays, MapPin, Mail, Phone, LinkIcon, Building2 } from "lucide-react"
+import type { Metadata } from "next"
 
-export const revalidate = 3600 // Revalidate at most every hour
-
-// Atualizar os parâmetros para usar slug em vez de id
-interface EventDetailsPageProps {
-  params: {
-    slug: string
-  }
+interface EventPageProps {
+  params: { slug: string }
 }
 
-// Atualizar a função generateMetadata para usar slug
-export async function generateMetadata({ params }: EventDetailsPageProps): Promise<Metadata> {
-  const slugOrId = params.slug
-  const isUuidValue = isUuid(slugOrId)
-
-  const event = await getEventBySlugOrId(slugOrId)
+export async function generateMetadata({ params }: EventPageProps): Promise<Metadata> {
+  const event = await getEventBySlugOrId(params.slug)
 
   if (!event) {
-    return {
-      title: "Evento não encontrado | PetAdot",
-      description: "O evento que você está procurando não foi encontrado.",
-    }
+    return {}
   }
 
+  const imageUrl = getImagePath(event.image_url)
+
   return {
-    title: `${event.title} | Eventos | PetAdot`,
-    description: `${event.title} - ${event.description.substring(0, 150)}${event.description.length > 150 ? "..." : ""}`,
+    title: event.name,
+    description: event.description?.substring(0, 160) || `Detalhes do evento ${event.name}`,
+    openGraph: {
+      title: event.name,
+      description: event.description?.substring(0, 160) || `Detalhes do evento ${event.name}`,
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: event.name,
+        },
+      ],
+      type: "article",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: event.name,
+      description: event.description?.substring(0, 160) || `Detalhes do evento ${event.name}`,
+      images: [imageUrl],
+    },
   }
 }
 
-// Atualizar a função principal para usar slug
-export default async function EventDetailsPage({ params }: EventDetailsPageProps) {
-  const slugOrId = params.slug
-  const isUuidValue = isUuid(slugOrId)
-
-  const event = await getEventBySlugOrId(slugOrId)
+export default async function EventPage({ params }: EventPageProps) {
+  const event = await getEventBySlugOrId(params.slug)
 
   if (!event) {
     notFound()
   }
 
-  // Formatar datas
-  const eventDate = new Date(event.start_date)
-  const formattedDate = eventDate.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  })
-
-  const formattedTime = eventDate.toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-
-  // Verificar se o evento já aconteceu
-  const isPastEvent = eventDate < new Date()
-
-  // Verificar se o evento tem data de término
-  const hasEndDate = event.end_date && event.end_date !== event.start_date
-
-  // Formatar data de término, se existir
-  const endDate = hasEndDate ? new Date(event.end_date!) : null
-  const formattedEndDate = endDate
-    ? endDate.toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
-    : null
-
-  // Construir endereço completo
-  const addressParts = []
-  if (event.address) addressParts.push(event.address)
-  if (event.city) addressParts.push(event.city)
-  if (event.state) addressParts.push(event.state)
-  if (event.postal_code) addressParts.push(event.postal_code)
-  const fullAddress = addressParts.length > 0 ? addressParts.join(", ") : null
+  const displayLocation =
+    event.location || (event.city && event.state ? `${event.city}, ${event.state}` : event.city || event.state)
+  const displayDate = formatDateTime(event.start_date)
+  const displayEndDate = event.end_date ? formatDateTime(event.end_date) : null
+  const displayEventType = mapEventType(event.event_type)
+  const imageUrl = getImagePath(event.image_url) // Usar getImagePath aqui
 
   return (
-    <div className="container py-8 md:py-12">
-      <Link
-        href="/eventos"
-        className="flex items-center text-muted-foreground hover:text-primary mb-6 transition-colors"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Voltar para lista de eventos
-      </Link>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Imagem e informações principais */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="relative aspect-video rounded-lg overflow-hidden">
+    <main className="container mx-auto px-4 py-8 md:py-12">
+      <Card className="w-full max-w-4xl mx-auto shadow-lg rounded-2xl overflow-hidden">
+        {event.image_url && (
+          <div className="relative w-full h-64 md:h-96 bg-gray-200 dark:bg-gray-800">
             <Image
-              src={event.image_url || "/placeholder.svg?height=400&width=800&query=pet+event"}
-              alt={event.title}
+              src={imageUrl || "/placeholder.svg"} // Usar a URL processada por getImagePath
+              alt={event.name || "Imagem do Evento"}
               fill
               className="object-cover"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 75vw, 50vw"
               priority
+              unoptimized={event.image_url?.includes("placeholder.svg")}
             />
-            {isPastEvent ? (
-              <Badge variant="secondary" className="absolute top-4 right-4">
-                Evento passado
-              </Badge>
-            ) : (
-              <Badge variant="primary" className="absolute top-4 right-4 animate-pulse-slow">
-                Próximo evento
+            {event.event_type && (
+              <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground text-base px-3 py-1">
+                {displayEventType}
               </Badge>
             )}
           </div>
-
-          <div>
-            <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold">{event.title}</h1>
-              <Button variant="ghost" size="icon" aria-label="Compartilhar">
-                <Share2 className="h-5 w-5" />
-              </Button>
+        )}
+        <CardHeader className="p-6 md:p-8">
+          <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary-foreground leading-tight">
+            {event.name}
+          </CardTitle>
+          <CardDescription className="text-lg text-muted-foreground mt-2">{event.description}</CardDescription>
+        </CardHeader>
+        <CardContent className="p-6 md:p-8 grid gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex items-center gap-3 text-lg text-foreground">
+              <CalendarDays className="w-6 h-6 text-primary" />
+              <div>
+                <p className="font-semibold">Data:</p>
+                <p>
+                  {displayDate} {displayEndDate && ` - ${displayEndDate}`}
+                </p>
+              </div>
             </div>
-            {event.ongs && (
-              <p className="text-primary mt-1">
-                Organizado por:{" "}
-                <Link href={`/ongs/${event.ongs.id}`} className="hover:underline">
-                  {event.ongs.name}
-                </Link>
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Sobre o evento</h2>
-            <p className="text-muted-foreground whitespace-pre-line">{event.description}</p>
-          </div>
-        </div>
-
-        {/* Informações do evento */}
-        <div className="lg:col-span-1">
-          <Card>
-            <CardContent className="p-6 space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <Calendar className="h-5 w-5 text-primary mt-0.5" />
-                  <div>
-                    <p className="font-medium">Data</p>
-                    <p className="text-muted-foreground">{formattedDate}</p>
-                    {hasEndDate && <p className="text-muted-foreground">até {formattedEndDate}</p>}
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Clock className="h-5 w-5 text-primary mt-0.5" />
-                  <div>
-                    <p className="font-medium">Horário</p>
-                    <p className="text-muted-foreground">{formattedTime}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-primary mt-0.5" />
-                  <div>
-                    <p className="font-medium">Local</p>
-                    <p className="text-muted-foreground">{event.location}</p>
-                    {fullAddress && <p className="text-muted-foreground text-sm">{fullAddress}</p>}
-                  </div>
+            {displayLocation && (
+              <div className="flex items-center gap-3 text-lg text-foreground">
+                <MapPin className="w-6 h-6 text-primary" />
+                <div>
+                  <p className="font-semibold">Local:</p>
+                  <p>{displayLocation}</p>
+                  {event.address && <p className="text-sm text-muted-foreground">{event.address}</p>}
                 </div>
               </div>
+            )}
+          </div>
 
-              {!isPastEvent && (
-                <div className="pt-2">
-                  <Button className="w-full gap-2">
-                    <Users className="h-4 w-4" /> Confirmar Presença
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Organizador */}
-          {event.ongs && (
-            <Card className="mt-6">
-              <CardContent className="p-6">
-                <h2 className="text-xl font-semibold mb-4">Organizador</h2>
-                <div className="flex items-center gap-4 mb-4">
-                  {event.ongs.logo_url && (
-                    <div className="relative w-12 h-12 rounded-full overflow-hidden">
-                      <Image
-                        src={event.ongs.logo_url || "/placeholder.svg"}
-                        alt={event.ongs.name}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  )}
+          {(event.contact_email || event.contact_phone || event.registration_url) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-6 mt-6">
+              {event.contact_email && (
+                <div className="flex items-center gap-3 text-lg text-foreground">
+                  <Mail className="w-6 h-6 text-primary" />
                   <div>
-                    <p className="font-medium">{event.ongs.name}</p>
-                    {event.ongs.city && <p className="text-sm text-muted-foreground">{event.ongs.city}</p>}
+                    <p className="font-semibold">Email para Contato:</p>
+                    <Link href={`mailto:${event.contact_email}`} className="text-blue-500 hover:underline">
+                      {event.contact_email}
+                    </Link>
                   </div>
                 </div>
-                {event.ongs.contact && (
-                  <p className="text-sm text-muted-foreground mb-4">
-                    <span className="font-medium">Contato:</span> {event.ongs.contact}
-                  </p>
-                )}
-                {event.ongs.id && (
-                  <Button variant="outline" className="w-full gap-2" asChild>
-                    <Link href={`/ongs/${event.ongs.id}`}>
-                      <ExternalLink className="h-4 w-4" /> Ver Perfil da ONG
+              )}
+              {event.contact_phone && (
+                <div className="flex items-center gap-3 text-lg text-foreground">
+                  <Phone className="w-6 h-6 text-primary" />
+                  <div>
+                    <p className="font-semibold">Telefone para Contato:</p>
+                    <Link
+                      href={`tel:${event.contact_phone.replace(/\D/g, "")}`}
+                      className="text-blue-500 hover:underline"
+                    >
+                      {event.contact_phone}
                     </Link>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+                  </div>
+                </div>
+              )}
+              {event.registration_url && (
+                <div className="flex items-center gap-3 text-lg text-foreground">
+                  <LinkIcon className="w-6 h-6 text-primary" />
+                  <div>
+                    <p className="font-semibold">Link de Inscrição:</p>
+                    <Link
+                      href={event.registration_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline"
+                    >
+                      Acessar Inscrição
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
-        </div>
-      </div>
 
-      <div className="mt-12 p-6 bg-muted rounded-lg">
-        <h3 className="text-xl font-bold mb-4">Informações adicionais</h3>
-        {isPastEvent ? (
-          <p>
-            Este evento já aconteceu. Fique atento às nossas redes sociais e ao site para informações sobre os próximos
-            eventos.
-          </p>
-        ) : (
-          <>
-            <p className="mb-4">Participe deste evento e ajude a causa animal. Sua presença é muito importante!</p>
-            <ul className="list-disc pl-5 mb-4 space-y-2">
-              <li>Chegue com antecedência para garantir sua participação</li>
-              <li>Traga seus amigos e familiares</li>
-              <li>Compartilhe o evento nas redes sociais</li>
-              <li>Em caso de dúvidas, entre em contato com o organizador</li>
-            </ul>
-          </>
-        )}
-      </div>
-    </div>
+          {event.ongs && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-6 mt-6">
+              <div className="flex items-center gap-3 text-lg text-foreground">
+                <Building2 className="w-6 h-6 text-primary" />
+                <div>
+                  <p className="font-semibold">Organizado por:</p>
+                  <Link href={`/ongs/${event.ongs.id}`} className="text-blue-500 hover:underline">
+                    {event.ongs.name}
+                  </Link>
+                  {event.ongs.city && <p className="text-sm text-muted-foreground">{event.ongs.city}</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {event.registration_required && (
+            <div className="border-t pt-6 mt-6">
+              <Badge variant="secondary" className="text-base px-3 py-1">
+                Inscrição Necessária
+              </Badge>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </main>
   )
 }

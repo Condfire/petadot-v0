@@ -1,16 +1,15 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 
 // Import the slug utilities
 import { generateEntitySlug, generateUniqueSlug } from "@/lib/slug-utils"
 
 // Função para garantir que o usuário existe na tabela users
 export async function ensureUserExists(userId: string, userData: any) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   // Verificar se o usuário já existe
   const { data: existingUser, error: checkError } = await supabase.from("users").select("*").eq("id", userId).single()
@@ -41,7 +40,7 @@ export async function ensureUserExists(userId: string, userData: any) {
 // Função para verificar conteúdo contra palavras-chave bloqueadas
 async function checkContentForBlockedKeywords(
   content: string,
-  supabaseClient: ReturnType<typeof createServerComponentClient>,
+  supabaseClient: ReturnType<typeof createServerActionClient>,
 ): Promise<{ blocked: boolean; keyword?: string }> {
   try {
     console.log("Verificando conteúdo para palavras-chave bloqueadas:", content)
@@ -107,7 +106,7 @@ async function checkContentForBlockedKeywords(
 
 // Função para criar uma ONG
 export async function createOng(ongData: any) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Obter a sessão do usuário
@@ -130,7 +129,7 @@ export async function createOng(ongData: any) {
           ...ongData,
           id: userId,
           type: "ong",
-          is_verified: false,
+          is_verified: true,
           created_at: new Date().toISOString(),
         },
       ])
@@ -172,7 +171,7 @@ export async function createOng(ongData: any) {
 
 // Função para atualizar uma ONG
 export async function updateOng(ongId: string, ongData: any) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Obter a sessão do usuário
@@ -236,7 +235,7 @@ export async function updateOng(ongId: string, ongData: any) {
 
 // Função para cadastrar um pet para adoção
 export async function createAdoptionPet(petData: any) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     console.log("Iniciando cadastro de pet para adoção:", petData)
@@ -278,11 +277,13 @@ export async function createAdoptionPet(petData: any) {
     // --- Fim da nova verificação ---
 
     // Gerar slug para o pet
-    const baseSlug = generateEntitySlug(
-      petData.name || "pet",
-      petData.species || "unknown",
-      petData.city || "",
-      undefined,
+    const baseSlug = await generateEntitySlug(
+      "pet",
+      {
+        name: petData.name || "pet",
+        type: petData.species || "unknown",
+        city: petData.city || "",
+      },
     )
 
     // Preparar dados para inserção
@@ -290,7 +291,7 @@ export async function createAdoptionPet(petData: any) {
       ...petData,
       user_id: userId,
       category: "adoption", // Add category field
-      status: ongData ? "approved" : "pending", // Se for ONG, aprova automaticamente
+      status: "approved",
       created_at: new Date().toISOString(),
       slug: baseSlug,
     }
@@ -310,10 +311,13 @@ export async function createAdoptionPet(petData: any) {
     // Atualizar o slug com o ID real
     if (pet && pet.length > 0) {
       const petId = pet[0].id
-      const finalSlug = generateEntitySlug(
-        petData.name || "pet",
-        petData.species || "unknown",
-        petData.city || "",
+      const finalSlug = await generateEntitySlug(
+        "pet",
+        {
+          name: petData.name || "pet",
+          type: petData.species || "unknown",
+          city: petData.city || "",
+        },
         petId,
       )
 
@@ -328,7 +332,7 @@ export async function createAdoptionPet(petData: any) {
 
     // Revalidar página de adoção
     revalidatePath("/adocao")
-    revalidatePath("/dashboard/pets")
+    revalidatePath("/my-pets")
 
     return { success: true, pet }
   } catch (error: any) {
@@ -339,7 +343,7 @@ export async function createAdoptionPet(petData: any) {
 
 // Função para criar um pet perdido
 export async function createLostPet(petData: any) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     console.log("Iniciando cadastro de pet perdido")
@@ -368,11 +372,13 @@ export async function createLostPet(petData: any) {
     // --- Fim da nova verificação ---
 
     // Gerar slug para o pet
-    const baseSlug = generateEntitySlug(
-      petData.name || "pet-perdido",
-      petData.species || "unknown",
-      petData.city || "",
-      undefined,
+    const baseSlug = await generateEntitySlug(
+      "pet",
+      {
+        name: petData.name || "pet-perdido",
+        type: petData.species || "unknown",
+        city: petData.city || "",
+      },
     )
 
     // Preparar dados para inserção
@@ -380,7 +386,7 @@ export async function createLostPet(petData: any) {
       ...petData,
       user_id: userId,
       category: "lost", // Add category field
-      status: "pending",
+      status: "approved",
       created_at: new Date().toISOString(),
       slug: baseSlug,
     }
@@ -400,10 +406,13 @@ export async function createLostPet(petData: any) {
     // Atualizar o slug com o ID real
     if (data && data.length > 0) {
       const petId = data[0].id
-      const finalSlug = generateEntitySlug(
-        petData.name || "pet-perdido",
-        petData.species || "unknown",
-        petData.city || "",
+      const finalSlug = await generateEntitySlug(
+        "pet",
+        {
+          name: petData.name || "pet-perdido",
+          type: petData.species || "unknown",
+          city: petData.city || "",
+        },
         petId,
       )
 
@@ -418,7 +427,7 @@ export async function createLostPet(petData: any) {
 
     // Revalidar página de pets perdidos
     revalidatePath("/perdidos")
-    revalidatePath("/dashboard/pets")
+    revalidatePath("/my-pets")
 
     return { success: true, data }
   } catch (error: any) {
@@ -429,7 +438,7 @@ export async function createLostPet(petData: any) {
 
 // Função para criar um pet encontrado
 export async function createFoundPet(petData: any) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     console.log("Iniciando cadastro de pet encontrado:", petData)
@@ -458,11 +467,13 @@ export async function createFoundPet(petData: any) {
     // --- Fim da nova verificação ---
 
     // Gerar slug para o pet
-    const baseSlug = generateEntitySlug(
-      petData.name || "pet-encontrado",
-      petData.species || "unknown",
-      petData.city || "",
-      undefined,
+    const baseSlug = await generateEntitySlug(
+      "pet",
+      {
+        name: petData.name || "pet-encontrado",
+        type: petData.species || "unknown",
+        city: petData.city || "",
+      },
     )
 
     // Preparar dados para inserção
@@ -470,7 +481,7 @@ export async function createFoundPet(petData: any) {
       ...petData,
       user_id: userId,
       category: "found", // Add category field
-      status: "pending",
+      status: "approved",
       created_at: new Date().toISOString(),
       slug: baseSlug,
     }
@@ -490,10 +501,13 @@ export async function createFoundPet(petData: any) {
     // Atualizar o slug com o ID real
     if (data && data.length > 0) {
       const petId = data[0].id
-      const finalSlug = generateEntitySlug(
-        petData.name || "pet-encontrado",
-        petData.species || "unknown",
-        petData.city || "",
+      const finalSlug = await generateEntitySlug(
+        "pet",
+        {
+          name: petData.name || "pet-encontrado",
+          type: petData.species || "unknown",
+          city: petData.city || "",
+        },
         petId,
       )
 
@@ -508,7 +522,7 @@ export async function createFoundPet(petData: any) {
 
     // Revalidar página de pets encontrados
     revalidatePath("/encontrados")
-    revalidatePath("/dashboard/pets")
+    revalidatePath("/my-pets")
 
     return { success: true, data }
   } catch (error: any) {
@@ -533,7 +547,7 @@ export type EventFormData = {
 
 // Função para criar um evento
 export async function createEvent(eventData: EventFormData) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     console.log("Iniciando cadastro de evento:", eventData)
@@ -567,11 +581,13 @@ export async function createEvent(eventData: EventFormData) {
     // --- Fim da nova verificação ---
 
     // Gerar slug para o evento
-    const baseSlug = generateEntitySlug(
-      eventData.name || "evento",
-      "event",
-      eventData.city || "",
-      undefined, // Ainda não temos o ID
+    const baseSlug = await generateEntitySlug(
+      "evento",
+      {
+        title: eventData.name || "evento",
+        location: eventData.location || eventData.city || "",
+        date: eventData.date,
+      },
     )
 
     // Inserir evento
@@ -581,7 +597,7 @@ export async function createEvent(eventData: EventFormData) {
         {
           ...eventData,
           user_id: session.user.id,
-          status: "pending",
+          status: "approved", // Eventos são publicados automaticamente
           created_at: new Date().toISOString(),
           slug: baseSlug,
         },
@@ -598,7 +614,15 @@ export async function createEvent(eventData: EventFormData) {
     // Atualizar o slug com o ID real
     if (data && data.length > 0) {
       const eventId = data[0].id
-      const finalSlug = generateEntitySlug(eventData.name || "evento", "event", eventData.city || "", eventId)
+      const finalSlug = await generateEntitySlug(
+        "evento",
+        {
+          title: eventData.name || "evento",
+          location: eventData.location || eventData.city || "",
+          date: eventData.date,
+        },
+        eventId,
+      )
 
       const { error: slugUpdateError } = await supabase.from("events").update({ slug: finalSlug }).eq("id", eventId)
 
@@ -622,7 +646,7 @@ export async function createEvent(eventData: EventFormData) {
 
 // Função para verificar uma ONG
 export async function verifyOng(ongId: string) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Verificar se o usuário é um administrador
@@ -667,7 +691,7 @@ export async function verifyOng(ongId: string) {
 
 // Função para excluir uma ONG
 export async function deleteOng(ongId: string) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Verificar se o usuário é um administrador
@@ -732,9 +756,55 @@ export async function deleteOng(ongId: string) {
   }
 }
 
+// Função para excluir um evento (admin)
+export async function deleteEventAdmin(eventId: string) {
+  const supabase = createServerActionClient({ cookies })
+
+  try {
+    // Verificar se o usuário é um administrador
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session) {
+      return { success: false, error: "Usuário não autenticado" }
+    }
+
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("is_admin")
+      .eq("id", session.user.id)
+      .single()
+
+    if (userError || !user?.is_admin) {
+      return { success: false, error: "Usuário não autorizado" }
+    }
+
+    // Excluir o evento
+    const { error: deleteError } = await supabase
+      .from("events")
+      .delete()
+      .eq("id", eventId)
+
+    if (deleteError) {
+      console.error("Erro ao excluir evento:", deleteError)
+      return { success: false, error: "Erro ao excluir evento" }
+    }
+
+    // Revalidar páginas relacionadas
+    revalidatePath("/eventos")
+    revalidatePath("/admin/events")
+
+    return { success: true }
+  } catch (error) {
+    console.error("Erro ao excluir evento:", error)
+    return { success: false, error: "Erro ao processar solicitação" }
+  }
+}
+
 // Update the approveItem function
 export async function approveItem(itemId: string, type: "adoption" | "event" | "lost" | "found") {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Verificar se o usuário é um administrador
@@ -765,11 +835,11 @@ export async function approveItem(itemId: string, type: "adoption" | "event" | "
       case "lost":
       case "found":
         table = "pets"
-        revalidationPaths = ["/adocao", "/perdidos", "/encontrados", "/admin-alt/pets", "/admin-alt/moderation"]
+        revalidationPaths = ["/adocao", "/perdidos", "/encontrados", "/admin/pets", "/admin/moderation"]
         break
       case "event":
         table = "events"
-        revalidationPaths = ["/eventos", "/admin-alt/events", "/admin-alt/moderation"]
+        revalidationPaths = ["/eventos", "/admin/events", "/admin/moderation"]
         break
       default:
         return { success: false, error: "Tipo de item inválido" }
@@ -803,7 +873,7 @@ export async function approveItem(itemId: string, type: "adoption" | "event" | "
 
 // Update the rejectItem function
 export async function rejectItem(itemId: string, type: "adoption" | "event" | "lost" | "found") {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Verificar se o usuário é um administrador
@@ -853,9 +923,9 @@ export async function rejectItem(itemId: string, type: "adoption" | "event" | "l
     revalidatePath("/perdidos")
     revalidatePath("/encontrados")
     revalidatePath("/eventos")
-    revalidatePath("/admin-alt/pets")
-    revalidatePath("/admin-alt/events")
-    revalidatePath("/admin-alt/moderation")
+    revalidatePath("/admin/pets")
+    revalidatePath("/admin/events")
+    revalidatePath("/admin/moderation")
     revalidatePath("/")
 
     return { success: true }
@@ -944,11 +1014,13 @@ export async function createPet(formData: FormData) {
     // --- Fim da nova verificação ---
 
     // Generate a slug for the pet
-    const baseSlug = generateEntitySlug(
-      name,
-      species,
-      city,
-      undefined, // We don't have an ID yet
+    const baseSlug = await generateEntitySlug(
+      "pet",
+      {
+        name,
+        type: species,
+        city,
+      },
     )
 
     // Insert data
@@ -978,7 +1050,7 @@ export async function createPet(formData: FormData) {
           adoption_requirements,
           image_url,
           additional_images,
-          status: "pending",
+          status: "available",
           user_id: session.user.id,
           location,
           city,
@@ -997,7 +1069,15 @@ export async function createPet(formData: FormData) {
     // Now that we have the ID, update the slug to include it
     if (data && data.length > 0) {
       const petId = data[0].id
-      const finalSlug = generateEntitySlug(name, species, city, petId)
+      const finalSlug = await generateEntitySlug(
+        "pet",
+        {
+          name,
+          type: species,
+          city,
+        },
+        petId,
+      )
 
       const { error: slugUpdateError } = await supabase.from("pets").update({ slug: finalSlug }).eq("id", petId)
 

@@ -14,8 +14,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle } from "lucide-react"
 import { ImageUpload } from "@/components/ImageUpload"
-import { createAdoptionPet } from "@/app/actions/pet-actions"
 import { SimpleLocationSelector } from "@/components/simple-location-selector"
+import { useAuth } from "@/app/auth-provider"
+import { createAdoptionPetClient } from "@/lib/client-pet-actions" // Importa a função client-side
 
 interface AdoptionPetFormProps {
   ongId: string
@@ -39,7 +40,7 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
     color: "",
     color_other: "",
     description: "",
-    image_url: "",
+    image_url: "", // Continua usando image_url localmente no estado do formulário
     is_vaccinated: false,
     is_neutered: false,
     special_needs: "",
@@ -56,6 +57,7 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const router = useRouter()
+  const { user } = useAuth()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -175,6 +177,12 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
     e.preventDefault()
     console.log("Formulário enviado", formData)
 
+    // Verificar se o usuário está autenticado
+    if (!user) {
+      onError?.("Usuário não autenticado")
+      return
+    }
+
     // Validar formulário
     if (!validateForm()) {
       console.log("Formulário inválido", formErrors)
@@ -201,8 +209,39 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
 
       console.log("Enviando dados para o servidor:", processedData)
 
-      // Enviar os dados para o servidor
-      const result = await createAdoptionPet(processedData)
+      // Preparar dados no formato PetFormUI
+      const petFormData = {
+        name: processedData.name,
+        species: processedData.species,
+        species_other: processedData.species_other,
+        breed: processedData.breed,
+        age: processedData.age,
+        size: processedData.size,
+        size_other: processedData.size_other,
+        gender: processedData.gender,
+        gender_other: processedData.gender_other,
+        color: processedData.color,
+        color_other: processedData.color_other,
+        description: processedData.description,
+        // CORREÇÃO: Passar image_url para main_image_url
+        main_image_url: processedData.image_url,
+        is_vaccinated: processedData.is_vaccinated,
+        is_castrated: processedData.is_neutered,
+        is_special_needs: !!processedData.special_needs,
+        special_needs_description: processedData.special_needs || null,
+        temperament: processedData.temperament || null,
+        energy_level: processedData.energy_level || null,
+        good_with_kids: false,
+        good_with_cats: false,
+        good_with_dogs: false,
+        city: processedData.city,
+        state: processedData.state,
+        whatsapp_contact: processedData.contact,
+        ong_id: processedData.ong_id,
+      }
+
+      // Enviar os dados usando a função client-side
+      const result = await createAdoptionPetClient(petFormData, user.id)
 
       console.log("Resultado do cadastro:", result)
 

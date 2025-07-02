@@ -1,251 +1,224 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+
+import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import Link from "next/link"
+import type { Evento } from "@/app/eventos/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent } from "@/components/ui/card"
+import { Calendar } from "@/components/ui/calendar"
+import { CalendarIcon } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { useToast } from "@/components/ui/use-toast"
+import Link from "next/link"
+import { useAuth } from "@/app/auth-provider"
+import { supabase } from "@/lib/supabase"
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-import { Calendar } from "lucide-react"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import EventoForm from "./components/EventoForm"
+import { EventCard } from "@/components/event-card"
 
-export default function EventosClientPage({ initialEvents, totalEvents, currentPage, pageSize, initialFilters }) {
+interface EventosClientPageProps {
+  initialEvents: Evento[]
+  totalEvents: number | null
+  currentPage: number
+  pageSize: number
+  initialFilters: {
+    name?: string
+    city?: string
+    state?: string
+    start_date?: string
+  }
+  adminView?: boolean
+}
+
+export function EventosClientPage({
+  // Export nomeado corrigido
+  initialEvents,
+  totalEvents,
+  currentPage,
+  pageSize,
+  initialFilters,
+  adminView = false,
+}: EventosClientPageProps) {
+  const [eventos, setEventos] = useState<Evento[]>(initialEvents)
+  const [search, setSearch] = useState(initialFilters.name || "")
+  const [date, setDate] = useState<Date | undefined>(
+    initialFilters.start_date ? new Date(initialFilters.start_date) : undefined,
+  )
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { toast } = useToast()
+  const { user } = useAuth()
+  const [canCreateEvent, setCanCreateEvent] = useState(false)
 
-  const [events, setEvents] = useState(initialEvents || [])
-  const [filters, setFilters] = useState(initialFilters || {})
-  const [activeTab, setActiveTab] = useState("upcoming")
+  console.log("Client Page: initialEvents prop", initialEvents) // Manter para depuração se necessário
+  console.log("Client Page: totalEvents prop", totalEvents) // Manter para depuração se necessário
 
-  const totalPages = Math.ceil(totalEvents / pageSize)
+  useEffect(() => {
+    const checkOng = async () => {
+      if (!user) {
+        setCanCreateEvent(false)
+        return
+      }
 
-  // Separar eventos futuros e passados
-  const currentDate = new Date()
-  const upcomingEvents = events.filter((event) => new Date(event.date) >= currentDate)
-  const pastEvents = events.filter((event) => new Date(event.date) < currentDate)
+      if (user.type === "ngo_admin") {
+        setCanCreateEvent(true)
+        return
+      }
 
-  // Verificar se estamos usando os nomes corretos das colunas
-  const handleDateChange = (date: Date | undefined) => {
-    if (date) {
-      const formattedDate = date.toISOString().split("T")[0] // Formato YYYY-MM-DD
-      setFilters((prev) => ({ ...prev, date: formattedDate }))
-    } else {
-      setFilters((prev) => {
-        const newFilters = { ...prev }
-        delete newFilters.date
-        return newFilters
-      })
+      try {
+        const { data, error } = await supabase.from("ongs").select("id").eq("user_id", user.id).maybeSingle()
+
+        if (error) {
+          console.error("Erro ao verificar ONG do usuário:", error)
+        }
+
+        setCanCreateEvent(!!data)
+      } catch (err) {
+        console.error("Erro ao verificar ONG do usuário:", err)
+        setCanCreateEvent(false)
+      }
     }
+
+    checkOng()
+  }, [user])
+
+  useEffect(() => {
+    const fetchEventos = async () => {
+      const params = new URLSearchParams()
+      if (search) params.set("name", search)
+      if (date) params.set("start_date", format(date, "yyyy-MM-dd"))
+      params.set("page", currentPage.toString())
+      params.set("pageSize", pageSize.toString())
+
+      try {
+        const response = await fetch(`/api/eventos?${params.toString()}`)
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        const { events: fetchedEvents } = await response.json()
+        setEventos(fetchedEvents)
+      } catch (error) {
+        console.error("Could not fetch eventos:", error)
+        toast({
+          title: "Erro!",
+          description: "Não foi possível carregar os eventos.",
+          variant: "destructive",
+        })
+      }
+    }
+
+    if (
+      search !== (initialFilters.name || "") ||
+      (date && format(date, "yyyy-MM-dd") !== (initialFilters.start_date || "")) ||
+      (!date && initialFilters.start_date)
+    ) {
+      fetchEventos()
+    }
+  }, [search, date, currentPage, pageSize, initialFilters])
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value)
+    const newSearchParams = new URLSearchParams(searchParams.toString())
+    if (e.target.value) {
+      newSearchParams.set("name", e.target.value)
+    } else {
+      newSearchParams.delete("name")
+    }
+    router.push(`/eventos?${newSearchParams.toString()}`)
   }
 
-  // Função para atualizar os filtros e redirecionar
-  const updateFilters = (newFilters) => {
-    const updatedFilters = { ...filters, ...newFilters }
-
-    // Remover filtros vazios
-    Object.keys(updatedFilters).forEach((key) => {
-      if (!updatedFilters[key]) delete updatedFilters[key]
-    })
-
-    // Construir query string
-    const params = new URLSearchParams()
-    Object.entries(updatedFilters).forEach(([key, value]) => {
-      params.set(key, value.toString())
-    })
-
-    // Resetar para página 1 quando os filtros mudam
-    params.set("page", "1")
-
-    router.push(`/eventos?${params.toString()}`)
-  }
-
-  // Função para navegar entre páginas
-  const goToPage = (page) => {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set("page", page.toString())
-    router.push(`/eventos?${params.toString()}`)
+  const handleDateSelect = (selectedDate: Date | undefined) => {
+    setDate(selectedDate)
+    const newSearchParams = new URLSearchParams(searchParams.toString())
+    if (selectedDate) {
+      newSearchParams.set("start_date", format(selectedDate, "yyyy-MM-dd"))
+    } else {
+      newSearchParams.delete("start_date")
+    }
+    router.push(`/eventos?${newSearchParams.toString()}`)
   }
 
   return (
-    <div className="space-y-6">
-      {/* Filtros */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="text-sm font-medium mb-1 block">Título</label>
-              <Input
-                placeholder="Buscar por título"
-                value={filters.title || ""}
-                onChange={(e) => setFilters({ ...filters, title: e.target.value })}
-                onKeyDown={(e) => e.key === "Enter" && updateFilters(filters)}
-              />
-            </div>
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Eventos</h1>
+        {canCreateEvent && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline">Criar Evento</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Criar Evento</DialogTitle>
+                <DialogDescription>Crie um novo evento para ser exibido na plataforma.</DialogDescription>
+              </DialogHeader>
+              <EventoForm />
+            </DialogContent>
+          </Dialog>
+        )}
+        {user && !canCreateEvent && (
+          <p className="text-sm text-muted-foreground">
+            Não possui uma ONG?{" "}
+            <Link href="/ongs/register" className="underline">
+              Cadastre sua ONG
+            </Link>
+          </p>
+        )}
+      </div>
 
-            <div>
-              <label className="text-sm font-medium mb-1 block">Estado</label>
-              <Select value={filters.state || ""} onValueChange={(value) => updateFilters({ state: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos os estados" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os estados</SelectItem>
-                  <SelectItem value="SP">São Paulo</SelectItem>
-                  <SelectItem value="RJ">Rio de Janeiro</SelectItem>
-                  <SelectItem value="MG">Minas Gerais</SelectItem>
-                  {/* Adicionar mais estados conforme necessário */}
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mb-8">
+        <Input
+          type="text"
+          placeholder="Pesquisar eventos..."
+          value={search}
+          onChange={handleSearchChange}
+          className="flex-grow"
+        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={"outline"}
+              className={cn(
+                "w-full sm:w-[200px] justify-start text-left font-normal",
+                !date && "text-muted-foreground",
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {date ? format(date, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecionar Data</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="center">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={handleDateSelect}
+              disabled={(date) => date < new Date("1900-01-01")}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
 
-            <div>
-              <label className="text-sm font-medium mb-1 block">Cidade</label>
-              <Input
-                placeholder="Filtrar por cidade"
-                value={filters.city || ""}
-                onChange={(e) => setFilters({ ...filters, city: e.target.value })}
-                onKeyDown={(e) => e.key === "Enter" && updateFilters(filters)}
-              />
-            </div>
-
-            <div className="flex items-end">
-              <Button className="w-full" onClick={() => updateFilters(filters)}>
-                Aplicar Filtros
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabs para eventos futuros e passados */}
-      <Tabs defaultValue="upcoming" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="upcoming">Próximos Eventos</TabsTrigger>
-          <TabsTrigger value="past">Eventos Passados</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="upcoming" className="mt-6">
-          {upcomingEvents.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {upcomingEvents.map((event) => (
-                <Card key={event.id} className="overflow-hidden">
-                  <div className="h-48 relative">
-                    <img
-                      src={event.image_url || "/placeholder.svg?height=192&width=384&query=pet+event"}
-                      alt={event.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-2 right-2 bg-primary text-white text-xs px-2 py-1 rounded-full flex items-center">
-                      <Calendar className="w-3 h-3 mr-1" />
-                      {new Date(event.date).toLocaleDateString("pt-BR")}
-                    </div>
-                  </div>
-                  <CardContent className="p-4">
-                    <h3 className="font-bold text-lg mb-2">{event.name}</h3>
-                    <p className="text-sm text-gray-600 mb-1">Local: {event.location}</p>
-                    <p className="text-sm text-gray-600 mb-2">Organização: {event.ongs?.name || "Não informado"}</p>
-                    <p className="text-sm line-clamp-2 mb-4">{event.description}</p>
-                    <Button asChild className="w-full">
-                      <Link href={`/eventos/${event.id}`}>Ver Detalhes</Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-muted/30 rounded-lg">
-              <p className="text-muted-foreground">Não há eventos futuros agendados no momento.</p>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="past" className="mt-6">
-          {pastEvents.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {pastEvents.map((event) => (
-                <Card key={event.id} className="overflow-hidden opacity-80 hover:opacity-100 transition-opacity">
-                  <div className="h-48 relative">
-                    <img
-                      src={event.image_url || "/placeholder.svg?height=192&width=384&query=pet+event"}
-                      alt={event.name}
-                      className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all"
-                    />
-                    <div className="absolute top-2 right-2 bg-gray-700 text-white text-xs px-2 py-1 rounded-full flex items-center">
-                      <Calendar className="w-3 h-3 mr-1" />
-                      {new Date(event.date).toLocaleDateString("pt-BR")}
-                    </div>
-                  </div>
-                  <CardContent className="p-4">
-                    <h3 className="font-bold text-lg mb-2">{event.name}</h3>
-                    <p className="text-sm text-gray-600 mb-1">Local: {event.location}</p>
-                    <p className="text-sm text-gray-600 mb-2">Organização: {event.ongs?.name || "Não informado"}</p>
-                    <p className="text-sm line-clamp-2 mb-4">{event.description}</p>
-                    <Button asChild variant="outline" className="w-full">
-                      <Link href={`/eventos/${event.id}`}>Ver Detalhes</Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-muted/30 rounded-lg">
-              <p className="text-muted-foreground">Não há eventos passados registrados.</p>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      {/* Paginação */}
-      {totalPages > 1 && (
-        <Pagination className="mt-8">
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault()
-                  if (currentPage > 1) goToPage(currentPage - 1)
-                }}
-                className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
-              />
-            </PaginationItem>
-
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <PaginationItem key={i}>
-                <PaginationLink
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    goToPage(i + 1)
-                  }}
-                  isActive={currentPage === i + 1}
-                >
-                  {i + 1}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-
-            <PaginationItem>
-              <PaginationNext
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault()
-                  if (currentPage < totalPages) goToPage(currentPage + 1)
-                }}
-                className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+      {eventos.length === 0 ? (
+        <p className="text-center text-muted-foreground">Nenhum evento encontrado com os filtros aplicados.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {eventos.map((evento) => (
+            <EventCard key={evento.id} {...evento} showDeleteButton={adminView} />
+          ))}
+        </div>
       )}
     </div>
   )

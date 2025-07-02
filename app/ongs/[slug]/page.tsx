@@ -50,7 +50,6 @@ export default async function OngPage({ params }: { params: { slug: string } }) 
     .from("ongs")
     .select("*")
     .eq(isUuidValue ? "id" : "slug", slugOrId)
-    .eq("is_verified", true)
     .single()
 
   if (ongError || !ong) {
@@ -107,19 +106,19 @@ export default async function OngPage({ params }: { params: { slug: string } }) 
                   {ong.city}, {ong.state}
                 </span>
               </div>
-              {ong.email && (
+              {ong.contact_email && (
                 <div className="flex items-center text-muted-foreground mt-1">
                   <Mail className="h-4 w-4 mr-1" />
-                  <a href={`mailto:${ong.email}`} className="hover:underline">
-                    {ong.email}
+                  <a href={`mailto:${ong.contact_email}`} className="hover:underline">
+                    {ong.contact_email}
                   </a>
                 </div>
               )}
-              {ong.contact && (
+              {ong.contact_phone && (
                 <div className="flex items-center text-muted-foreground mt-1">
                   <Phone className="h-4 w-4 mr-1" />
-                  <a href={`tel:${ong.contact}`} className="hover:underline">
-                    {ong.contact}
+                  <a href={`tel:${ong.contact_phone}`} className="hover:underline">
+                    {ong.contact_phone}
                   </a>
                 </div>
               )}
@@ -161,7 +160,7 @@ export default async function OngPage({ params }: { params: { slug: string } }) 
                       key={pet.id}
                       id={pet.id}
                       name={pet.name}
-                      image={pet.image_url}
+                      image={pet.main_image_url || pet.image_url}
                       location={`${ong.city}, ${ong.state}`}
                       species={pet.species}
                       age={pet.age}
@@ -190,7 +189,7 @@ export default async function OngPage({ params }: { params: { slug: string } }) 
                       id={event.id}
                       name={event.name}
                       image={event.image_url}
-                      date={event.date}
+                      start_date={event.start_date}
                       location={event.location}
                       description={event.description}
                     />

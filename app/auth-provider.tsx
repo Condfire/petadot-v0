@@ -1,12 +1,13 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useEffect, useState, useRef } from "react"
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Session, User as SupabaseUser } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
+import { toast } from "@/hooks/use-toast"
 
-// Tipos
+// Enhanced User type with additional fields
 export type User = {
   id: string
   email: string
@@ -15,7 +16,8 @@ export type User = {
   type?: string // 'regular', 'ngo_admin', 'admin'
   state?: string
   city?: string
-  // role?: string; // 'type' is more specific for this project
+  provider?: string // 'email', 'google', etc.
+  email_verified?: boolean
 }
 
 type AuthContextType = {
@@ -23,7 +25,9 @@ type AuthContextType = {
   session: Session | null
   isLoading: boolean
   error: string | null
+  isInitialized: boolean
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  signInWithGoogle: () => Promise<{ success: boolean; error?: string }>
   signUp: (
     email: string,
     password: string,
@@ -31,15 +35,18 @@ type AuthContextType = {
     userType?: string,
     state?: string,
     city?: string,
-  ) => Promise<{ success: boolean; error?: string; userId?: string }> // Modified for more data
+  ) => Promise<{ success: boolean; error?: string; userId?: string }>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>
+  refreshSession: () => Promise<void>
+  clearError: () => void
+  isAuthenticated: boolean
 }
 
-// Criando o contexto de autenticação
+// Create the authentication context
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Singleton para o cliente Supabase
+// Singleton for the Supabase client
 let supabaseInstance: ReturnType<typeof createClientComponentClient> | null = null
 
 function getSupabaseClient() {
@@ -49,267 +56,510 @@ function getSupabaseClient() {
   return supabaseInstance
 }
 
-// Provider de autenticação
+// Enhanced AuthProvider with Google authentication and better session management
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isInitialized, setIsInitialized] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const supabase = getSupabaseClient()
+
+  // Refs to prevent multiple initializations and cleanup
   const initCalled = useRef(false)
-  const authListenerSetup = useRef(false)
+  const authListenerRef = useRef<{ subscription: { unsubscribe: () => void } } | null>(null)
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Função para sincronizar o usuário com o banco de dados
-  const syncUserWithDatabase = async (supabaseUser: SupabaseUser) => {
+  // Clear any existing error
+  const clearError = useCallback(() => {
+    setError(null)
+  }, [])
+
+  // Enhanced session refresh with retry logic
+  const refreshSession = useCallback(async () => {
     try {
-      const userMetadata = supabaseUser.user_metadata
-      const userDataToInsertOrUpdate = {
-        id: supabaseUser.id,
-        email: supabaseUser.email,
-        name: userMetadata?.name || supabaseUser.email?.split("@")[0],
-        type: userMetadata?.type || "regular",
-        state: userMetadata?.state,
-        city: userMetadata?.city,
-        avatar_url: userMetadata?.avatar_url, // Sync avatar_url from metadata if present
-        updated_at: new Date().toISOString(),
+      console.log("Refreshing session...")
+      const { data, error } = await supabase.auth.refreshSession()
+
+      if (error) {
+        console.warn("Session refresh failed:", error.message)
+        // Try to get current session as fallback
+        const { data: currentSession } = await supabase.auth.getSession()
+        if (currentSession.session) {
+          setSession(currentSession.session)
+          return currentSession.session
+        }
+        return null
       }
 
-      const { data: existingUser, error: checkError } = await supabase
-        .from("users")
-        .select("id")
-        .eq("id", supabaseUser.id)
-        .single()
-
-      if (checkError && checkError.code !== "PGRST116") {
-        // PGRST116: no rows found
-        console.error("Erro ao verificar usuário existente:", checkError)
-        return
+      if (data.session) {
+        setSession(data.session)
+        console.log("Session refreshed successfully")
+        return data.session
       }
 
-      if (existingUser) {
-        // Update existing user
-        const { error: updateError } = await supabase
-          .from("users")
-          .update(userDataToInsertOrUpdate)
-          .eq("id", supabaseUser.id)
-        if (updateError) console.error("Erro ao atualizar usuário:", updateError)
-      } else {
-        // Insert new user
-        const { error: insertError } = await supabase
-          .from("users")
-          .insert({ ...userDataToInsertOrUpdate, created_at: new Date().toISOString() })
-        if (insertError) console.error("Erro ao criar usuário:", insertError)
-      }
+      return null
     } catch (error) {
-      console.error("Erro ao sincronizar usuário com banco de dados:", error)
+      console.error("Session refresh error:", error)
+      return null
     }
-  }
+  }, [supabase])
 
-  // Função para atualizar o estado do usuário a partir da sessão
-  const updateUserFromSession = async (currentSession: Session | null) => {
-    if (currentSession?.user) {
-      const supabaseUser = currentSession.user
-      await syncUserWithDatabase(supabaseUser) // Ensure DB is synced first
-
+  // Sync user with database with retry logic
+  const syncUserWithDatabase = useCallback(
+    async (supabaseUser: SupabaseUser, retries = 3): Promise<void> => {
       try {
-        const { data: userDataFromDb, error: userDbError } = await supabase
+        const userMetadata = supabaseUser.user_metadata
+        const appMetadata = supabaseUser.app_metadata
+
+        // Extract provider information
+        const provider = appMetadata?.provider || supabaseUser.app_metadata?.providers?.[0] || "email"
+
+        const userDataToSync = {
+          id: supabaseUser.id,
+          email: supabaseUser.email,
+          name: userMetadata?.full_name || userMetadata?.name || supabaseUser.email?.split("@")[0],
+          type: userMetadata?.type || "regular",
+          state: userMetadata?.state,
+          city: userMetadata?.city,
+          avatar_url: userMetadata?.avatar_url || userMetadata?.picture,
+          provider: provider,
+          email_verified: supabaseUser.email_confirmed_at ? true : false,
+          updated_at: new Date().toISOString(),
+        }
+
+        // Check if user exists
+        const { data: existingUser, error: checkError } = await supabase
           .from("users")
-          .select("id, email, name, avatar_url, type, state, city") // Fetch all relevant fields
+          .select("id, type")
           .eq("id", supabaseUser.id)
           .single()
 
-        if (userDbError && userDbError.code !== "PGRST116") {
-          console.error("Erro ao buscar dados do usuário no DB:", userDbError)
+        if (checkError && checkError.code !== "PGRST116") {
+          throw checkError
         }
 
-        const finalUserData: User = {
-          id: supabaseUser.id,
-          email: supabaseUser.email || "",
-          name: userDataFromDb?.name || supabaseUser.user_metadata?.name || supabaseUser.email?.split("@")[0],
-          avatar_url: userDataFromDb?.avatar_url || supabaseUser.user_metadata?.avatar_url,
-          type: userDataFromDb?.type || supabaseUser.user_metadata?.type || "regular",
-          state: userDataFromDb?.state || supabaseUser.user_metadata?.state,
-          city: userDataFromDb?.city || supabaseUser.user_metadata?.city,
+        if (existingUser) {
+          // Update existing user, but preserve existing type if not set in metadata
+          const updateData = { ...userDataToSync }
+          if (!userMetadata?.type && existingUser.type) {
+            updateData.type = existingUser.type
+          }
+
+          const { error: updateError } = await supabase.from("users").update(updateData).eq("id", supabaseUser.id)
+
+          if (updateError) throw updateError
+        } else {
+          // Insert new user
+          const { error: insertError } = await supabase
+            .from("users")
+            .insert({ ...userDataToSync, created_at: new Date().toISOString() })
+
+          if (insertError) throw insertError
         }
-        setUser(finalUserData)
       } catch (error) {
-        console.error("Erro ao atualizar usuário a partir da sessão:", error)
-        // Fallback to auth metadata if DB fetch fails
-        setUser({
-          id: supabaseUser.id,
-          email: supabaseUser.email || "",
-          name: supabaseUser.user_metadata?.name || supabaseUser.email?.split("@")[0],
-          avatar_url: supabaseUser.user_metadata?.avatar_url,
-          type: supabaseUser.user_metadata?.type || "regular",
-          state: supabaseUser.user_metadata?.state,
-          city: supabaseUser.user_metadata?.city,
-        })
-      }
-    } else {
-      setUser(null)
-    }
-  }
+        console.error("Error syncing user with database:", error)
 
-  // Inicialização da autenticação
-  const initializeAuth = async () => {
+        // Retry logic
+        if (retries > 0) {
+          console.log(`Retrying user sync... (${retries} attempts left)`)
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+          return syncUserWithDatabase(supabaseUser, retries - 1)
+        }
+
+        console.error("Failed to sync user after all retries")
+      }
+    },
+    [supabase],
+  )
+
+  // Update user state from session
+  const updateUserFromSession = useCallback(
+    async (currentSession: Session | null) => {
+      if (currentSession?.user) {
+        const supabaseUser = currentSession.user
+
+        // Sync with database first
+        await syncUserWithDatabase(supabaseUser)
+
+        try {
+          // Fetch user data from database
+          const { data: userDataFromDb, error: userDbError } = await supabase
+            .from("users")
+            .select("id, email, name, avatar_url, type, state, city, provider")
+            .eq("id", supabaseUser.id)
+            .single()
+
+          if (userDbError && userDbError.code !== "PGRST116") {
+            console.warn("Error fetching user from database:", userDbError)
+          }
+
+          // Extract provider info
+          const provider = supabaseUser.app_metadata?.provider || supabaseUser.app_metadata?.providers?.[0] || "email"
+
+          // Create final user object
+          const finalUserData: User = {
+            id: supabaseUser.id,
+            email: supabaseUser.email || "",
+            name:
+              userDataFromDb?.name ||
+              supabaseUser.user_metadata?.full_name ||
+              supabaseUser.user_metadata?.name ||
+              supabaseUser.email?.split("@")[0],
+            avatar_url:
+              userDataFromDb?.avatar_url ||
+              supabaseUser.user_metadata?.avatar_url ||
+              supabaseUser.user_metadata?.picture,
+            type: userDataFromDb?.type || supabaseUser.user_metadata?.type || "regular",
+            state: userDataFromDb?.state || supabaseUser.user_metadata?.state,
+            city: userDataFromDb?.city || supabaseUser.user_metadata?.city,
+            provider: provider,
+            email_verified: supabaseUser.email_confirmed_at ? true : false,
+          }
+
+          setUser(finalUserData)
+        } catch (error) {
+          console.error("Error updating user from session:", error)
+
+          // Fallback to auth metadata if DB fetch fails
+          const provider = supabaseUser.app_metadata?.provider || supabaseUser.app_metadata?.providers?.[0] || "email"
+
+          setUser({
+            id: supabaseUser.id,
+            email: supabaseUser.email || "",
+            name:
+              supabaseUser.user_metadata?.full_name ||
+              supabaseUser.user_metadata?.name ||
+              supabaseUser.email?.split("@")[0],
+            avatar_url: supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture,
+            type: supabaseUser.user_metadata?.type || "regular",
+            state: supabaseUser.user_metadata?.state,
+            city: supabaseUser.user_metadata?.city,
+            provider: provider,
+            email_verified: supabaseUser.email_confirmed_at ? true : false,
+          })
+        }
+      } else {
+        setUser(null)
+      }
+    },
+    [supabase, syncUserWithDatabase],
+  )
+
+  // Schedule automatic token refresh
+  const scheduleTokenRefresh = useCallback(
+    (session: Session) => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current)
+      }
+
+      if (session.expires_at) {
+        const expiresAt = session.expires_at * 1000
+        const now = Date.now()
+        const refreshTime = expiresAt - now - 60000 // Refresh 1 minute before expiry
+
+        if (refreshTime > 0) {
+          refreshTimeoutRef.current = setTimeout(async () => {
+            console.log("Auto-refreshing token...")
+            await refreshSession()
+          }, refreshTime)
+        }
+      }
+    },
+    [refreshSession],
+  )
+
+  // Periodic session validation
+  const startSessionValidation = useCallback(() => {
+    if (sessionCheckIntervalRef.current) {
+      clearInterval(sessionCheckIntervalRef.current)
+    }
+
+    sessionCheckIntervalRef.current = setInterval(
+      async () => {
+        try {
+          const {
+            data: { user },
+            error,
+          } = await supabase.auth.getUser()
+
+          if (error || !user) {
+            console.log("Session validation failed, user might be logged out")
+            // Don't automatically sign out here, let the auth state change handler deal with it
+          }
+        } catch (error) {
+          console.error("Session validation error:", error)
+        }
+      },
+      5 * 60 * 1000,
+    ) // Check every 5 minutes
+  }, [supabase])
+
+  // Initialize authentication
+  const initializeAuth = useCallback(async () => {
     if (initCalled.current) return
     initCalled.current = true
 
     try {
       setIsLoading(true)
-      console.log("Inicializando autenticação...")
+      console.log("Initializing authentication...")
 
-      // Obter sessão atual
+      // Get current session
       const { data, error } = await supabase.auth.getSession()
 
       if (error) {
-        throw error
-      }
-
-      // Atualizar estado da sessão
-      setSession(data.session)
-
-      // Atualizar estado do usuário a partir da sessão
-      if (data.session) {
-        await updateUserFromSession(data.session)
+        console.error("Error getting session:", error)
+        setError(error.message)
+      } else {
+        setSession(data.session)
+        if (data.session) {
+          await updateUserFromSession(data.session)
+          scheduleTokenRefresh(data.session)
+          startSessionValidation()
+        }
       }
     } catch (e) {
-      console.error("Erro ao inicializar autenticação:", e)
-      setError("Falha ao inicializar autenticação")
+      console.error("Error initializing authentication:", e)
+      setError("Failed to initialize authentication")
     } finally {
       setIsLoading(false)
+      setIsInitialized(true)
     }
-  }
+  }, [supabase, updateUserFromSession, scheduleTokenRefresh, startSessionValidation])
 
-  // Configurar listener de mudanças de autenticação
-  const setupAuthListener = () => {
-    if (authListenerSetup.current) return
-    authListenerSetup.current = true
+  // Setup auth state listener
+  const setupAuthListener = useCallback(() => {
+    if (authListenerRef.current) return
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log("Auth state changed:", event, newSession?.user?.email)
+
       setSession(newSession)
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
-        if (newSession) await updateUserFromSession(newSession)
-      } else if (event === "SIGNED_OUT") {
-        setUser(null)
+
+      switch (event) {
+        case "SIGNED_IN":
+          if (newSession) {
+            await updateUserFromSession(newSession)
+            scheduleTokenRefresh(newSession)
+            startSessionValidation()
+            clearError()
+
+            toast({
+              title: "Login realizado com sucesso!",
+              description: `Bem-vindo${newSession.user?.user_metadata?.name ? `, ${newSession.user.user_metadata.name}` : ""}!`,
+            })
+          }
+          break
+
+        case "SIGNED_OUT":
+          setUser(null)
+          clearError()
+          if (refreshTimeoutRef.current) {
+            clearTimeout(refreshTimeoutRef.current)
+          }
+          if (sessionCheckIntervalRef.current) {
+            clearInterval(sessionCheckIntervalRef.current)
+          }
+
+          toast({
+            title: "Logout realizado",
+            description: "Você foi desconectado com sucesso.",
+          })
+          break
+
+        case "TOKEN_REFRESHED":
+          if (newSession) {
+            await updateUserFromSession(newSession)
+            scheduleTokenRefresh(newSession)
+            console.log("Token refreshed successfully")
+          }
+          break
+
+        case "USER_UPDATED":
+          if (newSession) {
+            await updateUserFromSession(newSession)
+            console.log("User updated")
+          }
+          break
+
+        case "PASSWORD_RECOVERY":
+          toast({
+            title: "Email de recuperação enviado",
+            description: "Verifique sua caixa de entrada para redefinir sua senha.",
+          })
+          break
       }
     })
 
-    // Retornar função de limpeza
-    return () => {
-      authListener.subscription.unsubscribe()
-    }
-  }
+    authListenerRef.current = authListener
+    return authListener
+  }, [supabase, updateUserFromSession, scheduleTokenRefresh, startSessionValidation, clearError])
 
-  // Efeito para inicializar autenticação e configurar listener
+  // Initialize auth on mount
   useEffect(() => {
-    // Inicializar autenticação
     initializeAuth()
+    const authListener = setupAuthListener()
 
-    // Configurar listener de mudanças de autenticação
-    const cleanup = setupAuthListener()
+    // Cleanup function
+    return () => {
+      if (authListener) {
+        authListener.subscription.unsubscribe()
+      }
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current)
+      }
+      if (sessionCheckIntervalRef.current) {
+        clearInterval(sessionCheckIntervalRef.current)
+      }
+    }
+  }, [initializeAuth, setupAuthListener])
 
-    // Definir um timeout para garantir que isLoading não fique preso
-    const timeoutId = setTimeout(() => {
-      if (isLoading) {
-        console.warn("Timeout de inicialização de autenticação")
+  // Email/password sign in
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+
+        if (signInError) {
+          setError(signInError.message)
+          return { success: false, error: signInError.message }
+        }
+
+        return { success: true }
+      } catch (e: any) {
+        const errorMessage = e.message || "An unknown error occurred"
+        setError(errorMessage)
+        return { success: false, error: errorMessage }
+      } finally {
         setIsLoading(false)
       }
-    }, 5000)
+    },
+    [supabase],
+  )
 
-    // Limpar listener e timeout
-    return () => {
-      if (cleanup) cleanup()
-      clearTimeout(timeoutId)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Função de login
-  const signIn = async (email: string, password: string) => {
+  // Google sign in
+  const signInWithGoogle = useCallback(async () => {
     setIsLoading(true)
     setError(null)
+
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-      if (signInError) {
-        setError(signInError.message)
-        return { success: false, error: signInError.message }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+        },
+      })
+
+      if (error) {
+        setError(error.message)
+        return { success: false, error: error.message }
       }
-      // onAuthStateChange will handle setting user and session
+
       return { success: true }
     } catch (e: any) {
-      setError(e.message)
-      return { success: false, error: e.message }
+      const errorMessage = e.message || "An unknown error occurred"
+      setError(errorMessage)
+      return { success: false, error: errorMessage }
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [supabase])
 
-  // Função de cadastro
-  const signUp = async (
-    email: string,
-    password: string,
-    name: string,
-    userType = "regular",
-    state?: string,
-    city?: string,
-  ) => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const metadata: any = { name, type: userType }
-      if (state) metadata.state = state
-      if (city) metadata.city = city
+  // Sign up function
+  const signUp = useCallback(
+    async (email: string, password: string, name: string, userType = "regular", state?: string, city?: string) => {
+      setIsLoading(true)
+      setError(null)
 
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: metadata },
-      })
-      if (signUpError) {
-        setError(signUpError.message)
-        return { success: false, error: signUpError.message }
+      try {
+        const metadata: any = { name, type: userType }
+        if (state) metadata.state = state
+        if (city) metadata.city = city
+
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: metadata,
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        })
+
+        if (signUpError) {
+          setError(signUpError.message)
+          return { success: false, error: signUpError.message }
+        }
+
+        return { success: true, userId: data.user?.id }
+      } catch (e: any) {
+        const errorMessage = e.message || "An unknown error occurred"
+        setError(errorMessage)
+        return { success: false, error: errorMessage }
+      } finally {
+        setIsLoading(false)
       }
-      // User will be created in auth.users, onAuthStateChange and syncUserWithDatabase will handle public.users
-      return { success: true, userId: data.user?.id }
-    } catch (e: any) {
-      setError(e.message)
-      return { success: false, error: e.message }
-    } finally {
-      setIsLoading(false)
-    }
-  }
+    },
+    [supabase],
+  )
 
-  // Função de logout
-  const signOut = async () => {
+  // Enhanced sign out function
+  const signOut = useCallback(async () => {
     setIsLoading(true)
+
     try {
-      // Clear local storage items related to Supabase
+      // Clear all timers
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current)
+        refreshTimeoutRef.current = null
+      }
+      if (sessionCheckIntervalRef.current) {
+        clearInterval(sessionCheckIntervalRef.current)
+        sessionCheckIntervalRef.current = null
+      }
+
+      // Clear local storage
       if (typeof window !== "undefined") {
         Object.keys(localStorage).forEach((key) => {
-          if (key.startsWith("sb-") || key.includes("supabase")) {
+          if (key.startsWith("sb-") || key.includes("supabase") || key.includes("petadot")) {
             localStorage.removeItem(key)
           }
         })
         Object.keys(sessionStorage).forEach((key) => {
-          if (key.startsWith("sb-") || key.includes("supabase")) {
+          if (key.startsWith("sb-") || key.includes("supabase") || key.includes("petadot")) {
             sessionStorage.removeItem(key)
           }
         })
       }
 
-      const { error: signOutError } = await supabase.auth.signOut({ scope: "global" }) // Ensure global sign out
-      if (signOutError) throw signOutError
+      // Sign out from Supabase
+      const { error: signOutError } = await supabase.auth.signOut({ scope: "global" })
+      if (signOutError) {
+        console.error("Sign out error:", signOutError)
+      }
 
-      setUser(null) // Explicitly set user to null
-      setSession(null) // Explicitly set session to null
-      router.push("/") // Redirect to home
-      router.refresh() // Force refresh to clear any cached user data on client
+      // Clear state
+      setUser(null)
+      setSession(null)
+      clearError()
+
+      // Redirect to home
+      router.push("/")
+      router.refresh()
     } catch (e: any) {
-      console.error("Erro ao fazer logout:", e)
-      setError(e.message)
-      // Still attempt to clear client state and redirect
+      console.error("Error during sign out:", e)
+      // Still clear state and redirect even if there's an error
       setUser(null)
       setSession(null)
       router.push("/")
@@ -317,43 +567,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [supabase, router, clearError])
 
-  // Função de recuperação de senha
-  const resetPassword = async (email: string) => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${typeof window !== "undefined" ? window.location.origin : ""}/auth/callback?next=/reset-password`, // Updated redirectTo
-      })
-      if (resetError) {
-        setError(resetError.message)
-        return { success: false, error: resetError.message }
+  // Reset password function
+  const resetPassword = useCallback(
+    async (email: string) => {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${typeof window !== "undefined" ? window.location.origin : ""}/auth/callback?next=/reset-password`,
+        })
+
+        if (resetError) {
+          setError(resetError.message)
+          return { success: false, error: resetError.message }
+        }
+
+        return { success: true }
+      } catch (e: any) {
+        const errorMessage = e.message || "An unknown error occurred"
+        setError(errorMessage)
+        return { success: false, error: errorMessage }
+      } finally {
+        setIsLoading(false)
       }
-      return { success: true }
-    } catch (e: any) {
-      setError(e.message)
-      return { success: false, error: e.message }
-    } finally {
-      setIsLoading(false)
-    }
-  }
+    },
+    [supabase],
+  )
 
-  // Valor do contexto
-  const value = { user, session, isLoading, error, signIn, signUp, signOut, resetPassword }
+  // Context value
+  const value = {
+    user,
+    session,
+    isLoading,
+    error,
+    isInitialized,
+    signIn,
+    signInWithGoogle,
+    signUp,
+    signOut,
+    resetPassword,
+    refreshSession,
+    clearError,
+    isAuthenticated: !!user,
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-// Hook para usar o contexto de autenticação
+// Hook to use the authentication context
 export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth deve ser usado dentro de um AuthProvider")
+    throw new Error("useAuth must be used within an AuthProvider")
   }
   return context
 }
 
-// Exportar cliente Supabase para acesso direto
+// Export session hook for backward compatibility - REQUIRED EXPORT
+export const useSession = () => useContext(AuthContext)?.session
+
+// Export Supabase client for direct access
 export const supabaseClient = getSupabaseClient()

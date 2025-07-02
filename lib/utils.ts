@@ -5,69 +5,275 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Função para formatar datas (ex: DD/MM/YYYY)
-export function formatDate(dateString: string | Date): string {
-  const date = new Date(dateString)
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date)
+/**
+ * Formata uma data para exibição no formato DD/MM/AAAA.
+ * @param date Data a ser formatada (string, Date, null ou undefined).
+ * @returns Data formatada ou "Data não informada".
+ */
+export function formatDate(date: string | Date | null | undefined): string {
+  if (!date) return "Data não informada"
+
+  try {
+    const dateObj = typeof date === "string" ? new Date(date) : date
+    return dateObj.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
+  } catch (error) {
+    console.error("Erro ao formatar data:", error)
+    return "Data inválida"
+  }
 }
 
-// Função para formatar data e hora (ex: DD/MM/YYYY HH:MM)
-export function formatDateTime(dateString: string | Date): string {
-  const date = new Date(dateString)
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false, // Use 24-hour format
-  }).format(date)
+/**
+ * Formata uma data e hora para exibição no formato DD/MM/AAAA HH:MM.
+ * @param date Data e hora a ser formatada (string, Date, null ou undefined).
+ * @returns Data e hora formatada ou "Data não informada".
+ */
+export function formatDateTime(date: string | Date | null | undefined): string {
+  if (!date) return "Data não informada"
+
+  try {
+    const dateObj = typeof date === "string" ? new Date(date) : date
+    return dateObj.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  } catch (error) {
+    console.error("Erro ao formatar data e hora:", error)
+    return "Data inválida"
+  }
 }
 
-// Função para formatar valores monetários (ex: R$ 1.234,56)
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("pt-BR", {
+/**
+ * Formata um número para exibição como moeda (BRL).
+ * @param value Valor a ser formatado (number, null ou undefined).
+ * @returns Valor formatado como moeda ou "R$ 0,00".
+ */
+export function formatCurrency(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "R$ 0,00"
+
+  return value.toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
-  }).format(value)
+  })
 }
 
-// Mapeamento de status de pet para texto legível
-export const mapPetStatusToText = (status: string) => {
-  switch (status) {
-    case "lost":
-      return "Perdido"
-    case "found":
-      return "Encontrado"
-    case "for_adoption":
-      return "Para Adoção"
-    case "reunited":
-      return "Reunido"
-    case "adopted":
-      return "Adotado"
-    case "resolved":
-      return "Resolvido"
-    default:
-      return status
-  }
+/**
+ * Gera um slug a partir de uma string.
+ * @param text Texto para gerar o slug.
+ * @returns Slug gerado.
+ */
+export function generateSlug(text: string): string {
+  return text
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]+/g, "")
+    .replace(/--+/g, "-")
 }
 
-// Mapeamento de tipos de evento para texto legível
-export const mapEventTypeToText = (type: string) => {
-  switch (type) {
-    case "adoption_fair":
-      return "Feira de Adoção"
-    case "fundraiser":
-      return "Arrecadação de Fundos"
-    case "workshop":
-      return "Workshop"
-    case "other":
-      return "Outro"
-    default:
-      return type
+/**
+ * Mapeia o status de um pet para um texto legível.
+ * @param status Status do pet.
+ * @returns Texto legível do status.
+ */
+export function mapPetStatus(status: string | null | undefined): string {
+  if (!status) return "Desconhecido"
+
+  const statusMap: Record<string, string> = {
+    approved: "Aprovado",
+    pending: "Pendente",
+    rejected: "Rejeitado",
+    adopted: "Adotado",
+    resolved: "Resolvido",
+    reunited: "Reunido",
+    available: "Disponível",
   }
+
+  return statusMap[status] || status
+}
+
+/**
+ * Mapeia a espécie de um pet para um texto legível.
+ * @param species Espécie do pet.
+ * @param speciesOther Valor personalizado para "other".
+ * @returns Texto legível da espécie.
+ */
+export function mapPetSpecies(species: string | null | undefined, speciesOther?: string | null): string {
+  if (!species) return "Outro"
+
+  if (species === "other" && speciesOther) {
+    return speciesOther
+  }
+
+  const speciesMap: Record<string, string> = {
+    dog: "Cachorro",
+    cat: "Gato",
+    bird: "Pássaro",
+    rabbit: "Coelho",
+    hamster: "Hamster",
+    fish: "Peixe",
+    turtle: "Tartaruga",
+    other: "Outro",
+  }
+
+  return speciesMap[species] || species
+}
+
+/**
+ * Mapeia o tamanho de um pet para um texto legível.
+ * @param size Tamanho do pet.
+ * @param sizeOther Valor personalizado para "other".
+ * @returns Texto legível do tamanho.
+ */
+export function mapPetSize(size: string | null | undefined, sizeOther?: string | null): string {
+  if (!size) return "Não informado"
+
+  if (size === "other" && sizeOther) {
+    return sizeOther
+  }
+
+  const sizeMap: Record<string, string> = {
+    small: "Pequeno",
+    medium: "Médio",
+    large: "Grande",
+    giant: "Gigante",
+  }
+
+  return sizeMap[size] || size
+}
+
+/**
+ * Mapeia a idade de um pet para um texto legível.
+ * @param age Idade do pet.
+ * @returns Texto legível da idade.
+ */
+export function mapPetAge(age: string | null | undefined): string {
+  if (!age) return "Não informada"
+
+  const ageMap: Record<string, string> = {
+    baby: "Filhote",
+    young: "Jovem",
+    adult: "Adulto",
+    senior: "Idoso",
+  }
+
+  return ageMap[age] || age
+}
+
+/**
+ * Mapeia o gênero de um pet para um texto legível.
+ * @param gender Gênero do pet.
+ * @param genderOther Valor personalizado para "other".
+ * @returns Texto legível do gênero.
+ */
+export function mapPetGender(gender: string | null | undefined, genderOther?: string | null): string {
+  if (!gender) return "Não informado"
+
+  if (gender === "other" && genderOther) {
+    return genderOther
+  }
+
+  const genderMap: Record<string, string> = {
+    male: "Macho",
+    female: "Fêmea",
+    unknown: "Não informado",
+    other: "Outro",
+  }
+
+  return genderMap[gender] || gender
+}
+
+/**
+ * Mapeia a cor de um pet para um texto legível.
+ * @param color Cor do pet.
+ * @param colorOther Valor personalizado para "other".
+ * @returns Texto legível da cor.
+ */
+export function mapPetColor(color: string | null | undefined, colorOther?: string | null): string {
+  if (!color) return "Não informada"
+
+  if (color === "other" && colorOther) {
+    return colorOther
+  }
+
+  const colorMap: Record<string, string> = {
+    black: "Preto",
+    white: "Branco",
+    brown: "Marrom",
+    gray: "Cinza",
+    golden: "Dourado",
+    spotted: "Malhado",
+    tricolor: "Tricolor",
+    other: "Outra",
+  }
+
+  return colorMap[color] || color
+}
+
+/**
+ * Mapeia a categoria de uma história para um texto legível.
+ * @param category Categoria da história.
+ * @returns Texto legível da categoria.
+ */
+export function mapStoryCategory(category: string | null | undefined): string {
+  if (!category) return "Outras"
+
+  const categoryMap: Record<string, string> = {
+    adoption: "Adoção",
+    rescue: "Resgate",
+    reunion: "Reencontro",
+    transformation: "Transformação",
+    special_needs: "Necessidades Especiais",
+    senior: "Pet Idoso",
+    volunteer: "Voluntariado",
+    other: "Outras",
+  }
+
+  return categoryMap[category] || category
+}
+
+/**
+ * Mapeia o status de uma história para um texto legível.
+ * @param status Status da história.
+ * @returns Texto legível do status.
+ */
+export function mapStoryStatus(status: string | null | undefined): string {
+  if (!status) return "Desconhecido"
+
+  const statusMap: Record<string, string> = {
+    aprovado: "Aprovado",
+    pendente: "Pendente",
+    rejeitado: "Rejeitado",
+  }
+
+  return statusMap[status] || status
+}
+
+/**
+ * Mapeia o tipo de evento para um texto legível.
+ * @param type Tipo do evento.
+ * @returns Texto legível do tipo.
+ */
+export function mapEventType(type: string | null | undefined): string {
+  if (!type) return "Outro"
+
+  const typeMap: Record<string, string> = {
+    adoption_fair: "Feira de Adoção",
+    fundraising: "Arrecadação de Fundos",
+    vaccination: "Campanha de Vacinação",
+    educational: "Evento Educativo",
+    volunteer: "Voluntariado",
+    other: "Outro",
+  }
+
+  return typeMap[type] || type
 }

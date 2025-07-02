@@ -1,12 +1,12 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
 // Função para verificar se um usuário existe na autenticação
 export async function checkUserExists(email: string) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Verificar se o usuário que está fazendo a requisição é um administrador
@@ -63,7 +63,7 @@ export async function checkUserExists(email: string) {
 
 // Função para promover um usuário existente para administrador
 export async function promoteToAdmin(userId: string) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Verificar se o usuário que está fazendo a requisição é um administrador
@@ -105,7 +105,7 @@ export async function promoteToAdmin(userId: string) {
 
 // Função para criar um novo usuário administrador
 export async function createAdminUser(email: string, password: string, name: string) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerActionClient({ cookies })
 
   try {
     // Verificar se o usuário que está fazendo a requisição é um administrador

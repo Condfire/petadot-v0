@@ -11,6 +11,7 @@ interface ImageUploadProps {
   className?: string
   label?: string
   description?: string
+  userId?: string
 }
 
 export function ImageUpload({
@@ -21,6 +22,7 @@ export function ImageUpload({
   className = "",
   label = "Imagem",
   description,
+  userId,
 }: ImageUploadProps) {
   // Mapear folder para categoria
   const getCategoryFromFolder = (folder: string): ImageCategory => {
@@ -43,9 +45,10 @@ export function ImageUpload({
       value={value}
       onChange={onChange}
       label={label}
-      description={description}
+      description={description || "Selecione uma imagem de boa qualidade. Ela será otimizada automaticamente."}
       required={required}
       className={className}
+      userId={userId}
     />
   )
 }

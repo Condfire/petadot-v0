@@ -68,7 +68,7 @@ export async function POST() {
         await supabase.rpc("create_storage_policy", {
           bucket_id: BUCKET_NAME,
           policy_name: "Owner Update",
-          definition: "bucket_id = '" + BUCKET_NAME + "' AND auth.uid()::text = (storage.foldername(name))[1]",
+          definition: "bucket_id = '" + BUCKET_NAME + "' AND auth.uid()::text = (storage.foldername(name))[2]",
           policy_operation: "UPDATE",
         })
 
@@ -76,7 +76,7 @@ export async function POST() {
         await supabase.rpc("create_storage_policy", {
           bucket_id: BUCKET_NAME,
           policy_name: "Owner Delete",
-          definition: "bucket_id = '" + BUCKET_NAME + "' AND auth.uid()::text = (storage.foldername(name))[1]",
+          definition: "bucket_id = '" + BUCKET_NAME + "' AND auth.uid()::text = (storage.foldername(name))[2]",
           policy_operation: "DELETE",
         })
 

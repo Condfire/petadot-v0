@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       // Revalidar as páginas relacionadas
       revalidatePath("/adocao")
       revalidatePath(`/adocao/${petData.id}`)
-      revalidatePath("/dashboard/pets")
+      revalidatePath("/my-pets")
 
       return NextResponse.json({ success: true })
     }
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const newPet = {
       ...petData,
       user_id: session.user.id,
-      status: "pending",
+      status: "approved",
       created_at: new Date().toISOString(),
     }
 
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     // Revalidar as páginas relacionadas
     revalidatePath("/adocao")
-    revalidatePath("/dashboard/pets")
+    revalidatePath("/my-pets")
 
     return NextResponse.json({ success: true, data: insertedPet })
   } catch (error) {

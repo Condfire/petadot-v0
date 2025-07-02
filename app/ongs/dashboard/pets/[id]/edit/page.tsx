@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Loader2, AlertCircle, ArrowLeft, Trash2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import ImageUpload from "@/components/image-upload"
+import ImageUpload from "@/components/ImageUpload"
 import {
   Dialog,
   DialogContent,
@@ -81,14 +81,14 @@ export default function EditPetPage({ params }: { params: { id: string } }) {
         setError(null)
 
         // Verificar se o usuário está autenticado
-        const { data: session } = await supabase.auth.getSession()
+        const { data: { session } } = await supabase.auth.getSession()
 
-        if (!session.session) {
+        if (!session) {
           router.push("/ongs/login?message=Faça login para editar pets")
           return
         }
 
-        const userId = session.session.user.id
+        const userId = session.user.id
 
         // Buscar a ONG do usuário
         const { data: ongData, error: ongError } = await supabase
@@ -132,10 +132,10 @@ export default function EditPetPage({ params }: { params: { id: string } }) {
           is_vaccinated: pet.is_vaccinated || false,
           is_special_needs: pet.is_special_needs || false,
           special_needs_description: pet.special_needs_description || "",
-          image_url: pet.image_url,
+          image_url: pet.main_image_url || pet.image_url,
         })
 
-        setImageUrl(pet.image_url)
+        setImageUrl(pet.main_image_url || pet.image_url)
       } catch (err: any) {
         console.error("Erro ao carregar pet:", err)
         setError(err.message || "Ocorreu um erro ao carregar o pet")

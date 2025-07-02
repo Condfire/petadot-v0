@@ -1,18 +1,41 @@
 "use client"
 
+import { useActionState } from "react"
 import { FoundPetForm } from "@/components/FoundPetForm"
+import { createFoundPet } from "@/app/actions/pet-actions" // Importar a ação específica
+import { toast } from "@/components/ui/use-toast"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 
-export default function CadastrarEncontradoClient() {
+interface CadastrarEncontradoClientProps {
+  userId: string
+}
+
+export default function CadastrarEncontradoClient({ userId }: CadastrarEncontradoClientProps) {
+  const router = useRouter()
+  const [state, formAction] = useActionState(createFoundPet, null) // Usar createFoundPet diretamente
+
+  useEffect(() => {
+    if (state?.success) {
+      toast({
+        title: "Sucesso!",
+        description: "Pet encontrado cadastrado com sucesso.",
+        variant: "default",
+      })
+      router.push("/encontrados") // Redirecionar após o sucesso
+    } else if (state?.error) {
+      toast({
+        title: "Erro ao cadastrar pet",
+        description: state.error,
+        variant: "destructive",
+      })
+    }
+  }, [state, router])
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold text-center mb-8">Reportar Pet Encontrado</h1>
-        <p className="text-gray-600 text-center mb-8">
-          Encontrou um pet na rua? Ajude-nos a reunir ele com sua família!
-        </p>
-
-        <FoundPetForm />
-      </div>
+    <div className="container mx-auto py-8">
+      <h1 className="text-3xl font-bold mb-6 text-center">Cadastrar Pet Encontrado</h1>
+      <FoundPetForm action={formAction} userId={userId} />
     </div>
   )
 }
