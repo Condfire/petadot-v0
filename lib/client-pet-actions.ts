@@ -47,8 +47,7 @@ export async function createAdoptionPetClient(petData: PetFormUI, userId: string
       color: petData.color,
       color_other: petData.color_other,
       description: petData.description,
-      // CORREÇÃO: Usar main_image_url e remover image_urls (plural)
-      main_image_url: petData.main_image_url || null, // Agora usa main_image_url do PetFormUI
+      main_image_url: petData.main_image_url || null,
       is_vaccinated: petData.is_vaccinated || false,
       is_neutered: petData.is_castrated || false,
       is_special_needs: petData.is_special_needs || false,
@@ -66,6 +65,7 @@ export async function createAdoptionPetClient(petData: PetFormUI, userId: string
       status: "available",
       category: "adoption",
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
 
     console.log("Inserindo novo pet:", newPet)

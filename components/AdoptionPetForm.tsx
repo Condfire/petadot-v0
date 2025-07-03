@@ -16,7 +16,7 @@ import { CheckCircle } from "lucide-react"
 import { ImageUpload } from "@/components/ImageUpload"
 import { SimpleLocationSelector } from "@/components/simple-location-selector"
 import { useAuth } from "@/app/auth-provider"
-import { createAdoptionPetClient } from "@/lib/client-pet-actions" // Importa a função client-side
+import { createAdoptionPetClient } from "@/lib/client-pet-actions"
 
 interface AdoptionPetFormProps {
   ongId: string
@@ -40,7 +40,7 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
     color: "",
     color_other: "",
     description: "",
-    image_url: "", // Continua usando image_url localmente no estado do formulário
+    main_image_url: "", // Corrigido para usar main_image_url
     is_vaccinated: false,
     is_neutered: false,
     special_needs: "",
@@ -90,20 +90,6 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
     setFormData((prev) => ({ ...prev, [name]: checked }))
   }
 
-  const handleOtherOptionChange = (field: string, value: string) => {
-    const fieldName = `${field}_other`
-    setFormData((prev) => ({ ...prev, [fieldName]: value }))
-
-    // Limpar erro do campo quando o usuário digita
-    if (formErrors[fieldName]) {
-      setFormErrors((prev) => {
-        const newErrors = { ...prev }
-        delete newErrors[fieldName]
-        return newErrors
-      })
-    }
-  }
-
   const handleStateChange = (state: string) => {
     setFormData((prev) => ({ ...prev, state }))
 
@@ -129,12 +115,12 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
   }
 
   const handleImageChange = (url: string) => {
-    setFormData((prev) => ({ ...prev, image_url: url }))
+    setFormData((prev) => ({ ...prev, main_image_url: url })) // Corrigido
 
-    if (formErrors.image_url) {
+    if (formErrors.main_image_url) {
       setFormErrors((prev) => {
         const newErrors = { ...prev }
-        delete newErrors.image_url
+        delete newErrors.main_image_url
         return newErrors
       })
     }
@@ -167,7 +153,7 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
     if (!formData.state) errors.state = "Estado é obrigatório"
     if (!formData.city) errors.city = "Cidade é obrigatória"
     if (!formData.contact) errors.contact = "Contato é obrigatório"
-    if (!formData.image_url) errors.image_url = "Imagem do pet é obrigatória"
+    if (!formData.main_image_url) errors.main_image_url = "Imagem do pet é obrigatória"
 
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -193,52 +179,37 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
     setIsSubmitting(true)
 
     try {
-      // Adicionar localização formatada
-      const location = formData.city && formData.state ? `${formData.city}, ${formData.state}` : ""
-
       // Preparar dados para envio, substituindo valores "other" pelos valores personalizados
-      const processedData = {
-        ...formData,
-        species: formData.species === "other" ? formData.species_other : formData.species,
-        size: formData.size === "other" ? formData.size_other : formData.size,
-        gender: formData.gender === "other" ? formData.gender_other : formData.gender,
-        color: formData.color === "other" ? formData.color_other : formData.color,
-        location,
-        ong_id: ongId,
-      }
-
-      console.log("Enviando dados para o servidor:", processedData)
-
-      // Preparar dados no formato PetFormUI
       const petFormData = {
-        name: processedData.name,
-        species: processedData.species,
-        species_other: processedData.species_other,
-        breed: processedData.breed,
-        age: processedData.age,
-        size: processedData.size,
-        size_other: processedData.size_other,
-        gender: processedData.gender,
-        gender_other: processedData.gender_other,
-        color: processedData.color,
-        color_other: processedData.color_other,
-        description: processedData.description,
-        // CORREÇÃO: Passar image_url para main_image_url
-        main_image_url: processedData.image_url,
-        is_vaccinated: processedData.is_vaccinated,
-        is_castrated: processedData.is_neutered,
-        is_special_needs: !!processedData.special_needs,
-        special_needs_description: processedData.special_needs || null,
-        temperament: processedData.temperament || null,
-        energy_level: processedData.energy_level || null,
+        name: formData.name,
+        species: formData.species === "other" ? formData.species_other : formData.species,
+        species_other: formData.species === "other" ? formData.species_other : null,
+        breed: formData.breed,
+        age: formData.age,
+        size: formData.size === "other" ? formData.size_other : formData.size,
+        size_other: formData.size === "other" ? formData.size_other : null,
+        gender: formData.gender === "other" ? formData.gender_other : formData.gender,
+        gender_other: formData.gender === "other" ? formData.gender_other : null,
+        color: formData.color === "other" ? formData.color_other : formData.color,
+        color_other: formData.color === "other" ? formData.color_other : null,
+        description: formData.description,
+        main_image_url: formData.main_image_url,
+        is_vaccinated: formData.is_vaccinated,
+        is_castrated: formData.is_neutered,
+        is_special_needs: !!formData.special_needs,
+        special_needs_description: formData.special_needs || null,
+        temperament: formData.temperament || null,
+        energy_level: formData.energy_level || null,
         good_with_kids: false,
         good_with_cats: false,
         good_with_dogs: false,
-        city: processedData.city,
-        state: processedData.state,
-        whatsapp_contact: processedData.contact,
-        ong_id: processedData.ong_id,
+        city: formData.city,
+        state: formData.state,
+        whatsapp_contact: formData.contact,
+        ong_id: ongId,
       }
+
+      console.log("Enviando dados para o servidor:", petFormData)
 
       // Enviar os dados usando a função client-side
       const result = await createAdoptionPetClient(petFormData, user.id)
@@ -637,11 +608,11 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
           <Label className="flex">
             Foto do Pet<span className="text-red-500 ml-1">*</span>
           </Label>
-          <ImageUpload value={formData.image_url} onChange={handleImageChange} required folder="pets_adoption" />
+          <ImageUpload value={formData.main_image_url} onChange={handleImageChange} required folder="pets_adoption" />
           <p className="text-xs text-muted-foreground mt-1">
             Esta será a imagem principal exibida nos resultados de busca.
           </p>
-          {formErrors.image_url && <p className="text-red-500 text-sm mt-1">{formErrors.image_url}</p>}
+          {formErrors.main_image_url && <p className="text-red-500 text-sm mt-1">{formErrors.main_image_url}</p>}
         </div>
       </div>
 

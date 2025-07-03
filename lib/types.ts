@@ -21,10 +21,9 @@ export type PetFormUI = {
   color: string
   color_other?: string | null
   description: string
-  // CORREÇÃO: Usar main_image_url em vez de image_urls (array)
-  main_image_url?: string | null // Alterado de image_urls: string[]
+  main_image_url?: string | null
   is_vaccinated?: boolean
-  is_castrated?: boolean // Mapeia para is_neutered no DB
+  is_castrated?: boolean
   is_special_needs?: boolean
   special_needs_description?: string | null
   temperament?: string | null
@@ -34,10 +33,10 @@ export type PetFormUI = {
   good_with_dogs?: boolean
   city: string
   state: string
-  whatsapp_contact: string // Mapeia para contact no DB
+  whatsapp_contact: string
   ong_id?: string | null
-  is_editing?: boolean // Para indicar se é uma edição
-  slug?: string | null // Adicionado para edição
+  is_editing?: boolean
+  slug?: string | null
   // Campos específicos para pets perdidos/encontrados, se necessário
   last_seen_date?: string | null
   last_seen_location?: string | null
