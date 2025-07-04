@@ -1,9 +1,6 @@
 "use client"
-
-import type React from "react"
-
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useFormStatus } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,257 +8,42 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { CheckCircle } from "lucide-react"
 import { ImageUpload } from "@/components/ImageUpload"
 import { SimpleLocationSelector } from "@/components/simple-location-selector"
-import { useAuth } from "@/app/auth-provider"
-import { createAdoptionPetClient } from "@/lib/client-pet-actions"
+import OtherOptionField from "./other-option-field"
 
 interface AdoptionPetFormProps {
+  action: (formData: FormData) => void
   ongId: string
-  ongName: string
-  onSuccess?: () => void
-  onError?: (message: string) => void
 }
 
-export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: AdoptionPetFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [formData, setFormData] = useState({
-    name: "",
-    species: "",
-    species_other: "",
-    breed: "",
-    age: "",
-    gender: "",
-    gender_other: "",
-    size: "",
-    size_other: "",
-    color: "",
-    color_other: "",
-    description: "",
-    main_image_url: "", // Corrigido para usar main_image_url
-    is_vaccinated: false,
-    is_neutered: false,
-    special_needs: "",
-    temperament: "",
-    energy_level: "",
-    sociability: "",
-    shedding: "",
-    trainability: "",
-    location: "",
-    city: "",
-    state: "",
-    contact: "",
-  })
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
-  const [submitSuccess, setSubmitSuccess] = useState(false)
-  const router = useRouter()
-  const { user } = useAuth()
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <Button type="submit" disabled={pending}>
+      {pending ? "Cadastrando..." : "Cadastrar Pet"}
+    </Button>
+  )
+}
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-
-    // Limpar erro do campo quando o usuário digita
-    if (formErrors[name]) {
-      setFormErrors((prev) => {
-        const newErrors = { ...prev }
-        delete newErrors[name]
-        return newErrors
-      })
-    }
-  }
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
-
-    // Limpar erro do campo quando o usuário seleciona
-    if (formErrors[name]) {
-      setFormErrors((prev) => {
-        const newErrors = { ...prev }
-        delete newErrors[name]
-        return newErrors
-      })
-    }
-  }
-
-  const handleCheckboxChange = (name: string, checked: boolean) => {
-    setFormData((prev) => ({ ...prev, [name]: checked }))
-  }
-
-  const handleStateChange = (state: string) => {
-    setFormData((prev) => ({ ...prev, state }))
-
-    if (formErrors.state) {
-      setFormErrors((prev) => {
-        const newErrors = { ...prev }
-        delete newErrors.state
-        return newErrors
-      })
-    }
-  }
-
-  const handleCityChange = (city: string) => {
-    setFormData((prev) => ({ ...prev, city }))
-
-    if (formErrors.city) {
-      setFormErrors((prev) => {
-        const newErrors = { ...prev }
-        delete newErrors.city
-        return newErrors
-      })
-    }
-  }
-
-  const handleImageChange = (url: string) => {
-    setFormData((prev) => ({ ...prev, main_image_url: url })) // Corrigido
-
-    if (formErrors.main_image_url) {
-      setFormErrors((prev) => {
-        const newErrors = { ...prev }
-        delete newErrors.main_image_url
-        return newErrors
-      })
-    }
-  }
-
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {}
-
-    // Validar campos obrigatórios
-    if (!formData.name) errors.name = "Nome do pet é obrigatório"
-    if (!formData.species) errors.species = "Espécie é obrigatória"
-    if (formData.species === "other" && !formData.species_other) errors.species_other = "Especifique a espécie"
-
-    if (!formData.breed) errors.breed = "Raça é obrigatória"
-    if (!formData.age) errors.age = "Idade é obrigatória"
-
-    if (!formData.gender) errors.gender = "Gênero é obrigatório"
-    if (formData.gender === "other" && !formData.gender_other) errors.gender_other = "Especifique o gênero"
-
-    if (!formData.size) errors.size = "Porte é obrigatório"
-    if (formData.size === "other" && !formData.size_other) errors.size_other = "Especifique o porte"
-
-    if (!formData.color) errors.color = "Cor é obrigatória"
-    if (formData.color === "other" && !formData.color_other) errors.color_other = "Especifique a cor"
-
-    if (!formData.description || formData.description.length < 10) {
-      errors.description = "Descrição deve ter pelo menos 10 caracteres"
-    }
-
-    if (!formData.state) errors.state = "Estado é obrigatório"
-    if (!formData.city) errors.city = "Cidade é obrigatória"
-    if (!formData.contact) errors.contact = "Contato é obrigatório"
-    if (!formData.main_image_url) errors.main_image_url = "Imagem do pet é obrigatória"
-
-    setFormErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log("Formulário enviado", formData)
-
-    // Verificar se o usuário está autenticado
-    if (!user) {
-      onError?.("Usuário não autenticado")
-      return
-    }
-
-    // Validar formulário
-    if (!validateForm()) {
-      console.log("Formulário inválido", formErrors)
-      onError?.("Por favor, preencha todos os campos obrigatórios.")
-      return
-    }
-
-    setIsSubmitting(true)
-
-    try {
-      // Preparar dados para envio, substituindo valores "other" pelos valores personalizados
-      const petFormData = {
-        name: formData.name,
-        species: formData.species === "other" ? formData.species_other : formData.species,
-        species_other: formData.species === "other" ? formData.species_other : null,
-        breed: formData.breed,
-        age: formData.age,
-        size: formData.size === "other" ? formData.size_other : formData.size,
-        size_other: formData.size === "other" ? formData.size_other : null,
-        gender: formData.gender === "other" ? formData.gender_other : formData.gender,
-        gender_other: formData.gender === "other" ? formData.gender_other : null,
-        color: formData.color === "other" ? formData.color_other : formData.color,
-        color_other: formData.color === "other" ? formData.color_other : null,
-        description: formData.description,
-        main_image_url: formData.main_image_url,
-        is_vaccinated: formData.is_vaccinated,
-        is_castrated: formData.is_neutered,
-        is_special_needs: !!formData.special_needs,
-        special_needs_description: formData.special_needs || null,
-        temperament: formData.temperament || null,
-        energy_level: formData.energy_level || null,
-        good_with_kids: false,
-        good_with_cats: false,
-        good_with_dogs: false,
-        city: formData.city,
-        state: formData.state,
-        whatsapp_contact: formData.contact,
-        ong_id: ongId,
-      }
-
-      console.log("Enviando dados para o servidor:", petFormData)
-
-      // Enviar os dados usando a função client-side
-      const result = await createAdoptionPetClient(petFormData, user.id)
-
-      console.log("Resultado do cadastro:", result)
-
-      if (result.error) {
-        onError?.(result.error)
-      } else {
-        setSubmitSuccess(true)
-        onSuccess?.()
-
-        // Aguardar 2 segundos antes de redirecionar
-        setTimeout(() => {
-          router.push("/ongs/dashboard")
-          router.refresh()
-        }, 2000)
-      }
-    } catch (error) {
-      console.error("Erro ao cadastrar pet:", error)
-      onError?.("Erro ao cadastrar pet: " + (error instanceof Error ? error.message : String(error)))
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
+export function AdoptionPetForm({ action, ongId }: AdoptionPetFormProps) {
+  const [imageUrl, setImageUrl] = useState("")
+  const [species, setSpecies] = useState("dog")
+  const [gender, setGender] = useState("Macho")
+  const [size, setSize] = useState("Pequeno")
+  const [color, setColor] = useState("Preto")
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
-      {submitSuccess && (
-        <Alert className="bg-green-50 border-green-200 mb-4">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-700">
-            Pet cadastrado com sucesso! Você será redirecionado em instantes...
-          </AlertDescription>
-        </Alert>
-      )}
+    <form action={action} className="space-y-6 max-w-2xl mx-auto">
+      <input type="hidden" name="ong_id" value={ongId} />
+      <input type="hidden" name="main_image_url" value={imageUrl} />
 
       <div className="space-y-4">
         <div>
           <Label htmlFor="name" className="flex">
             Nome do Pet<span className="text-red-500 ml-1">*</span>
           </Label>
-          <Input
-            id="name"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            placeholder="Ex: Rex"
-            required
-            className={formErrors.name ? "border-red-500" : ""}
-          />
-          {formErrors.name && <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>}
+          <Input id="name" name="name" placeholder="Ex: Rex" required />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -269,13 +51,8 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
             <Label htmlFor="species" className="flex">
               Espécie<span className="text-red-500 ml-1">*</span>
             </Label>
-            <Select
-              name="species"
-              value={formData.species}
-              onValueChange={(value) => handleSelectChange("species", value)}
-              required
-            >
-              <SelectTrigger className={formErrors.species ? "border-red-500" : ""}>
+            <Select name="species" required onValueChange={setSpecies} defaultValue="dog">
+              <SelectTrigger>
                 <SelectValue placeholder="Selecione a espécie" />
               </SelectTrigger>
               <SelectContent>
@@ -286,40 +63,19 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
                 <SelectItem value="other">Outro</SelectItem>
               </SelectContent>
             </Select>
-            {formErrors.species && <p className="text-red-500 text-sm mt-1">{formErrors.species}</p>}
-
-            {formData.species === "other" && (
-              <div className="mt-2">
-                <Label htmlFor="species_other" className="flex">
-                  Especifique a espécie<span className="text-red-500 ml-1">*</span>
-                </Label>
-                <Input
-                  id="species_other"
-                  name="species_other"
-                  value={formData.species_other}
-                  onChange={handleChange}
-                  className={formErrors.species_other ? "border-red-500" : ""}
-                  required={formData.species === "other"}
-                />
-                {formErrors.species_other && <p className="text-red-500 text-sm mt-1">{formErrors.species_other}</p>}
-              </div>
-            )}
+            <OtherOptionField
+              isOtherSelected={species === "other"}
+              name="species_other"
+              label="Qual espécie?"
+              required
+            />
           </div>
 
           <div>
             <Label htmlFor="breed" className="flex">
               Raça<span className="text-red-500 ml-1">*</span>
             </Label>
-            <Input
-              id="breed"
-              name="breed"
-              value={formData.breed}
-              onChange={handleChange}
-              placeholder="Ex: Vira-lata"
-              required
-              className={formErrors.breed ? "border-red-500" : ""}
-            />
-            {formErrors.breed && <p className="text-red-500 text-sm mt-1">{formErrors.breed}</p>}
+            <Input id="breed" name="breed" placeholder="Ex: Vira-lata" required />
           </div>
         </div>
 
@@ -328,13 +84,8 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
             <Label htmlFor="age" className="flex">
               Idade<span className="text-red-500 ml-1">*</span>
             </Label>
-            <Select
-              name="age"
-              value={formData.age}
-              onValueChange={(value) => handleSelectChange("age", value)}
-              required
-            >
-              <SelectTrigger className={formErrors.age ? "border-red-500" : ""}>
+            <Select name="age" required defaultValue="Jovem">
+              <SelectTrigger>
                 <SelectValue placeholder="Selecione a idade" />
               </SelectTrigger>
               <SelectContent>
@@ -344,20 +95,14 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
                 <SelectItem value="Idoso">Idoso</SelectItem>
               </SelectContent>
             </Select>
-            {formErrors.age && <p className="text-red-500 text-sm mt-1">{formErrors.age}</p>}
           </div>
 
           <div>
             <Label htmlFor="gender" className="flex">
               Gênero<span className="text-red-500 ml-1">*</span>
             </Label>
-            <Select
-              name="gender"
-              value={formData.gender}
-              onValueChange={(value) => handleSelectChange("gender", value)}
-              required
-            >
-              <SelectTrigger className={formErrors.gender ? "border-red-500" : ""}>
+            <Select name="gender" required onValueChange={setGender} defaultValue="Macho">
+              <SelectTrigger>
                 <SelectValue placeholder="Selecione o gênero" />
               </SelectTrigger>
               <SelectContent>
@@ -366,24 +111,7 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
                 <SelectItem value="other">Outro</SelectItem>
               </SelectContent>
             </Select>
-            {formErrors.gender && <p className="text-red-500 text-sm mt-1">{formErrors.gender}</p>}
-
-            {formData.gender === "other" && (
-              <div className="mt-2">
-                <Label htmlFor="gender_other" className="flex">
-                  Especifique o gênero<span className="text-red-500 ml-1">*</span>
-                </Label>
-                <Input
-                  id="gender_other"
-                  name="gender_other"
-                  value={formData.gender_other}
-                  onChange={handleChange}
-                  className={formErrors.gender_other ? "border-red-500" : ""}
-                  required={formData.gender === "other"}
-                />
-                {formErrors.gender_other && <p className="text-red-500 text-sm mt-1">{formErrors.gender_other}</p>}
-              </div>
-            )}
+            <OtherOptionField isOtherSelected={gender === "other"} name="gender_other" label="Qual gênero?" required />
           </div>
         </div>
 
@@ -392,13 +120,8 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
             <Label htmlFor="size" className="flex">
               Porte<span className="text-red-500 ml-1">*</span>
             </Label>
-            <Select
-              name="size"
-              value={formData.size}
-              onValueChange={(value) => handleSelectChange("size", value)}
-              required
-            >
-              <SelectTrigger className={formErrors.size ? "border-red-500" : ""}>
+            <Select name="size" required onValueChange={setSize} defaultValue="Pequeno">
+              <SelectTrigger>
                 <SelectValue placeholder="Selecione o porte" />
               </SelectTrigger>
               <SelectContent>
@@ -408,37 +131,15 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
                 <SelectItem value="other">Outro</SelectItem>
               </SelectContent>
             </Select>
-            {formErrors.size && <p className="text-red-500 text-sm mt-1">{formErrors.size}</p>}
-
-            {formData.size === "other" && (
-              <div className="mt-2">
-                <Label htmlFor="size_other" className="flex">
-                  Especifique o porte<span className="text-red-500 ml-1">*</span>
-                </Label>
-                <Input
-                  id="size_other"
-                  name="size_other"
-                  value={formData.size_other}
-                  onChange={handleChange}
-                  className={formErrors.size_other ? "border-red-500" : ""}
-                  required={formData.size === "other"}
-                />
-                {formErrors.size_other && <p className="text-red-500 text-sm mt-1">{formErrors.size_other}</p>}
-              </div>
-            )}
+            <OtherOptionField isOtherSelected={size === "other"} name="size_other" label="Qual porte?" required />
           </div>
 
           <div>
             <Label htmlFor="color" className="flex">
               Cor<span className="text-red-500 ml-1">*</span>
             </Label>
-            <Select
-              name="color"
-              value={formData.color}
-              onValueChange={(value) => handleSelectChange("color", value)}
-              required
-            >
-              <SelectTrigger className={formErrors.color ? "border-red-500" : ""}>
+            <Select name="color" required onValueChange={setColor} defaultValue="Preto">
+              <SelectTrigger>
                 <SelectValue placeholder="Selecione a cor" />
               </SelectTrigger>
               <SelectContent>
@@ -452,54 +153,20 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
                 <SelectItem value="other">Outra</SelectItem>
               </SelectContent>
             </Select>
-            {formErrors.color && <p className="text-red-500 text-sm mt-1">{formErrors.color}</p>}
-
-            {formData.color === "other" && (
-              <div className="mt-2">
-                <Label htmlFor="color_other" className="flex">
-                  Especifique a cor<span className="text-red-500 ml-1">*</span>
-                </Label>
-                <Input
-                  id="color_other"
-                  name="color_other"
-                  value={formData.color_other}
-                  onChange={handleChange}
-                  className={formErrors.color_other ? "border-red-500" : ""}
-                  required={formData.color === "other"}
-                />
-                {formErrors.color_other && <p className="text-red-500 text-sm mt-1">{formErrors.color_other}</p>}
-              </div>
-            )}
+            <OtherOptionField isOtherSelected={color === "other"} name="color_other" label="Qual cor?" required />
           </div>
         </div>
 
-        <SimpleLocationSelector
-          onStateChange={handleStateChange}
-          onCityChange={handleCityChange}
-          required={true}
-          initialState={formData.state}
-          initialCity={formData.city}
-        />
-        {formErrors.state && <p className="text-red-500 text-sm mt-1">{formErrors.state}</p>}
-        {formErrors.city && <p className="text-red-500 text-sm mt-1">{formErrors.city}</p>}
+        <SimpleLocationSelector onStateChange={() => {}} onCityChange={() => {}} required={true} />
 
         <div>
           <Label htmlFor="contact" className="flex">
             Contato (WhatsApp)<span className="text-red-500 ml-1">*</span>
           </Label>
-          <Input
-            id="contact"
-            name="contact"
-            value={formData.contact}
-            onChange={handleChange}
-            placeholder="Ex: (11) 98765-4321"
-            required
-            className={formErrors.contact ? "border-red-500" : ""}
-          />
+          <Input id="contact" name="contact" placeholder="Ex: (11) 98765-4321" required />
           <p className="text-xs text-muted-foreground mt-1">
             Número de telefone ou WhatsApp para contato sobre este pet
           </p>
-          {formErrors.contact && <p className="text-red-500 text-sm mt-1">{formErrors.contact}</p>}
         </div>
 
         <div>
@@ -509,33 +176,22 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
           <Textarea
             id="description"
             name="description"
-            value={formData.description}
-            onChange={handleChange}
             placeholder="Descreva o pet, sua personalidade, história, etc."
-            className={`min-h-32 ${formErrors.description ? "border-red-500" : ""}`}
+            className="min-h-32"
             required
           />
-          {formErrors.description && <p className="text-red-500 text-sm mt-1">{formErrors.description}</p>}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-center space-x-2">
-            <Checkbox
-              id="is_vaccinated"
-              checked={formData.is_vaccinated}
-              onCheckedChange={(checked) => handleCheckboxChange("is_vaccinated", checked === true)}
-            />
+            <Checkbox id="is_vaccinated" name="is_vaccinated" />
             <Label htmlFor="is_vaccinated" className="cursor-pointer">
               Vacinado
             </Label>
           </div>
 
           <div className="flex items-center space-x-2">
-            <Checkbox
-              id="is_neutered"
-              checked={formData.is_neutered}
-              onCheckedChange={(checked) => handleCheckboxChange("is_neutered", checked === true)}
-            />
+            <Checkbox id="is_neutered" name="is_neutered" />
             <Label htmlFor="is_neutered" className="cursor-pointer">
               Castrado
             </Label>
@@ -546,21 +202,16 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
           <Label htmlFor="special_needs">Necessidades Especiais</Label>
           <Textarea
             id="special_needs"
-            name="special_needs"
-            value={formData.special_needs}
-            onChange={handleChange}
+            name="special_needs_description"
             placeholder="Descreva se o pet tem alguma necessidade especial, condição médica, etc."
           />
+          <input type="hidden" name="is_special_needs" value="on" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="temperament">Temperamento</Label>
-            <Select
-              name="temperament"
-              value={formData.temperament}
-              onValueChange={(value) => handleSelectChange("temperament", value)}
-            >
+            <Select name="temperament">
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o temperamento" />
               </SelectTrigger>
@@ -577,11 +228,7 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
 
           <div>
             <Label htmlFor="energy_level">Nível de Energia</Label>
-            <RadioGroup
-              value={formData.energy_level}
-              onValueChange={(value) => handleSelectChange("energy_level", value)}
-              className="flex space-x-4 mt-2"
-            >
+            <RadioGroup name="energy_level" className="flex space-x-4 mt-2">
               <div className="flex items-center space-x-1">
                 <RadioGroupItem value="Baixo" id="energy_low" />
                 <Label htmlFor="energy_low" className="cursor-pointer font-normal">
@@ -608,21 +255,18 @@ export function AdoptionPetForm({ ongId, ongName, onSuccess, onError }: Adoption
           <Label className="flex">
             Foto do Pet<span className="text-red-500 ml-1">*</span>
           </Label>
-          <ImageUpload value={formData.main_image_url} onChange={handleImageChange} required folder="pets_adoption" />
+          <ImageUpload value={imageUrl} onChange={setImageUrl} required folder="pets_adoption" />
           <p className="text-xs text-muted-foreground mt-1">
             Esta será a imagem principal exibida nos resultados de busca.
           </p>
-          {formErrors.main_image_url && <p className="text-red-500 text-sm mt-1">{formErrors.main_image_url}</p>}
         </div>
       </div>
 
       <div className="flex justify-end space-x-4">
-        <Button type="button" variant="outline" onClick={() => router.back()}>
+        <Button type="button" variant="outline">
           Cancelar
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Cadastrando..." : "Cadastrar Pet"}
-        </Button>
+        <SubmitButton />
       </div>
     </form>
   )
