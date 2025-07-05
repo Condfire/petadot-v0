@@ -41,7 +41,7 @@ function SubmitButton() {
   )
 }
 
-export function FoundPetForm({ action, userId }: FoundPetFormProps) {
+export default function FoundPetForm({ action, userId }: FoundPetFormProps) {
   const [imageUrl, setImageUrl] = useState("")
   const [isSpecialNeeds, setIsSpecialNeeds] = useState(false)
   const [species, setSpecies] = useState("dog")
@@ -287,4 +287,4 @@ export function FoundPetForm({ action, userId }: FoundPetFormProps) {
   )
 }
 
-export default FoundPetForm
+export { FoundPetForm }
