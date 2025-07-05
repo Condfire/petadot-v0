@@ -26,7 +26,7 @@ function SubmitButton() {
   )
 }
 
-export function LostPetForm({ action, userId }: LostPetFormProps) {
+export default function LostPetForm({ action, userId }: LostPetFormProps) {
   const [imageUrl, setImageUrl] = useState("")
   const [isSpecialNeeds, setIsSpecialNeeds] = useState(false)
   const [species, setSpecies] = useState("dog")
@@ -259,4 +259,4 @@ export function LostPetForm({ action, userId }: LostPetFormProps) {
   )
 }
 
-export default LostPetForm
+export { LostPetForm }
