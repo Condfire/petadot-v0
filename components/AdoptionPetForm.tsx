@@ -32,6 +32,10 @@ export function AdoptionPetForm({ action, ongId }: AdoptionPetFormProps) {
   const [gender, setGender] = useState("Macho")
   const [size, setSize] = useState("Pequeno")
   const [color, setColor] = useState("Preto")
+  const [speciesOther, setSpeciesOther] = useState("")
+  const [genderOther, setGenderOther] = useState("")
+  const [sizeOther, setSizeOther] = useState("")
+  const [colorOther, setColorOther] = useState("")
 
   return (
     <form action={action} className="space-y-6 max-w-2xl mx-auto">
@@ -65,10 +69,12 @@ export function AdoptionPetForm({ action, ongId }: AdoptionPetFormProps) {
             </Select>
             <OtherOptionField
               isOtherSelected={species === "other"}
-              name="species_other"
+              value={speciesOther}
+              onChange={setSpeciesOther}
               label="Qual espécie?"
               required
             />
+            <input type="hidden" name="species_other" value={speciesOther} />
           </div>
 
           <div>
@@ -111,7 +117,14 @@ export function AdoptionPetForm({ action, ongId }: AdoptionPetFormProps) {
                 <SelectItem value="other">Outro</SelectItem>
               </SelectContent>
             </Select>
-            <OtherOptionField isOtherSelected={gender === "other"} name="gender_other" label="Qual gênero?" required />
+            <OtherOptionField
+              isOtherSelected={gender === "other"}
+              value={genderOther}
+              onChange={setGenderOther}
+              label="Qual gênero?"
+              required
+            />
+            <input type="hidden" name="gender_other" value={genderOther} />
           </div>
         </div>
 
@@ -131,7 +144,14 @@ export function AdoptionPetForm({ action, ongId }: AdoptionPetFormProps) {
                 <SelectItem value="other">Outro</SelectItem>
               </SelectContent>
             </Select>
-            <OtherOptionField isOtherSelected={size === "other"} name="size_other" label="Qual porte?" required />
+            <OtherOptionField
+              isOtherSelected={size === "other"}
+              value={sizeOther}
+              onChange={setSizeOther}
+              label="Qual porte?"
+              required
+            />
+            <input type="hidden" name="size_other" value={sizeOther} />
           </div>
 
           <div>
@@ -153,7 +173,14 @@ export function AdoptionPetForm({ action, ongId }: AdoptionPetFormProps) {
                 <SelectItem value="other">Outra</SelectItem>
               </SelectContent>
             </Select>
-            <OtherOptionField isOtherSelected={color === "other"} name="color_other" label="Qual cor?" required />
+            <OtherOptionField
+              isOtherSelected={color === "other"}
+              value={colorOther}
+              onChange={setColorOther}
+              label="Qual cor?"
+              required
+            />
+            <input type="hidden" name="color_other" value={colorOther} />
           </div>
         </div>
 
