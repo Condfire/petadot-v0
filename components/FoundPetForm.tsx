@@ -48,6 +48,8 @@ export default function FoundPetForm({ action, userId }: FoundPetFormProps) {
   const [size, setSize] = useState("medium")
   const [color, setColor] = useState("black")
   const [gender, setGender] = useState("male")
+  const [state, setState] = useState("")
+  const [city, setCity] = useState("")
 
   return (
     <form action={action} className="space-y-6 max-w-2xl mx-auto">
@@ -255,7 +257,13 @@ export default function FoundPetForm({ action, userId }: FoundPetFormProps) {
           </div>
         </div>
 
-        <SimpleLocationSelector onStateChange={() => {}} onCityChange={() => {}} required={false} />
+        <SimpleLocationSelector
+          onStateChange={setState}
+          onCityChange={setCity}
+          required={false}
+        />
+        <input type="hidden" name="state" value={state} />
+        <input type="hidden" name="city" value={city} />
 
         <div>
           <Label htmlFor="current_location">Localização atual do pet (opcional)</Label>
