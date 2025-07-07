@@ -1,17 +1,21 @@
 "use server"
 
-import { supabase } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase"
 import { revalidatePath } from "next/cache"
-import { auth } from "@/lib/auth"
 
 export async function createSuccessStory(formData: FormData) {
   try {
-    const session = await auth()
-    if (!session?.user) {
+    const supabase = createServerSupabaseClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
       return { success: false, error: "Você precisa estar logado para compartilhar uma história" }
     }
 
-    const userId = session.user.id
+    const userId = user.id
     const title = formData.get("title") as string
     const story = formData.get("story") as string
     const petId = formData.get("petId") as string
@@ -84,6 +88,7 @@ export async function createSuccessStory(formData: FormData) {
 
 export async function getSuccessStories(limit = 10) {
   try {
+    const supabase = createServerSupabaseClient()
     const { data, error } = await supabase
       .from("success_stories")
       .select(`*, user:users(name, avatar_url)`)
@@ -141,6 +146,7 @@ export async function getSuccessStories(limit = 10) {
 
 export async function getSuccessStoryById(id: string) {
   try {
+    const supabase = createServerSupabaseClient()
     const { data, error } = await supabase
       .from("success_stories")
       .select(`*, user:users(name, avatar_url)`)
@@ -189,8 +195,13 @@ export async function getSuccessStoryById(id: string) {
 
 export async function likeSuccessStory(storyId: string) {
   try {
-    const session = await auth()
-    if (!session?.user) {
+    const supabase = createServerSupabaseClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
       return { success: false, error: "Você precisa estar logado para curtir uma história" }
     }
 
