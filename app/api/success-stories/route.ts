@@ -1,17 +1,23 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase"
 import { revalidatePath } from "next/cache"
-import { auth } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
-    // Verificar autenticação
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ message: "Você precisa estar logado para compartilhar uma história" }, { status: 401 })
+    const supabase = createServerSupabaseClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { message: "Você precisa estar logado para compartilhar uma história" },
+        { status: 401 },
+      )
     }
 
-    const userId = session.user.id
+    const userId = user.id
     const formData = await request.formData()
 
     const title = formData.get("title") as string

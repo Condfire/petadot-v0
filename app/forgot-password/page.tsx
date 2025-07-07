@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, CheckCircle2 } from "lucide-react"
-import { useAuth } from "@/lib/auth"
+import { useAuth } from "@/app/auth-provider"
 
 // Esquema de validação
 const formSchema = z.object({

@@ -6,7 +6,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { useTransition } from "react"
 import { PetForm } from "@/components/PetForm"
 import { createPet } from "@/app/actions/pet-actions"
-import { useAuth } from "@/lib/auth"
+import { useAuth } from "@/app/auth-provider"
 import { useSession } from "@/app/auth-provider"
 
 export default function CadastrarPetForm() {
