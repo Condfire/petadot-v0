@@ -32,6 +32,8 @@ export function AdoptionPetForm({ action, ongId }: AdoptionPetFormProps) {
   const [gender, setGender] = useState("Macho")
   const [size, setSize] = useState("Pequeno")
   const [color, setColor] = useState("Preto")
+  const [state, setState] = useState("")
+  const [city, setCity] = useState("")
 
   return (
     <form action={action} className="space-y-6 max-w-2xl mx-auto">
@@ -157,7 +159,13 @@ export function AdoptionPetForm({ action, ongId }: AdoptionPetFormProps) {
           </div>
         </div>
 
-        <SimpleLocationSelector onStateChange={() => {}} onCityChange={() => {}} required={true} />
+        <SimpleLocationSelector
+          onStateChange={setState}
+          onCityChange={setCity}
+          required={true}
+        />
+        <input type="hidden" name="state" value={state} />
+        <input type="hidden" name="city" value={city} />
 
         <div>
           <Label htmlFor="contact" className="flex">
