@@ -9,9 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
-import { AdoptionPetForm } from "@/components/AdoptionPetForm"
-import { LostPetForm } from "@/components/LostPetForm"
-import { FoundPetForm } from "@/components/FoundPetForm"
+import { PetForm } from "@/components/PetForm"
 
 export default function EditPetPage({ params }: { params: { type: string; id: string } }) {
   return (
@@ -27,6 +25,7 @@ function EditPet({ type, id }: { type: string; id: string }) {
   const supabase = createClientComponentClient()
   const [pet, setPet] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -87,21 +86,54 @@ function EditPet({ type, id }: { type: string; id: string }) {
     loadPet()
   }, [id, type, user, supabase])
 
-  const handleSuccess = () => {
-    toast({
-      title: "Pet atualizado com sucesso",
-      description: "As informações do pet foram atualizadas com sucesso.",
-    })
-    router.push("/my-pets")
+  async function handleSubmit(data: any) {
+    if (!user) return
+
+    setIsSaving(true)
+
+    try {
+      let tableName = ""
+      switch (type) {
+        case "adoption":
+          tableName = "pets"
+          break
+        case "lost":
+          tableName = "pets_lost"
+          break
+        case "found":
+          tableName = "pets_found"
+          break
+        default:
+          throw new Error("Tipo de pet inválido")
+      }
+
+      const { error: updateError } = await supabase
+        .from(tableName)
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("user_id", user.id)
+
+      if (updateError) {
+        throw new Error(updateError.message)
+      }
+
+      toast({
+        title: "Pet atualizado com sucesso",
+        description: "As informações do pet foram atualizadas com sucesso.",
+      })
+      router.push("/my-pets")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Ocorreu um erro ao atualizar o pet."
+      toast({
+        title: "Erro ao atualizar pet",
+        description: message,
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleError = (message: string) => {
-    toast({
-      title: "Erro ao atualizar pet",
-      description: message,
-      variant: "destructive",
-    })
-  }
 
   if (isLoading) {
     return (
@@ -154,15 +186,12 @@ function EditPet({ type, id }: { type: string; id: string }) {
           <CardDescription>Atualize as informações do seu pet.</CardDescription>
         </CardHeader>
         <CardContent>
-          {type === "adoption" && (
-            <AdoptionPetForm initialData={pet} isEditing={true} onSuccess={handleSuccess} onError={handleError} />
-          )}
-          {type === "lost" && (
-            <LostPetForm initialData={pet} isEditing={true} onSuccess={handleSuccess} onError={handleError} />
-          )}
-          {type === "found" && (
-            <FoundPetForm initialData={pet} isEditing={true} onSuccess={handleSuccess} onError={handleError} />
-          )}
+          <PetForm
+            initialData={pet}
+            onSubmit={handleSubmit}
+            isSubmitting={isSaving}
+            type={type as "adoption" | "lost" | "found"}
+          />
         </CardContent>
       </Card>
     </div>
