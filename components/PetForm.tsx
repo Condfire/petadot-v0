@@ -42,6 +42,12 @@ const formSchema = z.object({
   is_vaccinated: z.boolean().optional(),
   is_special_needs: z.boolean().optional(),
   special_needs_description: z.string().optional(),
+  // Campos extras para perdido/encontrado
+  last_seen_date: z.string().optional(),
+  last_seen_location: z.string().optional(),
+  found_date: z.string().optional(),
+  found_location: z.string().optional(),
+  current_location: z.string().optional(),
   status: z.string().optional(), // Adicionado para permitir status no formulário
 })
 
@@ -77,6 +83,11 @@ export function PetForm({ initialData, onSubmit, isSubmitting, type }: PetFormPr
       is_vaccinated: false,
       is_special_needs: false,
       special_needs_description: "",
+      last_seen_date: "",
+      last_seen_location: "",
+      found_date: "",
+      found_location: "",
+      current_location: "",
       status: type === "adoption" ? "available" : "approved", // Default status based on type
     },
   })
@@ -359,6 +370,81 @@ export function PetForm({ initialData, onSubmit, isSubmitting, type }: PetFormPr
         />
         {form.formState.errors.city && <FormMessage>{form.formState.errors.city.message}</FormMessage>}
         {form.formState.errors.state && <FormMessage>{form.formState.errors.state.message}</FormMessage>}
+
+        {type === "lost" && (
+          <>
+            <FormField
+              control={form.control}
+              name="last_seen_date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Data em que foi visto pela última vez</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="last_seen_location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Local onde foi visto pela última vez</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: Rua das Flores" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        )}
+
+        {type === "found" && (
+          <>
+            <FormField
+              control={form.control}
+              name="found_date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Data em que foi encontrado</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="found_location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Local onde foi encontrado</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: Rua das Flores" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="current_location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Localização atual do pet</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Se estiver abrigado" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        )}
 
         <FormField
           control={form.control}
