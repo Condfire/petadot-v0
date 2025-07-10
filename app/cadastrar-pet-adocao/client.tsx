@@ -12,14 +12,19 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 export default function AdoptionPetFormWrapper() {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, isLoading, isInitialized } = useAuth()
+  const { user, isLoading, isInitialized, refreshSession } = useAuth()
   const [state, formAction] = useActionState(createAdoptionPet, null)
 
   useEffect(() => {
     if (isInitialized && !isLoading && !user) {
-      router.replace(`/login?redirectTo=${encodeURIComponent(pathname)}`)
+      ;(async () => {
+        const session = await refreshSession()
+        if (!session) {
+          router.replace(`/login?redirectTo=${encodeURIComponent(pathname)}`)
+        }
+      })()
     }
-  }, [isInitialized, isLoading, user, router, pathname])
+  }, [isInitialized, isLoading, user, router, pathname, refreshSession])
 
   useEffect(() => {
     if (state?.success) {
@@ -28,7 +33,11 @@ export default function AdoptionPetFormWrapper() {
         description: state.message,
         variant: "default",
       })
-      setTimeout(() => router.push("/dashboard/pets"), 2000)
+      const redirect = async () => {
+        await refreshSession()
+        router.push("/dashboard/pets")
+      }
+      setTimeout(redirect, 2000)
     } else if (state?.error) {
       toast({
         title: "Erro ao cadastrar pet",
@@ -36,7 +45,7 @@ export default function AdoptionPetFormWrapper() {
         variant: "destructive",
       })
     }
-  }, [state, router])
+  }, [state, router, refreshSession])
 
   if (!isInitialized || isLoading || !user) {
     return (
