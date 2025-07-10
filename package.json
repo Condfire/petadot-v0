@@ -7,7 +7,7 @@
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
-    "test": "node --test"
+    "test": "node --loader ./scripts/ts-loader.js --test"
   },
   "dependencies": {
     "@hookform/resolvers": "latest",

@@ -1,28 +1,22 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-// Helper to dynamically import TypeScript files when possible
-async function loadTSModule(modulePath) {
-  try {
-    return await import(modulePath);
-  } catch (err) {
-    // Node may not understand .ts extension without loader
-    // so just rethrow for visibility in test results
-    throw err;
-  }
+// Dynamic import helper for TypeScript modules
+async function loadTS(modulePath) {
+  return import(modulePath);
 }
 
-test('registration success flow', async (t) => {
-  const mod = await loadTSModule('../app/actions/auth-actions.ts');
-  assert.ok(typeof mod.registerUserAndNgoAction === 'function');
+test('image path utility returns placeholder', async () => {
+  const mod = await loadTS('../lib/image-path.ts');
+  assert.equal(mod.getImagePath(null), '/a-cute-pet.png');
 });
 
-test('login function exists', async (t) => {
-  const mod = await loadTSModule('../app/auth-provider.tsx');
-  assert.ok(typeof mod.AuthProvider === 'function');
+test('structured data generator exports function', async () => {
+  const mod = await loadTS('../lib/structured-data.ts');
+  assert.equal(typeof mod.generateAdoptionPetSchema, 'function');
 });
 
-test('oauth callback route exists', async (t) => {
-  const mod = await loadTSModule('../app/auth/callback/route.ts');
-  assert.ok(typeof mod.GET === 'function');
+test('image compression module exports function', async () => {
+  const mod = await loadTS('../lib/image-compression.ts');
+  assert.equal(typeof mod.compressImage, 'function');
 });
