@@ -1,8 +1,7 @@
 "use client"
 
-import { useActionState, useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useActionState, useEffect } from "react"
+import { useRouter, usePathname } from "next/navigation"
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react"
 import { AdoptionPetForm } from "@/components/AdoptionPetForm"
 import { createAdoptionPet } from "@/app/actions/pet-actions"
@@ -12,38 +11,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function AdoptionPetFormWrapper() {
   const router = useRouter()
-  const supabase = createClientComponentClient()
-  const { user, isLoading } = useAuth()
-  const [ongId, setOngId] = useState<string | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const pathname = usePathname()
+  const { user, isLoading, isInitialized } = useAuth()
   const [state, formAction] = useActionState(createAdoptionPet, null)
 
   useEffect(() => {
-    const fetchOng = async () => {
-      if (isLoading) return
-      if (!user) {
-        router.push("/ongs/login?message=Faça login para cadastrar pets")
-        return
-      }
-
-      const { data, error } = await supabase
-        .from("ongs")
-        .select("id")
-        .eq("user_id", user.id)
-        .single()
-
-      if (error || !data) {
-        setLoadError(
-          "ONG não encontrada. Verifique se sua conta está corretamente configurada.",
-        )
-        return
-      }
-
-      setOngId(data.id)
+    if (isInitialized && !isLoading && !user) {
+      router.replace(`/login?redirectTo=${encodeURIComponent(pathname)}`)
     }
-
-    fetchOng()
-  }, [isLoading, user, supabase, router])
+  }, [isInitialized, isLoading, user, router, pathname])
 
   useEffect(() => {
     if (state?.success) {
@@ -52,7 +28,7 @@ export default function AdoptionPetFormWrapper() {
         description: state.message,
         variant: "default",
       })
-      setTimeout(() => router.push("/ongs/dashboard"), 2000)
+      setTimeout(() => router.push("/dashboard/pets"), 2000)
     } else if (state?.error) {
       toast({
         title: "Erro ao cadastrar pet",
@@ -62,7 +38,7 @@ export default function AdoptionPetFormWrapper() {
     }
   }, [state, router])
 
-  if (isLoading || (!ongId && !loadError)) {
+  if (!isInitialized || isLoading || !user) {
     return (
       <div className="flex justify-center py-8">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -70,22 +46,5 @@ export default function AdoptionPetFormWrapper() {
     )
   }
 
-  if (loadError) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{loadError}</AlertDescription>
-        </Alert>
-        <button
-          onClick={() => router.push("/ongs/dashboard")}
-          className="px-4 py-2 bg-primary text-white rounded-md"
-        >
-          Voltar
-        </button>
-      </div>
-    )
-  }
-
-  return <AdoptionPetForm action={formAction} ongId={ongId as string} />
+  return <AdoptionPetForm action={formAction} />
 }

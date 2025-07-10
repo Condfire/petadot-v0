@@ -14,7 +14,7 @@ import OtherOptionField from "./other-option-field"
 
 interface AdoptionPetFormProps {
   action: (formData: FormData) => void
-  ongId: string
+  ongId?: string
 }
 
 function SubmitButton() {
@@ -37,7 +37,7 @@ export function AdoptionPetForm({ action, ongId }: AdoptionPetFormProps) {
 
   return (
     <form action={action} className="space-y-6 max-w-2xl mx-auto">
-      <input type="hidden" name="ong_id" value={ongId} />
+      {ongId && <input type="hidden" name="ong_id" value={ongId} />}
       <input type="hidden" name="main_image_url" value={imageUrl} />
 
       <div className="space-y-4">
