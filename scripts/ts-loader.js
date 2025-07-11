@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import ts from '/root/.nvm/versions/node/v22.16.0/lib/node_modules/typescript/lib/typescript.js';
+import ts from 'typescript';
 
 export async function resolve(specifier, context, defaultResolve) {
   if (specifier.startsWith('node:')) {
