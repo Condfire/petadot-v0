@@ -1,117 +1,141 @@
 "use client"
-import { useState, useTransition } from "react"
-import type React from "react"
-
-import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import ImageUpload from "./ImageUpload"
-import SimpleStateCitySelector from "@/components/simple-state-city-selector"
-import OtherOptionField from "@/components/other-option-field"
-import { createLostPet } from "@/app/actions/pet-actions"
-import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import ImageUpload from "./ImageUpload"
+import LocationSelector from "@/components/location-selector"
+import { createLostPet } from "@/app/actions/pet-actions"
+import { Loader2 } from "lucide-react"
+
+const lostPetSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  species: z.string().min(1, "Espécie é obrigatória"),
+  breed: z.string().min(1, "Raça é obrigatória"),
+  color: z.string().min(1, "Cor é obrigatória"),
+  size: z.string().min(1, "Porte é obrigatório"),
+  gender: z.string().min(1, "Sexo é obrigatório"),
+  description: z.string().min(10, "Descrição deve ter pelo menos 10 caracteres"),
+  contact_whatsapp: z.string().min(10, "WhatsApp é obrigatório"),
+  city: z.string().min(1, "Cidade é obrigatória"),
+  state: z.string().min(1, "Estado é obrigatória"),
+  special_needs: z.string().optional(),
+  last_seen_location: z.string().optional(),
+  reward_offered: z.boolean().optional(),
+  reward_amount: z.string().optional(),
+})
+
+type LostPetFormData = z.infer<typeof lostPetSchema>
 
 interface LostPetFormProps {
-  action?: (formData: FormData) => void
-  userId: string
+  onSuccess?: () => void
+  onError?: (error: string) => void
 }
 
-function SubmitButton({ isPending }: { isPending: boolean }) {
-  return (
-    <Button type="submit" disabled={isPending} className="w-full">
-      {isPending ? "Reportando..." : "Reportar Pet Perdido"}
-    </Button>
-  )
-}
-
-export default function LostPetForm({ action, userId }: LostPetFormProps) {
-  const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+export function LostPetForm({ onSuccess, onError }: LostPetFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [uploadedImages, setUploadedImages] = useState<string[]>([])
 
-  // Form state
-  const [imageUrl, setImageUrl] = useState("")
-  const [isSpecialNeeds, setIsSpecialNeeds] = useState(false)
-  const [species, setSpecies] = useState("dog")
-  const [size, setSize] = useState("medium")
-  const [color, setColor] = useState("black")
-  const [gender, setGender] = useState("male")
-  const [state, setState] = useState("")
-  const [city, setCity] = useState("")
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+    reset,
+  } = useForm<LostPetFormData>({
+    resolver: zodResolver(lostPetSchema),
+  })
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const watchedSpecies = watch("species")
+  const watchedState = watch("state")
+  const watchedCity = watch("city")
 
-    if (isPending || isRedirecting) return
+  const handleLocationChange = (state: string, city: string) => {
+    setValue("state", state)
+    setValue("city", city)
+  }
 
-    const formData = new FormData(e.currentTarget)
+  const handleImagesChange = (images: string[]) => {
+    setUploadedImages(images)
+  }
 
-    // Add state values to form data
-    formData.set("user_id", userId)
-    formData.set("image_url", imageUrl)
-    formData.set("state", state)
-    formData.set("city", city)
+  const onSubmit = async (data: LostPetFormData) => {
+    if (isSubmitting || isRedirecting) return
 
-    // Validate required fields
-    const requiredFields = ["species", "size", "gender", "color", "last_seen_location", "contact"]
-    const missingFields = requiredFields.filter((field) => !formData.get(field))
+    try {
+      setIsSubmitting(true)
+      setSubmitError(null)
 
-    if (missingFields.length > 0) {
-      setError(`Campos obrigatórios não preenchidos: ${missingFields.join(", ")}`)
-      return
-    }
-
-    if (!imageUrl) {
-      setError("Por favor, adicione pelo menos uma foto do pet")
-      return
-    }
-
-    setError(null)
-
-    startTransition(async () => {
-      try {
-        let result
-        if (action) {
-          await action(formData)
-          result = { success: true }
-        } else {
-          result = await createLostPet(formData)
-        }
-
-        if (result.success) {
-          toast.success("Pet perdido cadastrado com sucesso!")
-          setIsRedirecting(true)
-
-          // Use setTimeout to prevent immediate redirect issues
-          setTimeout(() => {
-            window.location.href = "/dashboard"
-          }, 1000)
-        } else {
-          setError(result.error || "Erro ao cadastrar pet")
-        }
-      } catch (err) {
-        console.error("Form submission error:", err)
-        setError("Erro inesperado ao cadastrar pet")
+      // Validate required fields
+      if (!data.name || !data.species || !data.breed || !data.city || !data.state) {
+        throw new Error("Por favor, preencha todos os campos obrigatórios")
       }
-    })
+
+      if (uploadedImages.length === 0) {
+        throw new Error("Por favor, adicione pelo menos uma foto do pet")
+      }
+
+      // Prepare form data
+      const formData = new FormData()
+
+      // Add all form fields
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          formData.append(key, String(value))
+        }
+      })
+
+      // Add images
+      uploadedImages.forEach((imageUrl, index) => {
+        formData.append(`image_${index}`, imageUrl)
+      })
+      formData.append("images_count", String(uploadedImages.length))
+
+      // Submit to server action
+      const result = await createLostPet(formData)
+
+      if (result.success) {
+        // Success - redirect to dashboard
+        setIsRedirecting(true)
+        onSuccess?.()
+
+        // Use window.location for reliable redirect
+        setTimeout(() => {
+          window.location.href = "/dashboard"
+        }, 1000)
+      } else {
+        throw new Error(result.error || "Erro ao cadastrar pet perdido")
+      }
+    } catch (error) {
+      console.error("Error submitting lost pet form:", error)
+      const errorMessage = error instanceof Error ? error.message : "Erro inesperado ao cadastrar pet"
+      setSubmitError(errorMessage)
+      onError?.(errorMessage)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (isRedirecting) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Redirecionando...</p>
-        </div>
-      </div>
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardContent className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p>Pet cadastrado com sucesso! Redirecionando...</p>
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -121,254 +145,158 @@ export default function LostPetForm({ action, userId }: LostPetFormProps) {
         <CardTitle>Cadastrar Pet Perdido</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {submitError && (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{submitError}</AlertDescription>
             </Alert>
           )}
 
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Nome do Pet (opcional)</Label>
-              <Input id="name" name="name" placeholder="Nome do seu pet" />
-            </div>
+          {/* Pet Name */}
+          <div className="space-y-2">
+            <Label htmlFor="name">Nome do Pet *</Label>
+            <Input id="name" {...register("name")} placeholder="Ex: Rex, Mimi, etc." />
+            {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="species" className="flex">
-                  Espécie<span className="text-red-500 ml-1">*</span>
-                </Label>
-                <Select name="species" required onValueChange={setSpecies} defaultValue="dog">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a espécie" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dog">Cachorro</SelectItem>
-                    <SelectItem value="cat">Gato</SelectItem>
-                    <SelectItem value="bird">Pássaro</SelectItem>
-                    <SelectItem value="other">Outro</SelectItem>
-                  </SelectContent>
-                </Select>
-                <OtherOptionField
-                  isOtherSelected={species === "other"}
-                  name="species_other"
-                  label="Qual espécie?"
-                  required
-                />
-              </div>
+          {/* Species */}
+          <div className="space-y-2">
+            <Label htmlFor="species">Espécie *</Label>
+            <Select onValueChange={(value) => setValue("species", value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a espécie" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dog">Cachorro</SelectItem>
+                <SelectItem value="cat">Gato</SelectItem>
+                <SelectItem value="bird">Pássaro</SelectItem>
+                <SelectItem value="other">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.species && <p className="text-sm text-red-500">{errors.species.message}</p>}
+          </div>
 
-              <div>
-                <Label htmlFor="breed">Raça (opcional)</Label>
-                <Input id="breed" name="breed" placeholder="Raça do pet" />
-              </div>
-            </div>
+          {/* Breed */}
+          <div className="space-y-2">
+            <Label htmlFor="breed">Raça *</Label>
+            <Input id="breed" {...register("breed")} placeholder="Ex: Vira-lata, Siamês, etc." />
+            {errors.breed && <p className="text-sm text-red-500">{errors.breed.message}</p>}
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="age">Idade (opcional)</Label>
-                <Input id="age" name="age" placeholder="Ex: 2 anos" />
-              </div>
+          {/* Color */}
+          <div className="space-y-2">
+            <Label htmlFor="color">Cor *</Label>
+            <Input id="color" {...register("color")} placeholder="Ex: Marrom, Preto e branco, etc." />
+            {errors.color && <p className="text-sm text-red-500">{errors.color.message}</p>}
+          </div>
 
-              <div>
-                <Label htmlFor="size" className="flex">
-                  Porte<span className="text-red-500 ml-1">*</span>
-                </Label>
-                <Select name="size" required onValueChange={setSize} defaultValue="medium">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o porte" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="small">Pequeno</SelectItem>
-                    <SelectItem value="medium">Médio</SelectItem>
-                    <SelectItem value="large">Grande</SelectItem>
-                    <SelectItem value="other">Outro</SelectItem>
-                  </SelectContent>
-                </Select>
-                <OtherOptionField isOtherSelected={size === "other"} name="size_other" label="Qual porte?" required />
-              </div>
+          {/* Size */}
+          <div className="space-y-2">
+            <Label htmlFor="size">Porte *</Label>
+            <Select onValueChange={(value) => setValue("size", value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o porte" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="small">Pequeno</SelectItem>
+                <SelectItem value="medium">Médio</SelectItem>
+                <SelectItem value="large">Grande</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.size && <p className="text-sm text-red-500">{errors.size.message}</p>}
+          </div>
 
-              <div>
-                <Label htmlFor="color" className="flex">
-                  Cor<span className="text-red-500 ml-1">*</span>
-                </Label>
-                <Select name="color" required onValueChange={setColor} defaultValue="black">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a cor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="black">Preto</SelectItem>
-                    <SelectItem value="white">Branco</SelectItem>
-                    <SelectItem value="brown">Marrom</SelectItem>
-                    <SelectItem value="gray">Cinza</SelectItem>
-                    <SelectItem value="golden">Dourado</SelectItem>
-                    <SelectItem value="spotted">Malhado</SelectItem>
-                    <SelectItem value="tricolor">Tricolor</SelectItem>
-                    <SelectItem value="other">Outra</SelectItem>
-                  </SelectContent>
-                </Select>
-                <OtherOptionField isOtherSelected={color === "other"} name="color_other" label="Qual cor?" required />
-              </div>
-            </div>
+          {/* Gender */}
+          <div className="space-y-2">
+            <Label htmlFor="gender">Sexo *</Label>
+            <Select onValueChange={(value) => setValue("gender", value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o sexo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Macho</SelectItem>
+                <SelectItem value="female">Fêmea</SelectItem>
+                <SelectItem value="unknown">Não sei</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.gender && <p className="text-sm text-red-500">{errors.gender.message}</p>}
+          </div>
 
-            <div>
-              <Label className="flex">
-                Gênero<span className="text-red-500 ml-1">*</span>
-              </Label>
-              <RadioGroup
-                name="gender"
-                defaultValue="male"
-                onValueChange={setGender}
-                className="flex gap-4 mt-2"
-                required
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="male" id="male" />
-                  <Label htmlFor="male" className="cursor-pointer">
-                    Macho
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="female" id="female" />
-                  <Label htmlFor="female" className="cursor-pointer">
-                    Fêmea
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="other" id="gender-other" />
-                  <Label htmlFor="gender-other" className="cursor-pointer">
-                    Outro
-                  </Label>
-                </div>
-              </RadioGroup>
-              <OtherOptionField
-                isOtherSelected={gender === "other"}
-                name="gender_other"
-                label="Qual gênero?"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox id="is_vaccinated" name="is_vaccinated" />
-                <Label htmlFor="is_vaccinated" className="cursor-pointer">
-                  Vacinado
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox id="is_neutered" name="is_neutered" />
-                <Label htmlFor="is_neutered" className="cursor-pointer">
-                  Castrado
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="is_special_needs"
-                  name="is_special_needs"
-                  checked={isSpecialNeeds}
-                  onCheckedChange={(checked) => setIsSpecialNeeds(checked === true)}
-                />
-                <Label htmlFor="is_special_needs" className="cursor-pointer">
-                  Necessidades Especiais
-                </Label>
-              </div>
-            </div>
-
-            {isSpecialNeeds && (
-              <div>
-                <Label htmlFor="special_needs_description" className="flex">
-                  Descreva as necessidades especiais<span className="text-red-500 ml-1">*</span>
-                </Label>
-                <Textarea id="special_needs_description" name="special_needs_description" rows={2} required />
-              </div>
+          {/* Location */}
+          <div className="space-y-2">
+            <Label>Localização *</Label>
+            <LocationSelector
+              selectedState={watchedState}
+              selectedCity={watchedCity}
+              onLocationChange={handleLocationChange}
+            />
+            {(errors.state || errors.city) && (
+              <p className="text-sm text-red-500">{errors.state?.message || errors.city?.message}</p>
             )}
-
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox id="good_with_kids" name="good_with_kids" />
-                <Label htmlFor="good_with_kids" className="cursor-pointer">
-                  Bom com crianças
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox id="good_with_cats" name="good_with_cats" />
-                <Label htmlFor="good_with_cats" className="cursor-pointer">
-                  Bom com gatos
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox id="good_with_dogs" name="good_with_dogs" />
-                <Label htmlFor="good_with_dogs" className="cursor-pointer">
-                  Bom com cães
-                </Label>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="description">Descrição (opcional)</Label>
-              <Textarea
-                id="description"
-                name="description"
-                rows={3}
-                placeholder="Descreva seu pet e as circunstâncias do desaparecimento..."
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="last_seen_date" className="flex">
-                  Data em que foi visto pela última vez<span className="text-red-500 ml-1">*</span>
-                </Label>
-                <Input
-                  id="last_seen_date"
-                  name="last_seen_date"
-                  type="date"
-                  defaultValue={new Date().toISOString().split("T")[0]}
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="last_seen_location" className="flex">
-                  Local onde foi visto pela última vez<span className="text-red-500 ml-1">*</span>
-                </Label>
-                <Input
-                  id="last_seen_location"
-                  name="last_seen_location"
-                  required
-                  placeholder="Rua, bairro, ponto de referência"
-                />
-              </div>
-            </div>
-
-            <SimpleStateCitySelector onStateChange={setState} onCityChange={setCity} required={true} />
-
-            <div>
-              <Label htmlFor="contact" className="flex">
-                Contato para informações<span className="text-red-500 ml-1">*</span>
-              </Label>
-              <Input id="contact" name="contact" required placeholder="Telefone, WhatsApp ou e-mail" />
-            </div>
-
-            <div>
-              <Label className="flex">
-                Foto do Pet<span className="text-red-500 ml-1">*</span>
-              </Label>
-              <ImageUpload value={imageUrl} onChange={setImageUrl} required folder="pets_lost" />
-            </div>
           </div>
 
-          <div className="flex justify-end space-x-4">
-            <Button type="button" variant="outline" onClick={() => router.back()}>
-              Cancelar
-            </Button>
-            <SubmitButton isPending={isPending} />
+          {/* Last Seen Location */}
+          <div className="space-y-2">
+            <Label htmlFor="last_seen_location">Local onde foi visto pela última vez</Label>
+            <Input
+              id="last_seen_location"
+              {...register("last_seen_location")}
+              placeholder="Ex: Praça da Liberdade, próximo ao shopping, etc."
+            />
           </div>
+
+          {/* Special Needs */}
+          <div className="space-y-2">
+            <Label htmlFor="special_needs">Necessidades Especiais</Label>
+            <Textarea
+              id="special_needs"
+              {...register("special_needs")}
+              placeholder="Ex: Toma medicação, tem alguma deficiência, etc."
+              rows={3}
+            />
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <Label htmlFor="description">Descrição *</Label>
+            <Textarea
+              id="description"
+              {...register("description")}
+              placeholder="Descreva características marcantes, comportamento, etc."
+              rows={4}
+            />
+            {errors.description && <p className="text-sm text-red-500">{errors.description.message}</p>}
+          </div>
+
+          {/* Contact WhatsApp */}
+          <div className="space-y-2">
+            <Label htmlFor="contact_whatsapp">WhatsApp para Contato *</Label>
+            <Input id="contact_whatsapp" {...register("contact_whatsapp")} placeholder="(11) 99999-9999" />
+            {errors.contact_whatsapp && <p className="text-sm text-red-500">{errors.contact_whatsapp.message}</p>}
+          </div>
+
+          {/* Image Upload */}
+          <div className="space-y-2">
+            <Label>Fotos do Pet *</Label>
+            <ImageUpload onImagesChange={handleImagesChange} maxImages={5} existingImages={uploadedImages} />
+            {uploadedImages.length === 0 && <p className="text-sm text-red-500">Adicione pelo menos uma foto</p>}
+          </div>
+
+          {/* Submit Button */}
+          <Button type="submit" className="w-full" disabled={isSubmitting || isRedirecting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Cadastrando...
+              </>
+            ) : (
+              "Cadastrar Pet Perdido"
+            )}
+          </Button>
         </form>
       </CardContent>
     </Card>
   )
 }
 
-export { LostPetForm }
+export default LostPetForm

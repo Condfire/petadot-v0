@@ -49,7 +49,6 @@ export async function createLostPet(formData: FormData) {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser()
-
     if (authError || !user) {
       return { success: false, error: "Usuário não autenticado" }
     }
@@ -62,54 +61,50 @@ export async function createLostPet(formData: FormData) {
     const size = formData.get("size") as string
     const gender = formData.get("gender") as string
     const description = formData.get("description") as string
-    const whatsapp = formData.get("whatsapp") as string
+    const contact_whatsapp = formData.get("contact_whatsapp") as string
     const city = formData.get("city") as string
     const state = formData.get("state") as string
-    const specialNeeds = (formData.get("specialNeeds") as string) || ""
-    const imageCount = Number.parseInt(formData.get("imageCount") as string) || 0
+    const special_needs = formData.get("special_needs") as string
+    const last_seen_location = formData.get("last_seen_location") as string
+    const reward_offered = formData.get("reward_offered") === "true"
+    const reward_amount = formData.get("reward_amount") as string
 
     // Validate required fields
-    if (!name || !species || !breed || !color || !size || !gender || !description || !whatsapp || !city || !state) {
+    if (
+      !name ||
+      !species ||
+      !breed ||
+      !color ||
+      !size ||
+      !gender ||
+      !description ||
+      !contact_whatsapp ||
+      !city ||
+      !state
+    ) {
       return { success: false, error: "Todos os campos obrigatórios devem ser preenchidos" }
-    }
-
-    if (imageCount === 0) {
-      return { success: false, error: "Pelo menos uma imagem é obrigatória" }
     }
 
     // Generate slug
     const slug = generateSlug(name, city, state)
 
-    // Upload images
-    const imageUrls: string[] = []
+    // Collect images
+    const images: string[] = []
+    const imagesCount = Number.parseInt((formData.get("images_count") as string) || "0")
 
-    for (let i = 0; i < imageCount; i++) {
-      const image = formData.get(`image_${i}`) as File
-      if (image) {
-        const fileName = `${Date.now()}-${i}-${image.name}`
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("pet-images")
-          .upload(fileName, image)
-
-        if (uploadError) {
-          console.error("Upload error:", uploadError)
-          continue
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("pet-images").getPublicUrl(fileName)
-
-        imageUrls.push(publicUrl)
+    for (let i = 0; i < imagesCount; i++) {
+      const imageUrl = formData.get(`image_${i}`) as string
+      if (imageUrl) {
+        images.push(imageUrl)
       }
     }
 
-    if (imageUrls.length === 0) {
-      return { success: false, error: "Falha ao fazer upload das imagens" }
+    if (images.length === 0) {
+      return { success: false, error: "Pelo menos uma foto é obrigatória" }
     }
 
-    // Insert pet data
-    const { data: petData, error: insertError } = await supabase
+    // Insert into database
+    const { data: pet, error: insertError } = await supabase
       .from("pets_lost")
       .insert({
         user_id: user.id,
@@ -120,11 +115,14 @@ export async function createLostPet(formData: FormData) {
         size,
         gender,
         description,
-        whatsapp,
+        contact_whatsapp,
         city,
         state,
-        special_needs: specialNeeds,
-        images: imageUrls,
+        special_needs: special_needs || null,
+        last_seen_location: last_seen_location || null,
+        reward_offered: reward_offered || false,
+        reward_amount: reward_amount || null,
+        images,
         slug,
         status: "active",
         created_at: new Date().toISOString(),
@@ -140,11 +138,15 @@ export async function createLostPet(formData: FormData) {
     // Revalidate relevant paths
     revalidatePath("/perdidos")
     revalidatePath("/dashboard")
+    revalidatePath("/dashboard/pets")
 
-    return { success: true, data: petData }
+    return { success: true, data: pet }
   } catch (error) {
-    console.error("Create lost pet error:", error)
-    return { success: false, error: "Erro interno do servidor" }
+    console.error("Error creating lost pet:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro inesperado ao cadastrar pet perdido",
+    }
   }
 }
 
@@ -384,17 +386,18 @@ export async function updatePetStatus(petId: string, status: string, type: "lost
   try {
     const supabase = createClient()
 
+    // Get current user
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser()
-
     if (authError || !user) {
       return { success: false, error: "Usuário não autenticado" }
     }
 
     const tableName = type === "lost" ? "pets_lost" : type === "found" ? "pets_found" : "pets_adoption"
 
+    // Update pet status
     const { error: updateError } = await supabase
       .from(tableName)
       .update({
@@ -402,23 +405,27 @@ export async function updatePetStatus(petId: string, status: string, type: "lost
         updated_at: new Date().toISOString(),
       })
       .eq("id", petId)
-      .eq("user_id", user.id)
+      .eq("user_id", user.id) // Ensure user owns the pet
 
     if (updateError) {
-      console.error("Update error:", updateError)
-      return { success: false, error: "Erro ao atualizar status" }
+      console.error("Error updating pet status:", updateError)
+      return { success: false, error: "Erro ao atualizar status do pet" }
     }
 
     // Revalidate paths
     revalidatePath("/dashboard")
+    revalidatePath("/dashboard/pets")
     revalidatePath("/perdidos")
     revalidatePath("/encontrados")
     revalidatePath("/adocao")
 
     return { success: true }
   } catch (error) {
-    console.error("Update pet status error:", error)
-    return { success: false, error: "Erro interno do servidor" }
+    console.error("Error updating pet status:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro inesperado",
+    }
   }
 }
 
@@ -427,57 +434,39 @@ export async function deletePet(petId: string, type: "lost" | "found" | "adoptio
   try {
     const supabase = createClient()
 
+    // Get current user
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser()
-
     if (authError || !user) {
       return { success: false, error: "Usuário não autenticado" }
     }
 
     const tableName = type === "lost" ? "pets_lost" : type === "found" ? "pets_found" : "pets_adoption"
 
-    // Get pet data first to delete images
-    const { data: petData, error: fetchError } = await supabase
-      .from(tableName)
-      .select("images")
-      .eq("id", petId)
-      .eq("user_id", user.id)
-      .single()
-
-    if (fetchError) {
-      return { success: false, error: "Pet não encontrado" }
-    }
-
-    // Delete images from storage
-    if (petData.images && Array.isArray(petData.images)) {
-      for (const imageUrl of petData.images) {
-        const fileName = imageUrl.split("/").pop()
-        if (fileName) {
-          await supabase.storage.from("pet-images").remove([fileName])
-        }
-      }
-    }
-
-    // Delete pet record
-    const { error: deleteError } = await supabase.from(tableName).delete().eq("id", petId).eq("user_id", user.id)
+    // Delete pet
+    const { error: deleteError } = await supabase.from(tableName).delete().eq("id", petId).eq("user_id", user.id) // Ensure user owns the pet
 
     if (deleteError) {
-      console.error("Delete error:", deleteError)
-      return { success: false, error: "Erro ao deletar pet" }
+      console.error("Error deleting pet:", deleteError)
+      return { success: false, error: "Erro ao excluir pet" }
     }
 
     // Revalidate paths
     revalidatePath("/dashboard")
+    revalidatePath("/dashboard/pets")
     revalidatePath("/perdidos")
     revalidatePath("/encontrados")
     revalidatePath("/adocao")
 
     return { success: true }
   } catch (error) {
-    console.error("Delete pet error:", error)
-    return { success: false, error: "Erro interno do servidor" }
+    console.error("Error deleting pet:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Erro inesperado",
+    }
   }
 }
 
@@ -573,7 +562,10 @@ export async function updatePet(petId: string, formData: FormData) {
 
     if (error) {
       console.error("Error updating pet:", error)
-      return { success: false, error: "Erro ao atualizar pet: " + error.message }
+      return {
+        success: false,
+        error: "Erro ao atualizar pet: " + error.message,
+      }
     }
 
     // Revalidate relevant paths
