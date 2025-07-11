@@ -13,7 +13,7 @@ export default async function EditLostPetPage({ params }: { params: { id: string
   } = await supabase.auth.getSession()
 
   if (!session) {
-    redirect("/login?redirect=/perdidos/edit/" + params.id)
+    redirect("/login?redirectTo=/perdidos/edit/" + params.id)
   }
 
   // Buscar os dados do pet perdido

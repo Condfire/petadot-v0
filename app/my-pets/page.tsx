@@ -17,7 +17,7 @@ export default async function MyPetsPage() {
   } = await supabase.auth.getSession()
 
   if (!session) {
-    redirect("/login?redirect=/my-pets")
+    redirect("/login?redirectTo=/my-pets")
   }
 
   // Buscar os pets do usuário

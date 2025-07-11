@@ -13,7 +13,7 @@ export default async function EditFoundPetPage({ params }: { params: { id: strin
   } = await supabase.auth.getSession()
 
   if (!session) {
-    redirect("/login?redirect=/encontrados/edit/" + params.id)
+    redirect("/login?redirectTo=/encontrados/edit/" + params.id)
   }
 
   // Buscar os dados do pet encontrado na tabela unificada
