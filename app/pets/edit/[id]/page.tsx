@@ -13,7 +13,7 @@ export default async function EditPetPage({ params }: { params: { id: string } }
   } = await supabase.auth.getSession()
 
   if (!session) {
-    redirect("/login?redirect=/pets/edit/" + params.id)
+    redirect("/login?redirectTo=/pets/edit/" + params.id)
   }
 
   // Buscar os dados do pet
