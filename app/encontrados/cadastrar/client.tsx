@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useEffect } from "react"
+import { useActionState, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { FoundPetForm } from "@/components/FoundPetForm"
 import { createFoundPet } from "@/app/actions/found-pet-actions"
@@ -15,15 +15,23 @@ interface CadastrarEncontradoClientProps {
 export default function CadastrarEncontradoClient({ userId }: CadastrarEncontradoClientProps) {
   const router = useRouter()
   const [state, formAction] = useActionState(createFoundPet, null)
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
   useEffect(() => {
-    if (state?.success) {
+    if (state?.success && !isRedirecting) {
+      setIsRedirecting(true)
       toast({
         title: "Sucesso!",
-        description: state.message,
+        description: state.message || "Pet encontrado cadastrado com sucesso!",
         variant: "default",
       })
-      setTimeout(() => router.push("/encontrados"), 2000)
+
+      // Use a more reliable redirect method
+      const timer = setTimeout(() => {
+        window.location.href = "/encontrados"
+      }, 2000)
+
+      return () => clearTimeout(timer)
     } else if (state?.error) {
       toast({
         title: "Erro ao cadastrar pet",
@@ -31,7 +39,19 @@ export default function CadastrarEncontradoClient({ userId }: CadastrarEncontrad
         variant: "destructive",
       })
     }
-  }, [state, router])
+  }, [state, router, isRedirecting])
+
+  // Prevent infinite loops by checking if we're already redirecting
+  if (isRedirecting) {
+    return (
+      <div className="container mx-auto py-8">
+        <Alert className="bg-green-50 border-green-200 text-green-700 mb-4">
+          <CheckCircle className="h-4 w-4" />
+          <AlertDescription>Pet cadastrado com sucesso! Redirecionando...</AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
 
   return (
     <div className="container mx-auto py-8">

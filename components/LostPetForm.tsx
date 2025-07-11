@@ -17,6 +17,21 @@ interface LostPetFormProps {
   userId: string
 }
 
+const speciesMap: { [key: string]: string } = {
+  dog: "Cachorro",
+  cat: "Gato",
+  bird: "Pássaro",
+  rabbit: "Coelho",
+  other: "Outro",
+}
+
+const sizeMap: { [key: string]: string } = {
+  small: "Pequeno",
+  medium: "Médio",
+  large: "Grande",
+  other: "Outro",
+}
+
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
@@ -33,11 +48,35 @@ export default function LostPetForm({ action, userId }: LostPetFormProps) {
   const [size, setSize] = useState("medium")
   const [color, setColor] = useState("black")
   const [gender, setGender] = useState("male")
+  const [state, setState] = useState("")
+  const [city, setCity] = useState("")
+
+  const handleSubmit = async (formData: FormData) => {
+    try {
+      // Ensure all required fields are present
+      if (!formData.get("species") || !formData.get("size") || !formData.get("gender") || !formData.get("color")) {
+        throw new Error("Por favor, preencha todos os campos obrigatórios.")
+      }
+
+      // Add hidden fields to FormData
+      formData.set("user_id", userId)
+      formData.set("image_url", imageUrl)
+      formData.set("state", state)
+      formData.set("city", city)
+
+      // Call the action
+      await action(formData)
+    } catch (error) {
+      console.error("Erro ao submeter formulário:", error)
+    }
+  }
 
   return (
-    <form action={action} className="space-y-6 max-w-2xl mx-auto">
+    <form action={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
       <input type="hidden" name="user_id" value={userId} />
       <input type="hidden" name="image_url" value={imageUrl} />
+      <input type="hidden" name="state" value={state} />
+      <input type="hidden" name="city" value={city} />
 
       <div className="space-y-4">
         <div>
@@ -55,10 +94,11 @@ export default function LostPetForm({ action, userId }: LostPetFormProps) {
                 <SelectValue placeholder="Selecione a espécie" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="dog">Cachorro</SelectItem>
-                <SelectItem value="cat">Gato</SelectItem>
-                <SelectItem value="bird">Pássaro</SelectItem>
-                <SelectItem value="other">Outro</SelectItem>
+                {Object.entries(speciesMap).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <OtherOptionField
@@ -90,10 +130,11 @@ export default function LostPetForm({ action, userId }: LostPetFormProps) {
                 <SelectValue placeholder="Selecione o porte" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="small">Pequeno</SelectItem>
-                <SelectItem value="medium">Médio</SelectItem>
-                <SelectItem value="large">Grande</SelectItem>
-                <SelectItem value="other">Outro</SelectItem>
+                {Object.entries(sizeMap).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <OtherOptionField isOtherSelected={size === "other"} name="size_other" label="Qual porte?" required />
@@ -232,7 +273,7 @@ export default function LostPetForm({ action, userId }: LostPetFormProps) {
           </div>
         </div>
 
-        <SimpleStateCitySelector onStateChange={() => {}} onCityChange={() => {}} required={false} />
+        <SimpleStateCitySelector onStateChange={setState} onCityChange={setCity} required={true} />
 
         <div>
           <Label htmlFor="contact" className="flex">

@@ -51,11 +51,28 @@ export default function FoundPetForm({ action, userId }: FoundPetFormProps) {
   const [state, setState] = useState("")
   const [city, setCity] = useState("")
 
-  return (
-    <form action={action} className="space-y-6 max-w-2xl mx-auto">
-      <input type="hidden" name="user_id" value={userId} />
-      <input type="hidden" name="main_image_url" value={imageUrl} />
+  const handleSubmit = async (formData: FormData) => {
+    try {
+      // Ensure all required fields are present
+      if (!formData.get("species") || !formData.get("size") || !formData.get("gender") || !formData.get("color")) {
+        throw new Error("Por favor, preencha todos os campos obrigatórios.")
+      }
 
+      // Add hidden fields to FormData
+      formData.set("user_id", userId)
+      formData.set("main_image_url", imageUrl)
+      formData.set("state", state)
+      formData.set("city", city)
+
+      // Call the action
+      await action(formData)
+    } catch (error) {
+      console.error("Erro ao submeter formulário:", error)
+    }
+  }
+
+  return (
+    <form action={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
       <div className="space-y-4">
         <div>
           <Label htmlFor="name">Nome do Pet (se souber)</Label>
@@ -257,13 +274,7 @@ export default function FoundPetForm({ action, userId }: FoundPetFormProps) {
           </div>
         </div>
 
-        <SimpleLocationSelector
-          onStateChange={setState}
-          onCityChange={setCity}
-          required={false}
-        />
-        <input type="hidden" name="state" value={state} />
-        <input type="hidden" name="city" value={city} />
+        <SimpleLocationSelector onStateChange={setState} onCityChange={setCity} required={true} />
 
         <div>
           <Label htmlFor="current_location">Localização atual do pet (opcional)</Label>

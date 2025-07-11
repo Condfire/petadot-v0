@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { generateSlug, generateUniqueSlug } from "@/lib/slug-utils"
-import type { PetFormUI } from "@/lib/types" // Importar o tipo PetFormUI
+import type { PetFormUI } from "@/lib/types"
 import { createFoundPet as createFoundPetAction } from "./found-pet-actions"
 
 async function checkForBlockedKeywords(content: string) {
@@ -43,89 +43,106 @@ async function checkForBlockedKeywords(content: string) {
 export async function createLostPet(prevState: any, formData: FormData) {
   const supabase = createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { success: false, error: "Usuário não autenticado. Faça login para continuar." }
-  }
-
-  const name = formData.get("name") as string
-  const description = formData.get("description") as string
-  const last_seen_location = formData.get("last_seen_location") as string
-  const city = formData.get("city") as string
-  const state = formData.get("state") as string
-
-  const contentToCheck = `${name} ${description} ${last_seen_location}`
-  const moderationResult = await checkForBlockedKeywords(contentToCheck)
-  if (moderationResult.blocked) {
-    return {
-      success: false,
-      error: `Conteúdo contém palavra proibida: "${moderationResult.keyword}". Por favor, revise.`,
+    if (!user) {
+      return { success: false, error: "Usuário não autenticado. Faça login para continuar." }
     }
-  }
 
-  const petData = {
-    name: formData.get("name") as string,
-    species: formData.get("species") as string,
-    species_other: formData.get("species_other") as string,
-    breed: formData.get("breed") as string,
-    age: formData.get("age") as string,
-    size: formData.get("size") as string,
-    size_other: formData.get("size_other") as string,
-    gender: formData.get("gender") as string,
-    gender_other: formData.get("gender_other") as string,
-    color: formData.get("color") as string,
-    color_other: formData.get("color_other") as string,
-    description: formData.get("description") as string,
-    last_seen_date: formData.get("last_seen_date") as string,
-    last_seen_location: formData.get("last_seen_location") as string,
-    contact: formData.get("contact") as string,
-    main_image_url: formData.get("image_url") as string,
-    state: formData.get("state") as string,
-    city: formData.get("city") as string,
-    is_special_needs: formData.get("is_special_needs") === "on",
-    special_needs_description: formData.get("special_needs_description") as string,
-    good_with_kids: formData.get("good_with_kids") === "on",
-    good_with_cats: formData.get("good_with_cats") === "on",
-    good_with_dogs: formData.get("good_with_dogs") === "on",
-    is_vaccinated: formData.get("is_vaccinated") === "on",
-    is_neutered: formData.get("is_neutered") === "on",
-  }
+    // Extract and validate required fields
+    const name = formData.get("name") as string
+    const species = formData.get("species") as string
+    const size = formData.get("size") as string
+    const gender = formData.get("gender") as string
+    const color = formData.get("color") as string
+    const description = formData.get("description") as string
+    const lastSeenLocation = formData.get("last_seen_location") as string
+    const contact = formData.get("contact") as string
+    const imageUrl = formData.get("image_url") as string
+    const state = formData.get("state") as string
+    const city = formData.get("city") as string
 
-  const slug = await generateUniqueSlug(
-    generateSlug(petData.name || "pet-perdido", petData.city || "", petData.state || ""),
-    "pets",
-  )
+    // Validate required fields
+    if (!species || !size || !gender || !color || !lastSeenLocation || !contact) {
+      return { success: false, error: "Por favor, preencha todos os campos obrigatórios." }
+    }
 
-  const { data, error } = await supabase
-    .from("pets")
-    .insert({
-      ...petData,
-      slug,
+    const contentToCheck = `${name} ${description} ${lastSeenLocation}`
+    const moderationResult = await checkForBlockedKeywords(contentToCheck)
+    if (moderationResult.blocked) {
+      return {
+        success: false,
+        error: `Conteúdo contém palavra proibida: "${moderationResult.keyword}". Por favor, revise.`,
+      }
+    }
+
+    const petData = {
+      name: name || null,
+      species,
+      species_other: formData.get("species_other") as string,
+      breed: formData.get("breed") as string,
+      age: formData.get("age") as string,
+      size,
+      size_other: formData.get("size_other") as string,
+      gender,
+      gender_other: formData.get("gender_other") as string,
+      color,
+      color_other: formData.get("color_other") as string,
+      description: description || null,
+      last_seen_date: formData.get("last_seen_date") as string,
+      last_seen_location: lastSeenLocation,
+      contact,
+      main_image_url: imageUrl,
+      state: state || null,
+      city: city || null,
+      is_special_needs: formData.get("is_special_needs") === "on",
+      special_needs_description: formData.get("special_needs_description") as string,
+      good_with_kids: formData.get("good_with_kids") === "on",
+      good_with_cats: formData.get("good_with_cats") === "on",
+      good_with_dogs: formData.get("good_with_dogs") === "on",
+      is_vaccinated: formData.get("is_vaccinated") === "on",
+      is_neutered: formData.get("is_neutered") === "on",
       category: "lost",
       status: "missing",
       user_id: user.id,
-    })
-    .select()
-    .single()
+    }
 
-  if (error) {
-    console.error("Error creating lost pet:", error)
-    return { success: false, error: "Erro ao salvar pet perdido: " + error.message }
-  }
+    const slug = await generateUniqueSlug(
+      generateSlug(petData.name || "pet-perdido", petData.city || "", petData.state || ""),
+      "pets",
+    )
 
-  revalidatePath("/perdidos")
-  revalidatePath("/dashboard/pets")
-  revalidatePath(`/perdidos/${slug}`)
+    const { data, error } = await supabase
+      .from("pets")
+      .insert({
+        ...petData,
+        slug,
+      })
+      .select()
+      .single()
 
-  return {
-    success: true,
-    message: "Pet perdido cadastrado com sucesso!",
+    if (error) {
+      console.error("Error creating lost pet:", error)
+      return { success: false, error: "Erro ao salvar pet perdido: " + error.message }
+    }
+
+    revalidatePath("/perdidos")
+    revalidatePath("/dashboard/pets")
+    revalidatePath(`/perdidos/${slug}`)
+
+    return {
+      success: true,
+      message: "Pet perdido cadastrado com sucesso!",
+      data,
+    }
+  } catch (error) {
+    console.error("Unexpected error creating lost pet:", error)
+    return { success: false, error: "Erro inesperado ao cadastrar pet perdido." }
   }
 }
-
 
 // Função para cadastrar um pet para adoção - VERSÃO CLIENT-SIDE
 export async function createAdoptionPetClientSide(petData: PetFormUI, userId: string) {
