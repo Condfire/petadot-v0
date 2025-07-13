@@ -1,5 +1,5 @@
 {
-  "name": "petadot",
+  "name": "my-v0-project",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,7 +7,7 @@
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
-    "type-check": "tsc --noEmit"
+    "test": "node --loader ./scripts/ts-loader.js --test"
   },
   "dependencies": {
     "@hookform/resolvers": "latest",
@@ -30,7 +30,6 @@
     "@radix-ui/react-scroll-area": "latest",
     "@radix-ui/react-select": "latest",
     "@radix-ui/react-separator": "latest",
-    "@radix-ui/react-sheet": "^1.0.4",
     "@radix-ui/react-slider": "latest",
     "@radix-ui/react-slot": "latest",
     "@radix-ui/react-switch": "latest",
@@ -40,15 +39,15 @@
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
+    "@supabase/auth-helpers-react": "latest",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
-    "@types/uuid": "^9.0.7",
+    "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "latest",
     "date-fns": "latest",
     "embla-carousel-react": "latest",
-    "framer-motion": "^10.16.16",
     "input-otp": "latest",
     "lru-cache": "latest",
     "lucide-react": "^0.454.0",
@@ -60,6 +59,7 @@
     "react": "^19",
     "react-day-picker": "latest",
     "react-dom": "^19",
+    "react-dropzone": "latest",
     "react-hook-form": "latest",
     "react-resizable-panels": "latest",
     "recharts": "latest",
@@ -69,17 +69,14 @@
     "uuid": "latest",
     "uuidv4": "latest",
     "vaul": "latest",
-    "zod": "^3.22.4"
+    "zod": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "autoprefixer": "^10.4.16",
-    "eslint": "^8.56.0",
-    "eslint-config-next": "^14.0.4",
     "postcss": "^8.5",
-    "tailwindcss": "^3.4.0",
+    "tailwindcss": "^3.4.17",
     "typescript": "^5"
   }
 }

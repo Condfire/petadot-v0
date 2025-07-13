@@ -1,59 +1,76 @@
 "use client"
 
-import { useActionState, useEffect } from "react"
-import { useRouter, usePathname } from "next/navigation"
-import { Loader2, AlertCircle, CheckCircle } from "lucide-react"
-import { AdoptionPetForm } from "@/components/AdoptionPetForm"
-import { createAdoptionPet } from "@/app/actions/pet-actions"
+import { useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/app/auth-provider"
-import { toast } from "@/components/ui/use-toast"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { createAdoptionPetClientSide } from "@/app/actions/pet-actions"
+import { PetForm } from "@/components/PetForm"
+import { toast } from "@/hooks/use-toast"
+import type { PetFormUI } from "@/lib/types"
 
-export default function AdoptionPetFormWrapper() {
+export default function CadastrarPetAdocaoClient() {
+  const [isPending, startTransition] = useTransition()
+  const { user } = useAuth()
   const router = useRouter()
-  const pathname = usePathname()
-  const { user, isLoading, isInitialized, refreshSession } = useAuth()
-  const [state, formAction] = useActionState(createAdoptionPet, null)
 
-  useEffect(() => {
-    if (isInitialized && !isLoading && !user) {
-      ;(async () => {
-        const session = await refreshSession()
-        if (!session) {
-          router.replace(`/login?redirectTo=${encodeURIComponent(pathname)}`)
-        }
-      })()
-    }
-  }, [isInitialized, isLoading, user, router, pathname, refreshSession])
-
-  useEffect(() => {
-    if (state?.success) {
+  const handleSubmit = async (data: PetFormUI) => {
+    if (!user) {
       toast({
-        title: "Sucesso!",
-        description: state.message,
-        variant: "default",
-      })
-      const redirect = async () => {
-        await refreshSession()
-        router.push("/dashboard/pets")
-      }
-      setTimeout(redirect, 2000)
-    } else if (state?.error) {
-      toast({
-        title: "Erro ao cadastrar pet",
-        description: state.error,
+        title: "Erro",
+        description: "Você precisa estar logado para cadastrar um pet.",
         variant: "destructive",
       })
+      return
     }
-  }, [state, router, refreshSession])
 
-  if (!isInitialized || isLoading || !user) {
+    startTransition(async () => {
+      try {
+        console.log("Iniciando cadastro do pet:", data)
+
+        const result = await createAdoptionPetClientSide(data, user.id)
+
+        console.log("Resultado do cadastro:", result)
+
+        if (result.success) {
+          toast({
+            title: "Sucesso!",
+            description: result.message || "Pet cadastrado com sucesso!",
+          })
+
+          // Redirecionar para a página de pets do usuário
+          router.push("/my-pets")
+        } else {
+          toast({
+            title: "Erro ao cadastrar pet",
+            description: result.error || "Ocorreu um erro inesperado.",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Erro no handleSubmit:", error)
+        toast({
+          title: "Erro",
+          description: "Ocorreu um erro inesperado ao cadastrar o pet.",
+          variant: "destructive",
+        })
+      }
+    })
+  }
+
+  if (!user) {
     return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex flex-col items-center justify-center min-h-[50vh]">
+        <p className="text-muted-foreground mb-4">Você precisa estar logado para cadastrar um pet.</p>
+        <button onClick={() => router.push("/login")} className="px-4 py-2 bg-primary text-white rounded-md">
+          Fazer Login
+        </button>
       </div>
     )
   }
 
-  return <AdoptionPetForm action={formAction} />
+  return (
+    <div className="max-w-2xl mx-auto">
+      <PetForm onSubmit={handleSubmit} isSubmitting={isPending} type="adoption" />
+    </div>
+  )
 }

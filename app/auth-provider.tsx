@@ -70,7 +70,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const initCalled = useRef(false)
   const authListenerRef = useRef<{ subscription: { unsubscribe: () => void } } | null>(null)
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Clear any existing error
   const clearError = useCallback(() => {
@@ -271,33 +270,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [refreshSession],
   )
 
-  // Periodic session validation
-  const startSessionValidation = useCallback(() => {
-    if (sessionCheckIntervalRef.current) {
-      clearInterval(sessionCheckIntervalRef.current)
-    }
-
-    sessionCheckIntervalRef.current = setInterval(
-      async () => {
-        try {
-          const {
-            data: { user },
-            error,
-          } = await supabase.auth.getUser()
-
-          if (error || !user) {
-            console.log("Session validation failed, user might be logged out")
-            // Don't automatically sign out here, let the auth state change handler deal with it
-          }
-        } catch (error) {
-          console.error("Session validation error:", error)
-        }
-      },
-      5 * 60 * 1000,
-    ) // Check every 5 minutes
-  }, [supabase])
-
-  // Initialize authentication
+  // Initialize authentication - CORRIGIDO PARA EVITAR LOOP
   const initializeAuth = useCallback(async () => {
     if (initCalled.current) return
     initCalled.current = true
@@ -317,7 +290,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (data.session) {
           await updateUserFromSession(data.session)
           scheduleTokenRefresh(data.session)
-          startSessionValidation()
         }
       }
     } catch (e) {
@@ -327,9 +299,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false)
       setIsInitialized(true)
     }
-  }, [supabase, updateUserFromSession, scheduleTokenRefresh, startSessionValidation])
+  }, [supabase, updateUserFromSession, scheduleTokenRefresh])
 
-  // Setup auth state listener
+  // Setup auth state listener - CORRIGIDO PARA EVITAR LOOP
   const setupAuthListener = useCallback(() => {
     if (authListenerRef.current) return
 
@@ -343,7 +315,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (newSession) {
             await updateUserFromSession(newSession)
             scheduleTokenRefresh(newSession)
-            startSessionValidation()
             clearError()
 
             toast({
@@ -358,9 +329,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           clearError()
           if (refreshTimeoutRef.current) {
             clearTimeout(refreshTimeoutRef.current)
-          }
-          if (sessionCheckIntervalRef.current) {
-            clearInterval(sessionCheckIntervalRef.current)
           }
 
           toast({
@@ -395,26 +363,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     authListenerRef.current = authListener
     return authListener
-  }, [supabase, updateUserFromSession, scheduleTokenRefresh, startSessionValidation, clearError])
+  }, [supabase, updateUserFromSession, scheduleTokenRefresh, clearError])
 
-  // Initialize auth on mount
+  // Initialize auth on mount - CORRIGIDO PARA EVITAR LOOP
   useEffect(() => {
-    initializeAuth()
-    const authListener = setupAuthListener()
+    let mounted = true
+
+    const init = async () => {
+      if (mounted) {
+        await initializeAuth()
+        setupAuthListener()
+      }
+    }
+
+    init()
 
     // Cleanup function
     return () => {
-      if (authListener) {
-        authListener.subscription.unsubscribe()
+      mounted = false
+      if (authListenerRef.current) {
+        authListenerRef.current.subscription.unsubscribe()
+        authListenerRef.current = null
       }
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current)
+        refreshTimeoutRef.current = null
       }
-      if (sessionCheckIntervalRef.current) {
-        clearInterval(sessionCheckIntervalRef.current)
-      }
+      // Reset init flag when component unmounts
+      initCalled.current = false
     }
-  }, [initializeAuth, setupAuthListener])
+  }, []) // Dependências vazias para evitar loop
 
   // Email/password sign in
   const signIn = useCallback(
@@ -523,10 +501,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current)
         refreshTimeoutRef.current = null
-      }
-      if (sessionCheckIntervalRef.current) {
-        clearInterval(sessionCheckIntervalRef.current)
-        sessionCheckIntervalRef.current = null
       }
 
       // Clear local storage

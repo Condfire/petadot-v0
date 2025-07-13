@@ -1,74 +1,75 @@
 "use client"
 
-import { useActionState, useEffect, useState } from "react"
+import { useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { LostPetForm } from "@/components/LostPetForm"
+import { useAuth } from "@/app/auth-provider"
 import { createLostPet } from "@/app/actions/pet-actions"
-import { toast } from "@/components/ui/use-toast"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle } from "lucide-react"
+import { LostPetForm } from "@/components/LostPetForm"
+import { toast } from "@/hooks/use-toast"
 
-interface CadastrarPerdidoClientProps {
-  userId: string
-}
-
-export default function CadastrarPerdidoClient({ userId }: CadastrarPerdidoClientProps) {
+export default function CadastrarPetPerdidoClient() {
+  const [isPending, startTransition] = useTransition()
+  const { user } = useAuth()
   const router = useRouter()
-  const [state, formAction, isPending] = useActionState(createLostPet, null)
-  const [isRedirecting, setIsRedirecting] = useState(false)
 
-  useEffect(() => {
-    if (state?.success && !isRedirecting) {
-      setIsRedirecting(true)
+  const handleSubmit = async (formData: FormData) => {
+    if (!user) {
       toast({
-        title: "Sucesso!",
-        description: state.message || "Pet perdido cadastrado com sucesso!",
-        variant: "default",
-      })
-
-      // Use a more reliable redirect method
-      const timer = setTimeout(() => {
-        window.location.href = "/dashboard/pets"
-      }, 2000)
-
-      return () => clearTimeout(timer)
-    } else if (state?.error) {
-      toast({
-        title: "Erro ao cadastrar pet",
-        description: state.error,
+        title: "Erro",
+        description: "Você precisa estar logado para cadastrar um pet perdido.",
         variant: "destructive",
       })
+      return
     }
-  }, [state, router, isRedirecting])
 
-  // Prevent infinite loops by checking if we're already redirecting
-  if (isRedirecting) {
+    startTransition(async () => {
+      try {
+        console.log("Iniciando cadastro do pet perdido")
+
+        const result = await createLostPet(null, formData)
+
+        console.log("Resultado do cadastro:", result)
+
+        if (result.success) {
+          toast({
+            title: "Sucesso!",
+            description: result.message || "Pet perdido cadastrado com sucesso!",
+          })
+
+          // Redirecionar para a página de pets do usuário
+          router.push("/my-pets")
+        } else {
+          toast({
+            title: "Erro ao cadastrar pet",
+            description: result.error || "Ocorreu um erro inesperado.",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Erro no handleSubmit:", error)
+        toast({
+          title: "Erro",
+          description: "Ocorreu um erro inesperado ao cadastrar o pet.",
+          variant: "destructive",
+        })
+      }
+    })
+  }
+
+  if (!user) {
     return (
-      <div className="container mx-auto py-8">
-        <Alert className="bg-green-50 border-green-200 text-green-700 mb-4">
-          <CheckCircle className="h-4 w-4" />
-          <AlertDescription>Pet cadastrado com sucesso! Redirecionando...</AlertDescription>
-        </Alert>
+      <div className="flex flex-col items-center justify-center min-h-[50vh]">
+        <p className="text-muted-foreground mb-4">Você precisa estar logado para cadastrar um pet perdido.</p>
+        <button onClick={() => router.push("/login")} className="px-4 py-2 bg-primary text-white rounded-md">
+          Fazer Login
+        </button>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6 text-center">Cadastrar Pet Perdido</h1>
-      {state?.success && (
-        <Alert className="bg-green-50 border-green-200 text-green-700 mb-4">
-          <CheckCircle className="h-4 w-4" />
-          <AlertDescription>{state.message} Redirecionando...</AlertDescription>
-        </Alert>
-      )}
-      {state?.error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{state.error}</AlertDescription>
-        </Alert>
-      )}
-      <LostPetForm action={formAction} userId={userId} />
+    <div className="max-w-2xl mx-auto">
+      <LostPetForm onSubmit={handleSubmit} isSubmitting={isPending} />
     </div>
   )
 }
