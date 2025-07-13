@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { generateSlug, generateUniqueSlug } from "@/lib/slug-utils"
-import type { PetFormUI } from "@/lib/types"
+import type { PetFormUI } from "@/lib/types" // Importar o tipo PetFormUI
 import { createFoundPet as createFoundPetAction } from "./found-pet-actions"
 
 async function checkForBlockedKeywords(content: string) {
@@ -43,102 +43,91 @@ async function checkForBlockedKeywords(content: string) {
 export async function createLostPet(prevState: any, formData: FormData) {
   const supabase = createClient()
 
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-    if (!user) {
-      return { success: false, error: "Usuário não autenticado. Faça login para continuar." }
-    }
+  if (!user) {
+    return { success: false, error: "Usuário não autenticado. Faça login para continuar." }
+  }
 
-    const name = formData.get("name") as string
-    const description = formData.get("description") as string
-    const last_seen_location = formData.get("last_seen_location") as string
-    const city = formData.get("city") as string
-    const state = formData.get("state") as string
+  const name = formData.get("name") as string
+  const description = formData.get("description") as string
+  const last_seen_location = formData.get("last_seen_location") as string
+  const city = formData.get("city") as string
+  const state = formData.get("state") as string
 
-    // Validação básica
-    if (!name || !description || !city || !state) {
-      return { success: false, error: "Campos obrigatórios não preenchidos." }
-    }
-
-    const contentToCheck = `${name} ${description} ${last_seen_location}`
-    const moderationResult = await checkForBlockedKeywords(contentToCheck)
-    if (moderationResult.blocked) {
-      return {
-        success: false,
-        error: `Conteúdo contém palavra proibida: "${moderationResult.keyword}". Por favor, revise.`,
-      }
-    }
-
-    const petData = {
-      name: formData.get("name") as string,
-      species: formData.get("species") as string,
-      species_other: formData.get("species_other") as string,
-      breed: formData.get("breed") as string,
-      age: formData.get("age") as string,
-      size: formData.get("size") as string,
-      size_other: formData.get("size_other") as string,
-      gender: formData.get("gender") as string,
-      gender_other: formData.get("gender_other") as string,
-      color: formData.get("color") as string,
-      color_other: formData.get("color_other") as string,
-      description: formData.get("description") as string,
-      last_seen_date: formData.get("last_seen_date") as string,
-      last_seen_location: formData.get("last_seen_location") as string,
-      contact: formData.get("contact") as string,
-      main_image_url: formData.get("image_url") as string,
-      state: formData.get("state") as string,
-      city: formData.get("city") as string,
-      is_special_needs: formData.get("is_special_needs") === "on",
-      special_needs_description: formData.get("special_needs_description") as string,
-      good_with_kids: formData.get("good_with_kids") === "on",
-      good_with_cats: formData.get("good_with_cats") === "on",
-      good_with_dogs: formData.get("good_with_dogs") === "on",
-      is_vaccinated: formData.get("is_vaccinated") === "on",
-      is_neutered: formData.get("is_neutered") === "on",
-    }
-
-    const slug = await generateUniqueSlug(
-      generateSlug(petData.name || "pet-perdido", petData.city || "", petData.state || ""),
-      "pets",
-    )
-
-    const { data, error } = await supabase
-      .from("pets")
-      .insert({
-        ...petData,
-        slug,
-        category: "lost",
-        status: "missing",
-        user_id: user.id,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error("Error creating lost pet:", error)
-      return { success: false, error: "Erro ao salvar pet perdido: " + error.message }
-    }
-
-    revalidatePath("/perdidos")
-    revalidatePath("/dashboard/pets")
-    revalidatePath(`/perdidos/${slug}`)
-    revalidatePath("/my-pets")
-
+  const contentToCheck = `${name} ${description} ${last_seen_location}`
+  const moderationResult = await checkForBlockedKeywords(contentToCheck)
+  if (moderationResult.blocked) {
     return {
-      success: true,
-      message: "Pet perdido cadastrado com sucesso!",
-      data,
+      success: false,
+      error: `Conteúdo contém palavra proibida: "${moderationResult.keyword}". Por favor, revise.`,
     }
-  } catch (error) {
-    console.error("Erro inesperado:", error)
-    return { success: false, error: "Erro inesperado ao cadastrar pet." }
+  }
+
+  const petData = {
+    name: formData.get("name") as string,
+    species: formData.get("species") as string,
+    species_other: formData.get("species_other") as string,
+    breed: formData.get("breed") as string,
+    age: formData.get("age") as string,
+    size: formData.get("size") as string,
+    size_other: formData.get("size_other") as string,
+    gender: formData.get("gender") as string,
+    gender_other: formData.get("gender_other") as string,
+    color: formData.get("color") as string,
+    color_other: formData.get("color_other") as string,
+    description: formData.get("description") as string,
+    last_seen_date: formData.get("last_seen_date") as string,
+    last_seen_location: formData.get("last_seen_location") as string,
+    contact: formData.get("contact") as string,
+    main_image_url: formData.get("image_url") as string,
+    state: formData.get("state") as string,
+    city: formData.get("city") as string,
+    is_special_needs: formData.get("is_special_needs") === "on",
+    special_needs_description: formData.get("special_needs_description") as string,
+    good_with_kids: formData.get("good_with_kids") === "on",
+    good_with_cats: formData.get("good_with_cats") === "on",
+    good_with_dogs: formData.get("good_with_dogs") === "on",
+    is_vaccinated: formData.get("is_vaccinated") === "on",
+    is_neutered: formData.get("is_neutered") === "on",
+  }
+
+  const slug = await generateUniqueSlug(
+    generateSlug(petData.name || "pet-perdido", petData.city || "", petData.state || ""),
+    "pets",
+  )
+
+  const { data, error } = await supabase
+    .from("pets")
+    .insert({
+      ...petData,
+      slug,
+      category: "lost",
+      status: "missing",
+      user_id: user.id,
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error("Error creating lost pet:", error)
+    return { success: false, error: "Erro ao salvar pet perdido: " + error.message }
+  }
+
+  revalidatePath("/perdidos")
+  revalidatePath("/dashboard/pets")
+  revalidatePath(`/perdidos/${slug}`)
+
+  return {
+    success: true,
+    message: "Pet perdido cadastrado com sucesso!",
   }
 }
 
-// Função para cadastrar um pet para adoção - VERSÃO CLIENT-SIDE CORRIGIDA
+
+// Função para cadastrar um pet para adoção - VERSÃO CLIENT-SIDE
 export async function createAdoptionPetClientSide(petData: PetFormUI, userId: string) {
   console.log("createAdoptionPetClientSide chamado com:", petData, "userId:", userId)
 
@@ -146,11 +135,6 @@ export async function createAdoptionPetClientSide(petData: PetFormUI, userId: st
     // Usar createClient com cookies para manter a sessão
     const supabase = createClient()
     console.log("Cliente Supabase criado")
-
-    // Validação básica
-    if (!petData.name || !petData.species || !petData.city || !petData.state) {
-      return { success: false, error: "Campos obrigatórios não preenchidos." }
-    }
 
     // Verificar se é uma edição ou criação
     const isEditing = petData.is_editing === true
@@ -169,16 +153,15 @@ export async function createAdoptionPetClientSide(petData: PetFormUI, userId: st
 
       if (updateError) {
         console.error("Erro ao atualizar pet:", updateError)
-        return { success: false, error: `Erro ao atualizar pet: ${updateError.message}` }
+        return { error: `Erro ao atualizar pet: ${updateError.message}` }
       }
 
       // Revalidar as páginas relacionadas
       revalidatePath("/adocao")
       revalidatePath(`/adocao/${petData.id}`)
       revalidatePath("/ongs/dashboard")
-      revalidatePath("/my-pets")
 
-      return { success: true, message: "Pet atualizado com sucesso!" }
+      return { success: true }
     }
 
     // Caso contrário, criar um novo pet
@@ -225,7 +208,7 @@ export async function createAdoptionPetClientSide(petData: PetFormUI, userId: st
 
     if (insertError) {
       console.error("Erro ao cadastrar pet:", insertError)
-      return { success: false, error: `Erro ao cadastrar pet: ${insertError.message}` }
+      return { error: `Erro ao cadastrar pet: ${insertError.message}` }
     }
 
     // Gerar slug com o ID obtido
@@ -251,12 +234,11 @@ export async function createAdoptionPetClientSide(petData: PetFormUI, userId: st
     // Revalidar as páginas relacionadas
     revalidatePath("/adocao")
     revalidatePath("/ongs/dashboard")
-    revalidatePath("/my-pets")
 
-    return { success: true, data: insertedPet, message: "Pet cadastrado com sucesso!" }
+    return { success: true, data: insertedPet }
   } catch (error) {
     console.error("Erro ao cadastrar pet:", error)
-    return { success: false, error: `Erro ao cadastrar pet: ${error instanceof Error ? error.message : String(error)}` }
+    return { error: `Erro ao cadastrar pet: ${error instanceof Error ? error.message : String(error)}` }
   }
 }
 
@@ -264,84 +246,73 @@ export async function createAdoptionPetClientSide(petData: PetFormUI, userId: st
 export async function createAdoptionPet(prevState: any, formData: FormData) {
   const supabase = createClient()
 
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-    if (!user) {
-      return { success: false, error: "Usuário não autenticado. Faça login para continuar." }
-    }
-
-    const petData = {
-      name: formData.get("name") as string,
-      species: formData.get("species") as string,
-      species_other: formData.get("species_other") as string,
-      breed: formData.get("breed") as string,
-      age: formData.get("age") as string,
-      size: formData.get("size") as string,
-      size_other: formData.get("size_other") as string,
-      gender: formData.get("gender") as string,
-      gender_other: formData.get("gender_other") as string,
-      color: formData.get("color") as string,
-      color_other: formData.get("color_other") as string,
-      description: formData.get("description") as string,
-      main_image_url: formData.get("main_image_url") as string,
-      is_vaccinated: formData.get("is_vaccinated") === "on",
-      is_neutered: formData.get("is_neutered") === "on",
-      is_special_needs: formData.get("is_special_needs") === "on",
-      special_needs_description: formData.get("special_needs_description") as string,
-      temperament: formData.get("temperament") as string,
-      energy_level: formData.get("energy_level") as string,
-      city: formData.get("city") as string,
-      state: formData.get("state") as string,
-      contact: formData.get("contact") as string,
-      ong_id: formData.get("ong_id") as string,
-    }
-
-    // Validação básica
-    if (!petData.name || !petData.species || !petData.city || !petData.state) {
-      return { success: false, error: "Campos obrigatórios não preenchidos." }
-    }
-
-    const slug = await generateUniqueSlug(
-      generateSlug(petData.name || "pet-adocao", petData.city || "", petData.state || ""),
-      "pets",
-    )
-
-    const { data, error } = await supabase
-      .from("pets")
-      .insert({
-        ...petData,
-        user_id: user.id,
-        slug,
-        category: "adoption",
-        status: "available",
-        is_castrated: petData.is_neutered, // Mapeamento correto
-        whatsapp_contact: petData.contact, // Mapeamento correto
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error("Erro ao cadastrar pet para adoção:", error)
-      return { success: false, error: `Erro ao cadastrar pet: ${error.message}` }
-    }
-
-    revalidatePath("/adocao")
-    revalidatePath("/ongs/dashboard")
-    revalidatePath("/my-pets")
-
-    return { success: true, message: "Pet para adoção cadastrado com sucesso!", data }
-  } catch (error) {
-    console.error("Erro inesperado:", error)
-    return { success: false, error: "Erro inesperado ao cadastrar pet." }
+  if (!user) {
+    return { success: false, error: "Usuário não autenticado. Faça login para continuar." }
   }
+
+  const petData = {
+    name: formData.get("name") as string,
+    species: formData.get("species") as string,
+    species_other: formData.get("species_other") as string,
+    breed: formData.get("breed") as string,
+    age: formData.get("age") as string,
+    size: formData.get("size") as string,
+    size_other: formData.get("size_other") as string,
+    gender: formData.get("gender") as string,
+    gender_other: formData.get("gender_other") as string,
+    color: formData.get("color") as string,
+    color_other: formData.get("color_other") as string,
+    description: formData.get("description") as string,
+    main_image_url: formData.get("main_image_url") as string,
+    is_vaccinated: formData.get("is_vaccinated") === "on",
+    is_neutered: formData.get("is_neutered") === "on",
+    is_special_needs: formData.get("is_special_needs") === "on",
+    special_needs_description: formData.get("special_needs_description") as string,
+    temperament: formData.get("temperament") as string,
+    energy_level: formData.get("energy_level") as string,
+    city: formData.get("city") as string,
+    state: formData.get("state") as string,
+    contact: formData.get("contact") as string,
+    ong_id: formData.get("ong_id") as string,
+  }
+
+  const slug = await generateUniqueSlug(
+    generateSlug(petData.name || "pet-adocao", petData.city || "", petData.state || ""),
+    "pets",
+  )
+
+  const { data, error } = await supabase
+    .from("pets")
+    .insert({
+      ...petData,
+      user_id: user.id,
+      slug,
+      category: "adoption",
+      status: "available",
+      is_castrated: petData.is_neutered, // Mapeamento correto
+      whatsapp_contact: petData.contact, // Mapeamento correto
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error("Erro ao cadastrar pet para adoção:", error)
+    return { success: false, error: `Erro ao cadastrar pet: ${error.message}` }
+  }
+
+  revalidatePath("/adocao")
+  revalidatePath("/ongs/dashboard")
+
+  return { success: true, message: "Pet para adoção cadastrado com sucesso!" }
 }
 
-// Função genérica para criar pet - REQUIRED EXPORT
+// Função genérica para criar pet, para resolver o erro de exportação ausente.
 export async function createPet(input: FormData | PetFormUI) {
-  console.log("createPet foi chamado com:", typeof input)
+  console.warn("createPet foi chamado. Considere usar createLostPet, createFoundPet ou createAdoptionPet diretamente.")
 
   if (input instanceof FormData) {
     const category = input.get("category") as string
@@ -352,22 +323,41 @@ export async function createPet(input: FormData | PetFormUI) {
       case "found":
         return createFoundPetAction(null, input)
       case "adoption":
+        console.error("createPet: Tentativa de usar FormData para categoria 'adoption'. Isso pode causar erros.")
+        const petFormUIFromFormData: PetFormUI = {
+          name: input.get("name") as string,
+          species: input.get("species") as string,
+          species_other: input.get("species_other") as string | null,
+          breed: input.get("breed") as string,
+          age: input.get("age") as string,
+          size: input.get("size") as string,
+          size_other: input.get("size_other") as string | null,
+          gender: input.get("gender") as string,
+          gender_other: input.get("gender_other") as string | null,
+          color: input.get("color") as string,
+          color_other: input.get("color_other") as string | null,
+          description: input.get("description") as string,
+          image_urls: input.getAll("image_urls") as string[],
+          is_vaccinated: input.get("is_vaccinated") === "on",
+          is_castrated: input.get("is_castrated") === "on",
+          is_special_needs: input.get("is_special_needs") === "on",
+          special_needs_description: input.get("special_needs_description") as string | null,
+          temperament: input.get("temperament") as string | null,
+          energy_level: input.get("energy_level") as string | null,
+          good_with_kids: input.get("good_with_kids") === "on",
+          good_with_cats: input.get("good_with_cats") === "on",
+          good_with_dogs: input.get("good_with_dogs") === "on",
+          city: input.get("city") as string,
+          state: input.get("state") as string,
+          whatsapp_contact: input.get("whatsapp_contact") as string,
+          ong_id: input.get("ong_id") as string | null,
+        }
         return createAdoptionPet(null, input)
       default:
         return { success: false, error: "Categoria de pet inválida." }
     }
   } else {
-    // Se for PetFormUI, assumir que é para adoção
-    const supabase = createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { success: false, error: "Usuário não autenticado." }
-    }
-
-    return createAdoptionPetClientSide(input, user.id)
+    return createAdoptionPet(null, input)
   }
 }
 
@@ -415,7 +405,6 @@ export async function updatePetStatus(petId: string, status: "found" | "lost" | 
     revalidatePath("/perdidos")
     revalidatePath("/encontrados")
     revalidatePath("/adocao")
-    revalidatePath("/my-pets")
 
     return { success: true, message: "Status do pet atualizado com sucesso!" }
   } catch (error) {
@@ -461,12 +450,16 @@ export async function deletePet(petId: string) {
       return { success: false, error: "Erro ao excluir pet" }
     }
 
+    // TODO: Delete associated image from storage if needed
+    // if (pet.main_image_url) {
+    //   // Delete image from Supabase storage
+    // }
+
     // Revalidate paths
     revalidatePath("/dashboard")
     revalidatePath("/perdidos")
     revalidatePath("/encontrados")
     revalidatePath("/adocao")
-    revalidatePath("/my-pets")
 
     return { success: true, message: "Pet excluído com sucesso!" }
   } catch (error) {
@@ -575,7 +568,6 @@ export async function updatePet(petId: string, formData: FormData) {
     revalidatePath("/dashboard")
     revalidatePath(`/perdidos/${existingPet.slug}`)
     revalidatePath(`/perdidos/${newSlug}`)
-    revalidatePath("/my-pets")
 
     return {
       success: true,
