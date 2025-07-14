@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { useTransition } from "react"
 import { PetForm } from "@/components/PetForm"
-import { createPet } from "@/app/actions/pet-actions"
+import { createAdoptionPetClientSide } from "@/app/actions/pet-actions"
 import { useAuth } from "@/app/auth-provider"
 import { useSession } from "@/app/auth-provider"
 
@@ -25,10 +25,7 @@ export default function CadastrarPetForm() {
 
     startTransition(async () => {
       try {
-        await createPet({
-          ...data,
-          userId: user.id,
-        })
+        await createAdoptionPetClientSide(data, user.id)
 
         toast({
           title: "Pet cadastrado com sucesso!",
