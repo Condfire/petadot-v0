@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getUserStats } from "@/lib/supabase"
 import { PawPrint, Search, Heart, Plus, Clock, ArrowRight, BookOpen } from "lucide-react"
-import AuthGuard from "@/components/auth-guard"
+import RequireAuth from "@/components/require-auth"
 
 type UserStats = {
   adoptionCount: number
@@ -307,8 +307,8 @@ function DashboardContent() {
 
 export default function DashboardPage() {
   return (
-    <AuthGuard>
+    <RequireAuth>
       <DashboardContent />
-    </AuthGuard>
+    </RequireAuth>
   )
 }
