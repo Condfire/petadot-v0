@@ -93,7 +93,7 @@ export default async function DeletePartnerPage({ params }: { params: { id: stri
           </div>
         </div>
 
-        <form action={handleDelete} className="flex gap-3">
+        <form action={handleDelete} method="post" className="flex gap-3">
           <Button variant="destructive" type="submit">
             Confirmar Exclusão
           </Button>
