@@ -43,8 +43,8 @@ export async function createFoundPet(prevState: any, formData: FormData) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-
-  if (!user) {
+  const userId = user?.id || (formData.get("user_id") as string | null)
+  if (!userId) {
     return { success: false, error: "Usuário não autenticado. Faça login para continuar." }
   }
 
@@ -103,7 +103,7 @@ export async function createFoundPet(prevState: any, formData: FormData) {
       slug,
       category: "found",
       status: "sheltered",
-      user_id: user.id,
+      user_id: userId,
     })
     .select()
     .single()
