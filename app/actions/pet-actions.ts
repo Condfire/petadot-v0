@@ -324,34 +324,6 @@ export async function createPet(input: FormData | PetFormUI) {
         return createFoundPetAction(null, input)
       case "adoption":
         console.error("createPet: Tentativa de usar FormData para categoria 'adoption'. Isso pode causar erros.")
-        const petFormUIFromFormData: PetFormUI = {
-          name: input.get("name") as string,
-          species: input.get("species") as string,
-          species_other: input.get("species_other") as string | null,
-          breed: input.get("breed") as string,
-          age: input.get("age") as string,
-          size: input.get("size") as string,
-          size_other: input.get("size_other") as string | null,
-          gender: input.get("gender") as string,
-          gender_other: input.get("gender_other") as string | null,
-          color: input.get("color") as string,
-          color_other: input.get("color_other") as string | null,
-          description: input.get("description") as string,
-          image_urls: input.getAll("image_urls") as string[],
-          is_vaccinated: input.get("is_vaccinated") === "on",
-          is_castrated: input.get("is_castrated") === "on",
-          is_special_needs: input.get("is_special_needs") === "on",
-          special_needs_description: input.get("special_needs_description") as string | null,
-          temperament: input.get("temperament") as string | null,
-          energy_level: input.get("energy_level") as string | null,
-          good_with_kids: input.get("good_with_kids") === "on",
-          good_with_cats: input.get("good_with_cats") === "on",
-          good_with_dogs: input.get("good_with_dogs") === "on",
-          city: input.get("city") as string,
-          state: input.get("state") as string,
-          whatsapp_contact: input.get("whatsapp_contact") as string,
-          ong_id: input.get("ong_id") as string | null,
-        }
         return createAdoptionPet(null, input)
       default:
         return { success: false, error: "Categoria de pet inválida." }
