@@ -285,19 +285,19 @@ export async function createAdoptionPet(prevState: any, formData: FormData) {
     "pets",
   )
 
-  const { data, error } = await supabase
-    .from("pets")
-    .insert({
-      ...petData,
-      user_id: user.id,
-      slug,
-      category: "adoption",
-      status: "available",
-      is_castrated: petData.is_neutered, // Mapeamento correto
-      whatsapp_contact: petData.contact, // Mapeamento correto
-    })
-    .select()
-    .single()
+    const { data, error } = await supabase
+      .from("pets")
+      .insert({
+        ...petData,
+        user_id: user.id,
+        slug,
+        category: "adoption",
+        status: "available",
+        is_neutered: petData.is_neutered,
+        contact: petData.contact,
+      })
+      .select()
+      .single()
 
   if (error) {
     console.error("Erro ao cadastrar pet para adoção:", error)
