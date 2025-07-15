@@ -129,12 +129,9 @@ export async function createLostPet(prevState: any, formData: FormData) {
 
 // Função para cadastrar um pet para adoção - VERSÃO CLIENT-SIDE
 export async function createAdoptionPetClientSide(petData: PetFormUI, userId: string) {
-  console.log("createAdoptionPetClientSide chamado com:", petData, "userId:", userId)
-
   try {
     // Usar createClient com cookies para manter a sessão
     const supabase = createClient()
-    console.log("Cliente Supabase criado")
 
     // Verificar se é uma edição ou criação
     const isEditing = petData.is_editing === true
@@ -200,11 +197,7 @@ export async function createAdoptionPetClientSide(petData: PetFormUI, userId: st
       updated_at: new Date().toISOString(),
     }
 
-    console.log("Inserindo novo pet:", newPet)
-
     const { data: insertedPet, error: insertError } = await supabase.from("pets").insert(newPet).select().single()
-
-    console.log("Resultado da inserção:", insertedPet ? "Sucesso" : "Falha", insertError || "")
 
     if (insertError) {
       console.error("Erro ao cadastrar pet:", insertError)
