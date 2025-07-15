@@ -91,7 +91,7 @@ export async function createLostPet(prevState: any, formData: FormData) {
     good_with_cats: formData.get("good_with_cats") === "on",
     good_with_dogs: formData.get("good_with_dogs") === "on",
     is_vaccinated: formData.get("is_vaccinated") === "on",
-    is_neutered: formData.get("is_neutered") === "on",
+    is_castrated: formData.get("is_castrated") === "on",
   }
 
   const slug = await generateUniqueSlug(
@@ -181,7 +181,7 @@ export async function createAdoptionPetClientSide(petData: PetFormUI, userId: st
       main_image_url: petData.image_urls?.[0] || null,
       image_urls: petData.image_urls || [],
       is_vaccinated: petData.is_vaccinated || false,
-      is_neutered: petData.is_castrated || false,
+      is_castrated: petData.is_castrated || false,
       is_special_needs: petData.is_special_needs || false,
       special_needs_description: petData.special_needs_description || null,
       temperament: petData.temperament,
@@ -191,7 +191,7 @@ export async function createAdoptionPetClientSide(petData: PetFormUI, userId: st
       good_with_dogs: petData.good_with_dogs || false,
       city: petData.city,
       state: petData.state,
-      contact: petData.whatsapp_contact,
+      contact: petData.contact,
       user_id: userId,
       ong_id: petData.ong_id,
       status: "available",
@@ -269,7 +269,7 @@ export async function createAdoptionPet(prevState: any, formData: FormData) {
     description: formData.get("description") as string,
     main_image_url: formData.get("main_image_url") as string,
     is_vaccinated: formData.get("is_vaccinated") === "on",
-    is_neutered: formData.get("is_neutered") === "on",
+    is_castrated: formData.get("is_castrated") === "on",
     is_special_needs: formData.get("is_special_needs") === "on",
     special_needs_description: formData.get("special_needs_description") as string,
     temperament: formData.get("temperament") as string,
@@ -293,7 +293,7 @@ export async function createAdoptionPet(prevState: any, formData: FormData) {
         slug,
         category: "adoption",
         status: "available",
-        is_neutered: petData.is_neutered,
+        is_castrated: petData.is_castrated,
         contact: petData.contact,
       })
       .select()
@@ -489,7 +489,7 @@ export async function updatePet(petId: string, formData: FormData) {
     const good_with_cats = formData.get("good_with_cats") === "true"
     const good_with_dogs = formData.get("good_with_dogs") === "true"
     const is_vaccinated = formData.get("is_vaccinated") === "true"
-    const is_neutered = formData.get("is_neutered") === "true"
+    const is_castrated = formData.get("is_castrated") === "true"
 
     // Validate required fields
     if (!species || !size || !gender || !color || !lost_date || !lost_location || !contact) {
@@ -523,7 +523,7 @@ export async function updatePet(petId: string, formData: FormData) {
         good_with_cats,
         good_with_dogs,
         is_vaccinated,
-        is_neutered,
+        is_castrated,
         updated_at: new Date().toISOString(),
       })
       .eq("id", petId)

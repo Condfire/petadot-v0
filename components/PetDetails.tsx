@@ -151,15 +151,15 @@ export default function PetDetails({ pet, isOwner, onMarkAsResolved, onDelete, t
             <Card className="p-4 bg-secondary/20 border-secondary rounded-lg">
               <h3 className="text-xl font-semibold text-foreground mb-3">Informações de Contato</h3>
               <PetContactInfo
-                contact={pet.whatsapp_contact}
+                phone={pet.contact}
                 location={
                   pet.city && pet.state ? `${pet.city}, ${pet.state}` : pet.city || pet.state || "Não informado"
                 }
               />
-              {pet.whatsapp_contact && (
+              {pet.contact && (
                 <Button asChild className="w-full mt-4">
                   <a
-                    href={`https://wa.me/${pet.whatsapp_contact.replace(/\D/g, "")}`}
+                    href={`https://wa.me/${pet.contact.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

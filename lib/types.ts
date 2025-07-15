@@ -33,7 +33,7 @@ export type PetFormUI = {
   good_with_dogs?: boolean
   city: string
   state: string
-  whatsapp_contact: string
+  contact: string
   ong_id?: string | null
   is_editing?: boolean
   slug?: string | null

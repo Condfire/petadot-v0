@@ -88,7 +88,7 @@ export async function createFoundPet(prevState: any, formData: FormData) {
     good_with_cats: formData.get("good_with_cats") === "on",
     good_with_dogs: formData.get("good_with_dogs") === "on",
     is_vaccinated: formData.get("is_vaccinated") === "on",
-    is_neutered: formData.get("is_neutered") === "on",
+    is_castrated: formData.get("is_castrated") === "on",
   }
 
   const slug = await generateUniqueSlug(
