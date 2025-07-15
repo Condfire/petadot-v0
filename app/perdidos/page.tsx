@@ -22,7 +22,7 @@ async function getLostPets() {
       )
     `)
     .eq("category", "lost")
-    .eq("status", "approved")
+    .in("status", ["missing", "approved"])
     .order("created_at", { ascending: false })
 
   if (error) {
