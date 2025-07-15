@@ -13,10 +13,10 @@ import {
   Settings,
   ShieldCheck,
   BookOpen,
-  Handshake,
   Search,
   AlertTriangle,
 } from "lucide-react"
+import { Handshake } from "@/components/icons/handshake"
 
 const adminNavItems = [
   {

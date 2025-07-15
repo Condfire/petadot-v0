@@ -18,9 +18,9 @@ import {
   LogOut,
   User,
   Shield,
-  Handshake,
   BookOpen,
 } from "lucide-react"
+import { Handshake } from "@/components/icons/handshake"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/app/auth-provider"
