@@ -22,7 +22,7 @@ async function getFoundPets() {
       )
     `)
     .eq("category", "found")
-    .eq("status", "approved")
+    .in("status", ["sheltered", "approved"])
     .order("created_at", { ascending: false })
 
   if (error) {
