@@ -991,7 +991,7 @@ export async function createPet(formData: FormData) {
     const trainability = formData.get("trainability") as string
     const sociability = formData.get("sociability") as string
     const is_vaccinated = formData.get("is_vaccinated") === "true"
-    const is_neutered = formData.get("is_neutered") === "true"
+    const is_castrated = formData.get("is_castrated") === "true"
     const is_special_needs = formData.get("is_special_needs") === "true"
     const good_with_kids = formData.get("good_with_kids") === "true"
     const good_with_cats = formData.get("good_with_cats") === "true"
@@ -1042,7 +1042,7 @@ export async function createPet(formData: FormData) {
           trainability,
           sociability,
           is_vaccinated,
-          is_neutered,
+          is_castrated,
           is_special_needs,
           good_with_kids,
           good_with_cats,

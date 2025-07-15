@@ -29,7 +29,7 @@ const formSchema = z.object({
   color: z.string().optional(),
   color_other: z.string().optional(),
   description: z.string().min(10, { message: "Descrição deve ter pelo menos 10 caracteres." }),
-  whatsapp_contact: z
+  contact: z
     .string()
     .regex(/^\d{10,11}$/, { message: "Número de WhatsApp inválido (apenas números, 10 ou 11 dígitos)." }),
   image_urls: z
@@ -75,7 +75,7 @@ export function PetForm({ initialData, onSubmit, isSubmitting, type }: PetFormPr
       color: "",
       color_other: "",
       description: "",
-      whatsapp_contact: "",
+      contact: "",
       image_urls: [],
       city: "",
       state: "",
@@ -351,7 +351,7 @@ export function PetForm({ initialData, onSubmit, isSubmitting, type }: PetFormPr
 
         <FormField
           control={form.control}
-          name="whatsapp_contact"
+          name="contact"
           render={({ field }) => (
             <FormItem>
               <FormLabel>WhatsApp para Contato</FormLabel>

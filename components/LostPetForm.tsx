@@ -157,8 +157,8 @@ export default function LostPetForm({ action, userId }: LostPetFormProps) {
             </Label>
           </div>
           <div className="flex items-center space-x-2">
-            <Checkbox id="is_neutered" name="is_neutered" />
-            <Label htmlFor="is_neutered" className="cursor-pointer">
+            <Checkbox id="is_castrated" name="is_castrated" />
+            <Label htmlFor="is_castrated" className="cursor-pointer">
               Castrado
             </Label>
           </div>
