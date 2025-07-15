@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { generateSlug, generateUniqueSlug } from "@/lib/slug-utils"
+import { generateUniqueSlug, generatePetSlug } from "@/lib/slug-utils"
 
 async function checkForBlockedKeywords(content: string) {
   const supabase = createClient()
@@ -91,16 +91,10 @@ export async function createFoundPet(prevState: any, formData: FormData) {
     is_neutered: formData.get("is_neutered") === "on",
   }
 
-  const slug = await generateUniqueSlug(
-    generateSlug(petData.name || "pet-encontrado", petData.city || "", petData.state || ""),
-    "pets",
-  )
-
-  const { data, error } = await supabase
+  const { data: insertedPet, error } = await supabase
     .from("pets")
     .insert({
       ...petData,
-      slug,
       category: "found",
       status: "sheltered",
       user_id: userId,
@@ -113,9 +107,33 @@ export async function createFoundPet(prevState: any, formData: FormData) {
     return { success: false, error: error.message }
   }
 
+  let uniqueSlug = ""
+  if (insertedPet) {
+    const baseSlug = await generatePetSlug(
+      petData.name ?? "pet",
+      "encontrado",
+      petData.city ?? "",
+      petData.state ?? "",
+      insertedPet.id,
+      "pets",
+    )
+    uniqueSlug = await generateUniqueSlug(baseSlug, "pets", insertedPet.id)
+
+    const { error: updateError } = await supabase
+      .from("pets")
+      .update({ slug: uniqueSlug })
+      .eq("id", insertedPet.id)
+
+    if (updateError) {
+      console.error("Erro ao atualizar slug do pet encontrado:", updateError)
+    }
+  }
+
   revalidatePath("/encontrados")
   revalidatePath("/dashboard/pets")
-  revalidatePath(`/encontrados/${slug}`)
+  if (uniqueSlug) {
+    revalidatePath(`/encontrados/${uniqueSlug}`)
+  }
 
   return { success: true, message: "Pet encontrado cadastrado com sucesso!" }
 }

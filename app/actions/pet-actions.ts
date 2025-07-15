@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { generateSlug, generateUniqueSlug } from "@/lib/slug-utils"
+import { generateUniqueSlug, generatePetSlug } from "@/lib/slug-utils"
 import type { PetFormUI } from "@/lib/types" // Importar o tipo PetFormUI
 import { createFoundPet as createFoundPetAction } from "./found-pet-actions"
 
@@ -94,16 +94,10 @@ export async function createLostPet(prevState: any, formData: FormData) {
     is_neutered: formData.get("is_neutered") === "on",
   }
 
-  const slug = await generateUniqueSlug(
-    generateSlug(petData.name || "pet-perdido", petData.city || "", petData.state || ""),
-    "pets",
-  )
-
-  const { data, error } = await supabase
+  const { data: insertedPet, error } = await supabase
     .from("pets")
     .insert({
       ...petData,
-      slug,
       category: "lost",
       status: "missing",
       user_id: userId,
@@ -116,9 +110,33 @@ export async function createLostPet(prevState: any, formData: FormData) {
     return { success: false, error: "Erro ao salvar pet perdido: " + error.message }
   }
 
+  let uniqueSlug = ""
+  if (insertedPet) {
+    const baseSlug = await generatePetSlug(
+      petData.name ?? "pet",
+      "perdido",
+      petData.city ?? "",
+      petData.state ?? "",
+      insertedPet.id,
+      "pets",
+    )
+    uniqueSlug = await generateUniqueSlug(baseSlug, "pets", insertedPet.id)
+
+    const { error: updateError } = await supabase
+      .from("pets")
+      .update({ slug: uniqueSlug })
+      .eq("id", insertedPet.id)
+
+    if (updateError) {
+      console.error("Erro ao atualizar slug do pet perdido:", updateError)
+    }
+  }
+
   revalidatePath("/perdidos")
   revalidatePath("/dashboard/pets")
-  revalidatePath(`/perdidos/${slug}`)
+  if (uniqueSlug) {
+    revalidatePath(`/perdidos/${uniqueSlug}`)
+  }
 
   return {
     success: true,
@@ -214,11 +232,11 @@ export async function createAdoptionPetClientSide(petData: PetFormUI, userId: st
     // Gerar slug com o ID obtido
     if (insertedPet) {
       const petType = "adocao"
-      const baseSlug = await generateSlug(
-        petData.name || "pet",
+      const baseSlug = await generatePetSlug(
+        petData.name ?? "pet",
         petType,
-        petData.city || "",
-        petData.state || "",
+        petData.city ?? "",
+        petData.state ?? "",
         insertedPet.id,
         "pets",
       )
@@ -280,17 +298,11 @@ export async function createAdoptionPet(prevState: any, formData: FormData) {
     ong_id: formData.get("ong_id") as string,
   }
 
-  const slug = await generateUniqueSlug(
-    generateSlug(petData.name || "pet-adocao", petData.city || "", petData.state || ""),
-    "pets",
-  )
-
-  const { data, error } = await supabase
+  const { data: insertedPet, error } = await supabase
     .from("pets")
     .insert({
       ...petData,
       user_id: user.id,
-      slug,
       category: "adoption",
       status: "available",
       is_castrated: petData.is_neutered, // Mapeamento correto
@@ -302,6 +314,28 @@ export async function createAdoptionPet(prevState: any, formData: FormData) {
   if (error) {
     console.error("Erro ao cadastrar pet para adoção:", error)
     return { success: false, error: `Erro ao cadastrar pet: ${error.message}` }
+  }
+
+  let slug = ""
+  if (insertedPet) {
+    const baseSlug = await generatePetSlug(
+      petData.name ?? "pet",
+      "adocao",
+      petData.city ?? "",
+      petData.state ?? "",
+      insertedPet.id,
+      "pets",
+    )
+    slug = await generateUniqueSlug(baseSlug, "pets", insertedPet.id)
+
+    const { error: updateError } = await supabase
+      .from("pets")
+      .update({ slug })
+      .eq("id", insertedPet.id)
+
+    if (updateError) {
+      console.error("Erro ao atualizar slug do pet para adoção:", updateError)
+    }
   }
 
   revalidatePath("/adocao")
@@ -496,8 +530,15 @@ export async function updatePet(petId: string, formData: FormData) {
       return { success: false, error: "Todos os campos obrigatórios devem ser preenchidos" }
     }
 
-    // Generate new slug if name, city, or state changed
-    const newSlug = generateSlug(name || "pet-perdido", city || "", state || "")
+    // Generate new slug with pet ID
+    const newSlug = await generatePetSlug(
+      name || "pet",
+      "perdido",
+      city || "",
+      state || "",
+      petId,
+      "pets",
+    )
 
     // Update pet data
     const { data, error } = await supabase
