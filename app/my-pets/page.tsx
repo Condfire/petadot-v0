@@ -32,7 +32,7 @@ export default async function MyPetsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild>
-            <Link href="/adocao/cadastrar">
+            <Link href="/cadastrar-pet-adocao">
               <PlusCircle className="mr-2 h-4 w-4" />
               Cadastrar para Adoção
             </Link>
@@ -84,7 +84,7 @@ export default async function MyPetsPage() {
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">Você ainda não cadastrou nenhum pet para adoção.</p>
               <Button asChild>
-                <Link href="/adocao/cadastrar">
+                <Link href="/cadastrar-pet-adocao">
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Cadastrar Pet para Adoção
                 </Link>

@@ -121,7 +121,7 @@ function DashboardContent() {
         </div>
         <div className="mt-4 md:mt-0 flex gap-2">
           <Button asChild>
-            <Link href="/adocao/cadastrar">
+            <Link href="/cadastrar-pet-adocao">
               <Plus className="mr-2 h-4 w-4" />
               Cadastrar Pet para Adoção
             </Link>
@@ -243,7 +243,7 @@ function DashboardContent() {
                 <div className="text-center py-8 text-muted-foreground">
                   <p>Você ainda não cadastrou nenhum pet.</p>
                   <Button variant="outline" className="mt-4" asChild>
-                    <Link href="/adocao/cadastrar">Cadastrar Pet</Link>
+                    <Link href="/cadastrar-pet-adocao">Cadastrar Pet</Link>
                   </Button>
                 </div>
               )}
@@ -268,7 +268,7 @@ function DashboardContent() {
             </CardHeader>
             <CardContent className="space-y-4">
               <Button className="w-full justify-start" asChild>
-                <Link href="/adocao/cadastrar">
+                <Link href="/cadastrar-pet-adocao">
                   <Heart className="mr-2 h-4 w-4" />
                   Cadastrar Pet para Adoção
                 </Link>
