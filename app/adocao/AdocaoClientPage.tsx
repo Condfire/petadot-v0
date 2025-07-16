@@ -116,7 +116,7 @@ export default function AdocaoClientPage({ initialPets, pagination, initialFilte
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <h1 className="text-3xl font-bold">Pets para Adoção</h1>
         <Button asChild>
-          <Link href="/adocao/cadastrar">
+          <Link href="/cadastrar-pet-adocao">
             <Plus className="mr-2 h-4 w-4" />
             Cadastrar Pet para Adoção
           </Link>
@@ -167,7 +167,7 @@ export default function AdocaoClientPage({ initialPets, pagination, initialFilte
                 Não encontramos nenhum pet para adoção com os filtros selecionados.
               </p>
               <Button asChild>
-                <Link href="/adocao/cadastrar">Cadastrar Pet para Adoção</Link>
+                <Link href="/cadastrar-pet-adocao">Cadastrar Pet para Adoção</Link>
               </Button>
             </div>
           )}

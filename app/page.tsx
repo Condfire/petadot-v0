@@ -87,7 +87,7 @@ export default async function Home() {
                 Ainda não há pets para adoção. Seja o primeiro a cadastrar um pet!
               </p>
               <Button className="mt-4" asChild>
-                <Link href="/adocao/cadastrar">Cadastrar Pet para Adoção</Link>
+                <Link href="/cadastrar-pet-adocao">Cadastrar Pet para Adoção</Link>
               </Button>
             </div>
           )}
