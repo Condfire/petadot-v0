@@ -1,43 +1,29 @@
-import { z } from "zod"
+import * as z from "zod"
 
-export const speciesEnum = z.enum(["dog", "cat", "bird", "other"])
-export type SpeciesEnum = z.infer<typeof speciesEnum>
-
-export const petSizeEnum = z.enum(["small", "medium", "large", "other"])
-export type PetSizeEnum = z.infer<typeof petSizeEnum>
-
-export const animalSchema = z.object({
-  name: z.string().optional(),
-  species: speciesEnum,
-  species_other: z.string().optional(),
+export const PetFormSchema = z.object({
+  name: z.string().min(2, { message: "Nome deve ter pelo menos 2 caracteres." }),
+  species: z.string().min(1, { message: "Espécie é obrigatória." }),
+  other_species: z.string().optional(),
   breed: z.string().optional(),
-  age: z.string().optional(),
-  petSize: petSizeEnum,
-  size_other: z.string().optional(),
-  gender: z.enum(["male", "female", "unknown", "other"]),
-  gender_other: z.string().optional(),
-  color: z.string(),
-  color_other: z.string().optional(),
-  description: z.string().optional(),
-  found_date: z.string(), // Assuming YYYY-MM-DD format
-  found_location: z.string(),
-  current_location: z.string().optional(),
-  contact: z.string(),
-  main_image_url: z.string().url().optional(), // Changed from image_url to main_image_url
-  images: z.array(z.string().url()).optional(), // Added for multiple images
+  other_breed: z.string().optional(),
+  age: z.string().min(1, { message: "Idade é obrigatória." }),
+  size: z.string().min(1, { message: "Porte é obrigatório." }),
+  gender: z.string().min(1, { message: "Gênero é obrigatório." }),
+  color: z.string().optional(),
+  description: z.string().min(10, { message: "Descrição deve ter pelo menos 10 caracteres." }),
+  contact_whatsapp: z
+    .string()
+    .regex(/^\d{10,11}$/, { message: "Número de WhatsApp inválido (apenas números, 10 ou 11 dígitos)." }),
+  images: z
+    .array(z.string())
+    .min(1, { message: "Pelo menos uma imagem é obrigatória." })
+    .max(5, { message: "Máximo de 5 imagens." }),
+  city: z.string().min(1, { message: "Cidade é obrigatória." }),
+  state: z.string().min(1, { message: "Estado é obrigatório." }),
   is_special_needs: z.boolean().optional(),
-  special_needs_description: z.string().optional(),
-  good_with_kids: z.boolean().optional(),
-  good_with_cats: z.boolean().optional(),
-  good_with_dogs: z.boolean().optional(),
-  is_vaccinated: z.boolean().optional(),
-  is_neutered: z.boolean().optional(),
-  status: z.enum(["pending", "approved", "rejected", "resolved"]).default("pending"),
-  user_id: z.string().optional(),
-  state: z.string().optional(),
-  city: z.string().optional(),
-  category: z.enum(["lost", "found", "adoption"]).default("found"),
-  rejection_reason: z.string().optional(),
+  status: z.string().optional(), // Adicionado para permitir status no formulário
+  main_image_url: z.string().optional(),
+  category: z.enum(["adoption", "lost", "found"]),
 })
 
-export type AnimalSchemaType = z.infer<typeof animalSchema>
+export type PetFormSchemaType = z.infer<typeof PetFormSchema>

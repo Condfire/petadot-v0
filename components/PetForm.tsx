@@ -3,92 +3,45 @@
 import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ImageUpload } from "@/components/ImageUpload"
 import { LocationSelector } from "@/components/location-selector"
 import { mapPetSpecies, mapPetSize, mapPetGender, mapPetColor, mapPetAge } from "@/lib/utils" // Importar de lib/utils
-import type { PetFormUI } from "@/lib/types"
-
-// Esquema de validação para o formulário de pet
-const formSchema = z.object({
-  name: z.string().min(2, { message: "Nome deve ter pelo menos 2 caracteres." }),
-  species: z.string().min(1, { message: "Espécie é obrigatória." }),
-  species_other: z.string().optional(),
-  breed: z.string().optional(),
-  age: z.string().min(1, { message: "Idade é obrigatória." }),
-  size: z.string().min(1, { message: "Porte é obrigatório." }),
-  size_other: z.string().optional(),
-  gender: z.string().min(1, { message: "Gênero é obrigatório." }),
-  gender_other: z.string().optional(),
-  color: z.string().optional(),
-  color_other: z.string().optional(),
-  description: z.string().min(10, { message: "Descrição deve ter pelo menos 10 caracteres." }),
-  contact: z
-    .string()
-    .regex(/^\d{10,11}$/, { message: "Número de WhatsApp inválido (apenas números, 10 ou 11 dígitos)." }),
-  image_urls: z
-    .array(z.string())
-    .min(1, { message: "Pelo menos uma imagem é obrigatória." })
-    .max(5, { message: "Máximo de 5 imagens." }),
-  city: z.string().min(1, { message: "Cidade é obrigatória." }),
-  state: z.string().min(1, { message: "Estado é obrigatório." }),
-  is_castrated: z.boolean().optional(),
-  is_vaccinated: z.boolean().optional(),
-  is_special_needs: z.boolean().optional(),
-  special_needs_description: z.string().optional(),
-  // Campos extras para perdido/encontrado
-  last_seen_date: z.string().optional(),
-  last_seen_location: z.string().optional(),
-  found_date: z.string().optional(),
-  found_location: z.string().optional(),
-  current_location: z.string().optional(),
-  status: z.string().optional(), // Adicionado para permitir status no formulário
-})
+import { PetFormSchema, type PetFormSchemaType } from "@/lib/validators/animal"
 
 interface PetFormProps {
-  initialData?: PetFormUI // Dados iniciais para edição
-  onSubmit: (data: PetFormUI) => Promise<void>
-  isSubmitting: boolean
-  type: "lost" | "found" | "adoption"
+  initialData?: PetFormSchemaType
+  onSubmit: (data: PetFormSchemaType) => Promise<void>
+  isLoading: boolean
+  category: "lost" | "found" | "adoption"
 }
 
 // Exportação nomeada para quem usa import { PetForm } from '@/components/PetForm'
-export function PetForm({ initialData, onSubmit, isSubmitting, type }: PetFormProps) {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+export function PetForm({ initialData, onSubmit, isLoading, category }: PetFormProps) {
+  const form = useForm<PetFormSchemaType>({
+    resolver: zodResolver(PetFormSchema),
     defaultValues: initialData || {
       name: "",
       species: "",
-      species_other: "",
+      other_species: "",
       breed: "",
+      other_breed: "",
       age: "",
       size: "",
-      size_other: "",
       gender: "",
-      gender_other: "",
       color: "",
-      color_other: "",
       description: "",
-      contact: "",
+      contact_whatsapp: "",
       image_urls: [],
       city: "",
       state: "",
-      is_castrated: false,
-      is_vaccinated: false,
       is_special_needs: false,
-      special_needs_description: "",
-      last_seen_date: "",
-      last_seen_location: "",
-      found_date: "",
-      found_location: "",
-      current_location: "",
-      status: type === "adoption" ? "available" : "approved", // Default status based on type
+      status: category === "adoption" ? "available" : "approved",
+      main_image_url: "",
+      category: category,
     },
   })
 
@@ -156,7 +109,7 @@ export function PetForm({ initialData, onSubmit, isSubmitting, type }: PetFormPr
           {selectedSpecies === "other" && (
             <FormField
               control={form.control}
-              name="species_other"
+              name="other_species"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Qual outra espécie?</FormLabel>
@@ -351,7 +304,7 @@ export function PetForm({ initialData, onSubmit, isSubmitting, type }: PetFormPr
 
         <FormField
           control={form.control}
-          name="contact"
+          name="contact_whatsapp"
           render={({ field }) => (
             <FormItem>
               <FormLabel>WhatsApp para Contato</FormLabel>
@@ -371,160 +324,8 @@ export function PetForm({ initialData, onSubmit, isSubmitting, type }: PetFormPr
         {form.formState.errors.city && <FormMessage>{form.formState.errors.city.message}</FormMessage>}
         {form.formState.errors.state && <FormMessage>{form.formState.errors.state.message}</FormMessage>}
 
-        {type === "lost" && (
-          <>
-            <FormField
-              control={form.control}
-              name="last_seen_date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Data em que foi visto pela última vez</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="last_seen_location"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Local onde foi visto pela última vez</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Rua das Flores" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
-        )}
-
-        {type === "found" && (
-          <>
-            <FormField
-              control={form.control}
-              name="found_date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Data em que foi encontrado</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="found_location"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Local onde foi encontrado</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Rua das Flores" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="current_location"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Localização atual do pet</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Se estiver abrigado" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
-        )}
-
-        <FormField
-          control={form.control}
-          name="image_urls"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Imagens do Pet (1-5)</FormLabel>
-              <FormControl>
-                <ImageUpload value={field.value} onChange={handleImageUpload} maxFiles={5} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {type === "adoption" && (
-          <>
-            <FormField
-              control={form.control}
-              name="is_castrated"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Castrado(a)</FormLabel>
-                  </div>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="is_vaccinated"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>Vacinado(a)</FormLabel>
-                  </div>
-                </FormItem>
-              )}
-            />
-          </>
-        )}
-
-        <FormField
-          control={form.control}
-          name="is_special_needs"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-              <FormControl>
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-              </FormControl>
-              <div className="space-y-1 leading-none">
-                <FormLabel>Necessidades Especiais</FormLabel>
-              </div>
-            </FormItem>
-          )}
-        />
-        {isSpecialNeeds && (
-          <FormField
-            control={form.control}
-            name="special_needs_description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Descrição das Necessidades Especiais</FormLabel>
-                <FormControl>
-                  <Textarea placeholder="Descreva as necessidades especiais do pet..." rows={3} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-
-        <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Enviando..." : "Cadastrar Pet"}
+        <Button type="submit" className="w-full" disabled={isLoading}>
+          {isLoading ? "Enviando..." : "Cadastrar Pet"}
         </Button>
       </form>
     </Form>
