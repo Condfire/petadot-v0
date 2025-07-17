@@ -35,7 +35,7 @@ export default function LostPetForm({ action, userId }: LostPetFormProps) {
   const [gender, setGender] = useState("male")
 
   return (
-    <form action={action} className="space-y-6 max-w-2xl mx-auto">
+    <form action={action} method="post" className="space-y-6 max-w-2xl mx-auto">
       <input type="hidden" name="user_id" value={userId} />
       <input type="hidden" name="image_url" value={imageUrl} />
 

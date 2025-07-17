@@ -36,7 +36,7 @@ export function AdoptionPetForm({ action, ongId }: AdoptionPetFormProps) {
   const [city, setCity] = useState("")
 
   return (
-    <form action={action} className="space-y-6 max-w-2xl mx-auto">
+    <form action={action} method="post" className="space-y-6 max-w-2xl mx-auto">
       {ongId && <input type="hidden" name="ong_id" value={ongId} />}
       <input type="hidden" name="main_image_url" value={imageUrl} />
 
