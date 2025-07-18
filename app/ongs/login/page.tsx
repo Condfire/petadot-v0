@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/app/auth-provider"
 
 const loginFormSchema = z.object({
   email: z.string().email({ message: "Email inválido" }),
@@ -28,6 +29,7 @@ export default function OngLoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const message = searchParams.get("message")
+  const { user, isInitialized, signIn } = useAuth()
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
@@ -38,67 +40,63 @@ export default function OngLoginPage() {
   })
 
   useEffect(() => {
-    // Verificar se o usuário já está autenticado
     async function checkSession() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
+      if (!isInitialized) return
 
-        if (session) {
-          // Verificar se o usuário é uma ONG
+      if (user) {
+        try {
           const { data: ongData, error: ongError } = await supabase
             .from("ongs")
             .select("id")
-            .eq("user_id", session.user.id)
+            .eq("user_id", user.id)
             .single()
 
           if (!ongError && ongData) {
-            // Usuário é uma ONG, redirecionar para o dashboard
             router.push("/ongs/dashboard")
             return
           }
+        } catch (err) {
+          console.error("Erro ao verificar sessão:", err)
         }
-      } catch (err) {
-        console.error("Erro ao verificar sessão:", err)
-      } finally {
-        setIsCheckingSession(false)
       }
+
+      setIsCheckingSession(false)
     }
 
     checkSession()
-  }, [router])
+  }, [router, user, isInitialized])
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      })
+      const result = await signIn(data.email, data.password)
 
-      if (authError) {
-        throw new Error(authError.message)
+      if (!result.success) {
+        throw new Error(result.error || "Erro ao fazer login")
       }
 
-      if (!authData.user) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      const userId = session?.user?.id
+      if (!userId) {
         throw new Error("Usuário não encontrado")
       }
 
-      // Verificar se o usuário é uma ONG
       const { data: ongData, error: ongError } = await supabase
         .from("ongs")
         .select("id")
-        .eq("user_id", authData.user.id)
+        .eq("user_id", userId)
         .single()
 
       if (ongError) {
-        // Fazer logout e mostrar erro
         await supabase.auth.signOut()
         throw new Error("Este usuário não está associado a nenhuma ONG")
       }
 
-      // Redirecionar para o dashboard da ONG
       router.push("/ongs/dashboard")
     } catch (err) {
       console.error("Erro ao fazer login:", err)
