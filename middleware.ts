@@ -1,96 +1,68 @@
+import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
-import { isUuid } from "./lib/slug-utils"
 
-// Lista de rotas especiais que não devem ser processadas pelo middleware de slug
-const SPECIAL_ROUTES = ["/cadastrar", "/editar", "/excluir", "/novo"]
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next()
+  const supabase = createMiddlewareClient({ req, res })
 
-export async function middleware(request: NextRequest) {
-  // Ignorar a rota de cadastro de pets para adoção
-  if (request.nextUrl.pathname === "/cadastrar-pet-adocao") {
-    const response = NextResponse.next()
-    const supabase = createMiddlewareClient({ req: request, res: response })
-    await supabase.auth.getSession()
-    return response
+  // Refresh session if expired - required for Server Components
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  // Protected routes that require authentication
+  const protectedRoutes = ["/dashboard", "/admin", "/ongs/dashboard"]
+  const adminRoutes = ["/admin"]
+  const publicRoutes = ["/", "/login", "/register", "/perdidos", "/encontrados", "/adocao", "/sobre", "/contato"]
+
+  const { pathname } = req.nextUrl
+
+  // Check if current path is protected
+  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
+  const isAdminRoute = adminRoutes.some((route) => pathname.startsWith(route))
+  const isPublicRoute = publicRoutes.some((route) => pathname === route || pathname.startsWith(route))
+
+  // Redirect to login if accessing protected route without session
+  if (isProtectedRoute && !session) {
+    const redirectUrl = new URL("/login", req.url)
+    redirectUrl.searchParams.set("redirect", pathname)
+    return NextResponse.redirect(redirectUrl)
   }
 
-  // Permitir redirecionamento para rotas especiais
-  for (const route of SPECIAL_ROUTES) {
-    if (request.nextUrl.pathname.includes(route)) {
-      return NextResponse.next()
-    }
-  }
+  // Check admin access for admin routes
+  if (isAdminRoute && session) {
+    try {
+      const { data: userData } = await supabase.from("users").select("type").eq("id", session.user.id).single()
 
-  const response = NextResponse.next()
-  const supabase = createMiddlewareClient({ req: request, res: response })
+      const userType = userData?.type || session.user.user_metadata?.type || "regular"
 
-  // Verificar se a rota é para uma entidade pública
-  const url = request.nextUrl.pathname
-
-  // Verificar se a URL contém um ID UUID em vez de um slug
-  if (
-    (url.startsWith("/adocao/") ||
-      url.startsWith("/perdidos/") ||
-      url.startsWith("/encontrados/") ||
-      url.startsWith("/ongs/") ||
-      url.startsWith("/eventos/") ||
-      url.startsWith("/parceiros/")) &&
-    !url.includes("/dashboard") &&
-    !url.includes("/cadastrar") &&
-    !url.includes("/edit") &&
-    !url.includes("/delete")
-  ) {
-    // Extrair o ID ou slug da URL
-    const segments = url.split("/")
-    const idOrSlug = segments[2]
-
-    // Se for um UUID, buscar o slug correspondente e redirecionar
-    if (idOrSlug && isUuid(idOrSlug)) {
-      try {
-        let table = ""
-        if (url.startsWith("/adocao/")) {
-          table = "pets"
-        } else if (url.startsWith("/perdidos/")) {
-          table = "pets_lost"
-        } else if (url.startsWith("/encontrados/")) {
-          table = "pets_found"
-        } else if (url.startsWith("/ongs/")) {
-          table = "ongs"
-        } else if (url.startsWith("/eventos/")) {
-          table = "events"
-        } else if (url.startsWith("/parceiros/")) {
-          table = "partners"
-        }
-
-        if (table) {
-          const { data } = await supabase.from(table).select("slug").eq("id", idOrSlug).single()
-
-          if (data?.slug) {
-            // Construir a nova URL com o slug
-            const newUrl = url.replace(idOrSlug, data.slug)
-            return NextResponse.redirect(new URL(newUrl, request.url))
-          }
-        }
-      } catch (error) {
-        console.error("Erro ao buscar slug:", error)
+      if (userType !== "admin") {
+        return NextResponse.redirect(new URL("/dashboard", req.url))
       }
+    } catch (error) {
+      console.error("Error checking admin access:", error)
+      return NextResponse.redirect(new URL("/dashboard", req.url))
     }
   }
 
-  return response
+  // Redirect authenticated users away from auth pages
+  if (session && (pathname === "/login" || pathname === "/register")) {
+    return NextResponse.redirect(new URL("/dashboard", req.url))
+  }
+
+  return res
 }
 
 export const config = {
   matcher: [
-    "/adocao/:path*",
-    "/perdidos/:path*",
-    "/encontrados/:path*",
-    "/ongs/:path*",
-    "/eventos/:path*",
-    "/parceiros/:path*",
-    "/dashboard/:path*",
-    "/admin/:path*",
-    "/cadastrar-pet-adocao",
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    "/((?!_next/static|_next/image|favicon.ico|public|api).*)",
   ],
 }

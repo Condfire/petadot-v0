@@ -3,7 +3,7 @@
 import type React from "react"
 import { createContext, useContext, useEffect, useState, useRef, useCallback } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import type { Session, User as SupabaseUser } from "@supabase/supabase-js"
+import type { Session } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
 import { toast } from "@/hooks/use-toast"
 
@@ -56,7 +56,7 @@ function getSupabaseClient() {
   return supabaseInstance
 }
 
-// Enhanced AuthProvider with Google authentication and better session management
+// Enhanced AuthProvider with better error handling
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
@@ -70,7 +70,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const initCalled = useRef(false)
   const authListenerRef = useRef<{ subscription: { unsubscribe: () => void } } | null>(null)
   const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Clear any existing error
   const clearError = useCallback(() => {
@@ -107,145 +106,82 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase])
 
-  // Sync user with database with retry logic
-  const syncUserWithDatabase = useCallback(
-    async (supabaseUser: SupabaseUser, retries = 3): Promise<void> => {
-      try {
-        const userMetadata = supabaseUser.user_metadata
-        const appMetadata = supabaseUser.app_metadata
-
-        // Extract provider information
-        const provider = appMetadata?.provider || supabaseUser.app_metadata?.providers?.[0] || "email"
-
-        const userDataToSync = {
-          id: supabaseUser.id,
-          email: supabaseUser.email,
-          name: userMetadata?.full_name || userMetadata?.name || supabaseUser.email?.split("@")[0],
-          type: userMetadata?.type || "regular",
-          state: userMetadata?.state,
-          city: userMetadata?.city,
-          avatar_url: userMetadata?.avatar_url || userMetadata?.picture,
-          provider: provider,
-          email_verified: supabaseUser.email_confirmed_at ? true : false,
-          updated_at: new Date().toISOString(),
-        }
-
-        // Check if user exists
-        const { data: existingUser, error: checkError } = await supabase
-          .from("users")
-          .select("id, type")
-          .eq("id", supabaseUser.id)
-          .single()
-
-        if (checkError && checkError.code !== "PGRST116") {
-          throw checkError
-        }
-
-        if (existingUser) {
-          // Update existing user, but preserve existing type if not set in metadata
-          const updateData = { ...userDataToSync }
-          if (!userMetadata?.type && existingUser.type) {
-            updateData.type = existingUser.type
-          }
-
-          const { error: updateError } = await supabase.from("users").update(updateData).eq("id", supabaseUser.id)
-
-          if (updateError) throw updateError
-        } else {
-          // Insert new user
-          const { error: insertError } = await supabase
-            .from("users")
-            .insert({ ...userDataToSync, created_at: new Date().toISOString() })
-
-          if (insertError) throw insertError
-        }
-      } catch (error) {
-        console.error("Error syncing user with database:", error)
-
-        // Retry logic
-        if (retries > 0) {
-          console.log(`Retrying user sync... (${retries} attempts left)`)
-          await new Promise((resolve) => setTimeout(resolve, 1000))
-          return syncUserWithDatabase(supabaseUser, retries - 1)
-        }
-
-        console.error("Failed to sync user after all retries")
-      }
-    },
-    [supabase],
-  )
-
-  // Update user state from session
+  // Update user state from session with proper null checks
   const updateUserFromSession = useCallback(
     async (currentSession: Session | null) => {
-      if (currentSession?.user) {
-        const supabaseUser = currentSession.user
+      if (!currentSession?.user) {
+        setUser(null)
+        return
+      }
 
-        // Sync with database first
-        await syncUserWithDatabase(supabaseUser)
+      const supabaseUser = currentSession.user
 
+      try {
+        // Extract provider info safely
+        const provider = supabaseUser.app_metadata?.provider || supabaseUser.app_metadata?.providers?.[0] || "email"
+
+        // Create base user object from auth metadata with null checks
+        const baseUserData: User = {
+          id: supabaseUser.id,
+          email: supabaseUser.email || "",
+          name:
+            supabaseUser.user_metadata?.full_name ||
+            supabaseUser.user_metadata?.name ||
+            supabaseUser.email?.split("@")[0] ||
+            "Usuário",
+          avatar_url: supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture || null,
+          type: supabaseUser.user_metadata?.type || "regular",
+          state: supabaseUser.user_metadata?.state || null,
+          city: supabaseUser.user_metadata?.city || null,
+          provider: provider,
+          email_verified: !!supabaseUser.email_confirmed_at,
+        }
+
+        // Set user with base data first
+        setUser(baseUserData)
+
+        // Try to enhance with database data in background (non-blocking)
         try {
-          // Fetch user data from database
-          const { data: userDataFromDb, error: userDbError } = await supabase
+          const { data: userData, error: dbError } = await supabase
             .from("users")
-            .select("id, email, name, avatar_url, type, state, city, provider")
+            .select("id, name, avatar_url, type, state, city, provider")
             .eq("id", supabaseUser.id)
             .single()
 
-          if (userDbError && userDbError.code !== "PGRST116") {
-            console.warn("Error fetching user from database:", userDbError)
+          if (!dbError && userData) {
+            // Update user state with database data, keeping base data as fallback
+            setUser((prevUser) => {
+              if (!prevUser) return baseUserData
+
+              return {
+                ...prevUser,
+                name: userData.name || prevUser.name,
+                avatar_url: userData.avatar_url || prevUser.avatar_url,
+                type: userData.type || prevUser.type,
+                state: userData.state || prevUser.state,
+                city: userData.city || prevUser.city,
+                provider: userData.provider || prevUser.provider,
+              }
+            })
           }
-
-          // Extract provider info
-          const provider = supabaseUser.app_metadata?.provider || supabaseUser.app_metadata?.providers?.[0] || "email"
-
-          // Create final user object
-          const finalUserData: User = {
-            id: supabaseUser.id,
-            email: supabaseUser.email || "",
-            name:
-              userDataFromDb?.name ||
-              supabaseUser.user_metadata?.full_name ||
-              supabaseUser.user_metadata?.name ||
-              supabaseUser.email?.split("@")[0],
-            avatar_url:
-              userDataFromDb?.avatar_url ||
-              supabaseUser.user_metadata?.avatar_url ||
-              supabaseUser.user_metadata?.picture,
-            type: userDataFromDb?.type || supabaseUser.user_metadata?.type || "regular",
-            state: userDataFromDb?.state || supabaseUser.user_metadata?.state,
-            city: userDataFromDb?.city || supabaseUser.user_metadata?.city,
-            provider: provider,
-            email_verified: supabaseUser.email_confirmed_at ? true : false,
-          }
-
-          setUser(finalUserData)
-        } catch (error) {
-          console.error("Error updating user from session:", error)
-
-          // Fallback to auth metadata if DB fetch fails
-          const provider = supabaseUser.app_metadata?.provider || supabaseUser.app_metadata?.providers?.[0] || "email"
-
-          setUser({
-            id: supabaseUser.id,
-            email: supabaseUser.email || "",
-            name:
-              supabaseUser.user_metadata?.full_name ||
-              supabaseUser.user_metadata?.name ||
-              supabaseUser.email?.split("@")[0],
-            avatar_url: supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture,
-            type: supabaseUser.user_metadata?.type || "regular",
-            state: supabaseUser.user_metadata?.state,
-            city: supabaseUser.user_metadata?.city,
-            provider: provider,
-            email_verified: supabaseUser.email_confirmed_at ? true : false,
-          })
+        } catch (dbError) {
+          // Silently fail database sync - user can still use the app with auth metadata
+          console.warn("Database sync failed (non-critical):", dbError)
         }
-      } else {
-        setUser(null)
+      } catch (error) {
+        console.error("Error updating user from session:", error)
+        // Still set basic user data even if there's an error
+        setUser({
+          id: supabaseUser.id,
+          email: supabaseUser.email || "",
+          name: supabaseUser.email?.split("@")[0] || "Usuário",
+          type: "regular",
+          provider: "email",
+          email_verified: !!supabaseUser.email_confirmed_at,
+        })
       }
     },
-    [supabase, syncUserWithDatabase],
+    [supabase],
   )
 
   // Schedule automatic token refresh
@@ -271,32 +207,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [refreshSession],
   )
 
-  // Periodic session validation
-  const startSessionValidation = useCallback(() => {
-    if (sessionCheckIntervalRef.current) {
-      clearInterval(sessionCheckIntervalRef.current)
-    }
-
-    sessionCheckIntervalRef.current = setInterval(
-      async () => {
-        try {
-          const {
-            data: { user },
-            error,
-          } = await supabase.auth.getUser()
-
-          if (error || !user) {
-            console.log("Session validation failed, user might be logged out")
-            // Don't automatically sign out here, let the auth state change handler deal with it
-          }
-        } catch (error) {
-          console.error("Session validation error:", error)
-        }
-      },
-      5 * 60 * 1000,
-    ) // Check every 5 minutes
-  }, [supabase])
-
   // Initialize authentication
   const initializeAuth = useCallback(async () => {
     if (initCalled.current) return
@@ -317,7 +227,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (data.session) {
           await updateUserFromSession(data.session)
           scheduleTokenRefresh(data.session)
-          startSessionValidation()
         }
       }
     } catch (e) {
@@ -327,7 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false)
       setIsInitialized(true)
     }
-  }, [supabase, updateUserFromSession, scheduleTokenRefresh, startSessionValidation])
+  }, [supabase, updateUserFromSession, scheduleTokenRefresh])
 
   // Setup auth state listener
   const setupAuthListener = useCallback(() => {
@@ -343,12 +252,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (newSession) {
             await updateUserFromSession(newSession)
             scheduleTokenRefresh(newSession)
-            startSessionValidation()
             clearError()
 
+            const userName = newSession.user?.user_metadata?.name || newSession.user?.user_metadata?.full_name
             toast({
               title: "Login realizado com sucesso!",
-              description: `Bem-vindo${newSession.user?.user_metadata?.name ? `, ${newSession.user.user_metadata.name}` : ""}!`,
+              description: `Bem-vindo${userName ? `, ${userName}` : ""}!`,
             })
           }
           break
@@ -358,9 +267,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           clearError()
           if (refreshTimeoutRef.current) {
             clearTimeout(refreshTimeoutRef.current)
-          }
-          if (sessionCheckIntervalRef.current) {
-            clearInterval(sessionCheckIntervalRef.current)
           }
 
           toast({
@@ -395,7 +301,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     authListenerRef.current = authListener
     return authListener
-  }, [supabase, updateUserFromSession, scheduleTokenRefresh, startSessionValidation, clearError])
+  }, [supabase, updateUserFromSession, scheduleTokenRefresh, clearError])
 
   // Initialize auth on mount
   useEffect(() => {
@@ -409,9 +315,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current)
-      }
-      if (sessionCheckIntervalRef.current) {
-        clearInterval(sessionCheckIntervalRef.current)
       }
     }
   }, [initializeAuth, setupAuthListener])
@@ -523,10 +426,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current)
         refreshTimeoutRef.current = null
-      }
-      if (sessionCheckIntervalRef.current) {
-        clearInterval(sessionCheckIntervalRef.current)
-        sessionCheckIntervalRef.current = null
       }
 
       // Clear local storage

@@ -432,7 +432,59 @@ export async function listFiles(category: ImageCategory, userId?: string) {
 /**
  * Funções específicas para cada tipo de upload
  */
-export const uploadPetImage = (file: File, userId?: string) => uploadImage(file, "pets", userId)
+export async function uploadPetImage(file: File, userId: string) {
+  try {
+    // Validate file
+    if (!file.type.startsWith("image/")) {
+      return { success: false, error: "Arquivo deve ser uma imagem" }
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      return { success: false, error: "Imagem deve ter no máximo 5MB" }
+    }
+
+    // Generate unique filename
+    const fileExt = file.name.split(".").pop()
+    const fileName = `${userId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage.from("pet-images").upload(fileName, file, {
+      cacheControl: "3600",
+      upsert: false,
+    })
+
+    if (error) {
+      console.error("Upload error:", error)
+      return { success: false, error: error.message }
+    }
+
+    // Get public URL
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("pet-images").getPublicUrl(data.path)
+
+    return { success: true, url: publicUrl, path: data.path }
+  } catch (error: any) {
+    console.error("Upload error:", error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function deletePetImage(path: string) {
+  try {
+    const { error } = await supabase.storage.from("pet-images").remove([path])
+
+    if (error) {
+      console.error("Delete error:", error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Delete error:", error)
+    return { success: false, error: error.message }
+  }
+}
 
 export const uploadEventImage = (file: File, userId?: string) => uploadImage(file, "events", userId)
 

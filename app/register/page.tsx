@@ -1,186 +1,81 @@
-"use client"
+import { getCurrentUser } from "@/lib/auth"
+import { redirect } from "next/navigation"
+import { Suspense } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { EnhancedAuthForms } from "@/components/enhanced-auth-forms"
 
-import type React from "react"
+interface RegisterPageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, AlertCircle } from "lucide-react"
-import LocationSelectorSimple from "@/components/location-selector-simple"
-import { registerUserAndNgoAction, type RegisterUserAndNgoInput } from "@/app/actions/auth-actions"
-import { useAuth } from "@/app/auth-provider" // To check existing session
+async function RegisterContent({ searchParams }: RegisterPageProps) {
+  const user = await getCurrentUser()
+  const params = await searchParams
 
-export default function RegisterPage() {
-  const [personalName, setPersonalName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [userState, setUserState] = useState("") // For regular user's location
-  const [userCity, setUserCity] = useState("") // For regular user's location
-
-
-  const [error, setError] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const redirectTo = searchParams.get("redirectTo") || "/dashboard"
-  const { session, isLoading: isAuthLoading } = useAuth()
-
-  useEffect(() => {
-    if (!isAuthLoading && session) {
-      router.push(redirectTo)
-    }
-  }, [session, isAuthLoading, router, redirectTo])
-
-  const handleUserLocationStateChange = (selectedState: string) => {
-    setUserState(selectedState)
-    setUserCity("") // Reset city when state changes
+  if (user) {
+    redirect("/dashboard")
   }
 
-  const handleUserLocationCityChange = (selectedCity: string) => {
-    setUserCity(selectedCity)
-  }
-
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    setError(null)
-    setSuccessMessage(null)
-
-    if (password !== confirmPassword) {
-      setError("As senhas não coincidem.")
-      setIsSubmitting(false)
-      return
-    }
-
-    const formData: RegisterUserAndNgoInput = {
-      isNgo: false,
-      personalName,
-      email,
-      password,
-      userState: userState || undefined,
-      userCity: userCity || undefined,
-    }
-
-    const result = await registerUserAndNgoAction(formData)
-
-    if (result.success) {
-      setSuccessMessage(result.message + " Você será redirecionado para o login.")
-      setTimeout(() => {
-        router.push("/login?message=Conta criada com sucesso! Faça login para continuar.")
-      }, 3000)
-    } else {
-      setError(result.message)
-    }
-
-    setIsSubmitting(false)
-  }
-
-  if (isAuthLoading) {
-    return (
-      <div className="container flex items-center justify-center min-h-[calc(100vh-4rem)] py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
+  const message = params.message as string
+  const error = params.error as string
 
   return (
-    <div className="container flex items-center justify-center min-h-[calc(100vh-4rem)] py-12">
-      <Card className="w-full max-w-lg">
-        <CardHeader>
-          <CardTitle className="text-2xl">Cadastro</CardTitle>
-          <CardDescription>Crie sua conta para acessar todas as funcionalidades.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            {successMessage && (
-              <Alert variant="default" className="bg-green-100 border-green-500 text-green-700">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{successMessage}</AlertDescription>
-              </Alert>
-            )}
-
-            {/* Common User Fields */}
-            <div className="space-y-2">
-              <Label htmlFor="personalName">Seu Nome Completo</Label>
-              <Input
-                id="personalName"
-                value={personalName}
-                onChange={(e) => setPersonalName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Seu Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label>Sua Localização (Opcional para usuários, usado se não for ONG)</Label>
-              <LocationSelectorSimple
-                onStateChange={handleUserLocationStateChange}
-                onCityChange={handleUserLocationCityChange}
-                initialState={userState}
-                initialCity={userCity}
-                required={false}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmar Senha</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-            </div>
-
-
-            <Button type="submit" className="w-full" disabled={isSubmitting || isAuthLoading}>
-              {(isSubmitting || isAuthLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSubmitting ? "Cadastrando..." : "Cadastrar"}
-            </Button>
-          </form>
-        </CardContent>
-        <CardFooter className="flex flex-col items-center gap-2">
-          <p className="text-sm text-muted-foreground">
-            Já tem uma conta?{" "}
-            <Link href="/login" className="text-primary hover:underline">
-              Faça login
-            </Link>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div className="text-center">
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">Crie sua conta</h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Ou{" "}
+            <a href="/login" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
+              entre na sua conta existente
+            </a>
           </p>
-          <p className="text-sm text-muted-foreground">
-            É uma ONG?{" "}
-            <Link href="/ongs/register" className="text-primary hover:underline">
-              Cadastre sua organização
-            </Link>
-          </p>
-        </CardFooter>
-      </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Registro</CardTitle>
+            <CardDescription>Crie uma nova conta com email e senha ou use o Google</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <EnhancedAuthForms mode="register" message={message} error={error} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
+  )
+}
+
+function RegisterSkeleton() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div className="text-center">
+          <Skeleton className="h-8 w-64 mx-auto" />
+          <Skeleton className="h-4 w-48 mx-auto mt-2" />
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-16" />
+            <Skeleton className="h-4 w-48" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+export default function RegisterPage(props: RegisterPageProps) {
+  return (
+    <Suspense fallback={<RegisterSkeleton />}>
+      <RegisterContent {...props} />
+    </Suspense>
   )
 }

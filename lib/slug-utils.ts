@@ -2,7 +2,7 @@
  * Utilitários para geração e manipulação de slugs
  */
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
 /**
@@ -193,15 +193,32 @@ export async function generateEventSlug(title: string, location: string, date: s
  * @param text Texto a ser convertido em slug
  * @returns Slug gerado
  */
-export function generateSlug(text: string): string {
-  return text
+export function generateSlug(name: string, city: string, state: string): string {
+  const cleanName = name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove accents
+    .replace(/[^a-z0-9\s-]/g, "") // Remove special characters
+    .replace(/\s+/g, "-") // Replace spaces with hyphens
+    .replace(/-+/g, "-") // Replace multiple hyphens with single
+    .trim()
+
+  const cleanCity = city
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\w\s-]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
-    .replace(/--+/g, "-")
+    .replace(/-+/g, "-")
     .trim()
+
+  const cleanState = state.toLowerCase()
+
+  // Generate unique identifier
+  const timestamp = Date.now().toString(36)
+  const random = Math.random().toString(36).substring(2, 5)
+
+  return `${cleanName}-${cleanCity}-${cleanState}-${timestamp}${random}`
 }
 
 /**
@@ -212,7 +229,7 @@ export function generateSlug(text: string): string {
  * @returns Verdadeiro se o slug já existir
  */
 export async function slugExists(slug: string, table: string, excludeId?: string): Promise<boolean> {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = createServerComponentClient({ cookies })
 
   let query = supabase.from(table).select("id").eq("slug", slug)
 
@@ -238,19 +255,28 @@ export async function slugExists(slug: string, table: string, excludeId?: string
  * @returns Slug único
  */
 export async function generateUniqueSlug(baseSlug: string, table: string, excludeId?: string): Promise<string> {
+  const supabase = createServerComponentClient({ cookies })
+
   let slug = baseSlug
   let counter = 1
-  let isUnique = false
 
-  while (!isUnique) {
-    const exists = await slugExists(slug, table, excludeId)
+  while (true) {
+    let query = supabase.from(table).select("id").eq("slug", slug)
 
-    if (!exists) {
-      isUnique = true
-    } else {
-      slug = `${baseSlug}-${counter}`
-      counter++
+    if (excludeId) {
+      query = query.neq("id", excludeId)
     }
+
+    const { data, error } = await query.single()
+
+    if (error || !data) {
+      // Slug is unique
+      break
+    }
+
+    // Slug exists, try with counter
+    slug = `${baseSlug}-${counter}`
+    counter++
   }
 
   return slug
@@ -265,7 +291,7 @@ export async function generateUniqueSlug(baseSlug: string, table: string, exclud
  */
 export async function generateEntitySlug(
   entityType: "pet" | "ong" | "evento" | "parceiro",
-  data: any,
+  data: { name: string; city: string; state: string },
   uuid: string,
 ): Promise<string> {
   switch (entityType) {
@@ -276,14 +302,14 @@ export async function generateEntitySlug(
         data.city || data.cidade,
         data.state || data.estado,
         uuid,
-        data.table || "pets",
+        "pets",
       )
 
     case "ong":
       return generateOngSlug(data.name || data.nome, data.city || data.cidade, data.state || data.estado, uuid)
 
     case "evento":
-      return generateEventSlug(data.title || data.titulo, data.location || data.local, data.date || data.data, uuid)
+      return generateEventSlug(data.name || data.nome, data.city || data.cidade, data.state || data.estado, uuid)
 
     case "parceiro":
       return generatePartnerSlug(data.name || data.nome, data.city || data.cidade, data.state || data.estado, uuid)

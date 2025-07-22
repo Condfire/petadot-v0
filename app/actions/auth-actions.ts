@@ -3,14 +3,17 @@
 import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { z } from "zod"
-import { generateEntitySlug, generateUniqueSlug } from "@/lib/slug-utils" // Assuming this exists and works for ONGs
+import { generateEntitySlug, generateUniqueSlug } from "@/lib/slug-utils"
+import { loginSchema, forgotPasswordSchema, resetPasswordSchema } from "@/lib/validators/auth"
+import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 
 const commonUserSchema = z.object({
   personalName: z.string().min(2, "Nome pessoal é obrigatório."),
   email: z.string().email("Email inválido."),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres."),
-  userState: z.string().optional(), // UF for personal user
-  userCity: z.string().optional(), // City for personal user
+  userState: z.string().optional(),
+  userCity: z.string().optional(),
 })
 
 const ngoSchema = z.object({
@@ -19,19 +22,19 @@ const ngoSchema = z.object({
     .string()
     .regex(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/, "CNPJ inválido. Formato esperado: XX.XXX.XXX/XXXX-XX")
     .optional()
-    .or(z.literal("")), // Optional for now, but good to have format
+    .or(z.literal("")),
   mission: z.string().optional(),
   ngoContactEmail: z.string().email("Email de contato da ONG inválido.").optional().or(z.literal("")),
   ngoContactPhone: z.string().optional(),
   ngoWebsite: z.string().url("Website inválido.").optional().or(z.literal("")),
   ngoAddress: z.string().optional(),
   ngoCity: z.string().min(1, "Cidade da ONG é obrigatória."),
-  ngoState: z.string().min(2, "Estado (UF) da ONG é obrigatório."), // UF
+  ngoState: z.string().min(2, "Estado (UF) da ONG é obrigatório."),
   ngoPostalCode: z.string().optional(),
   verificationDocumentUrl: z.string().url("URL do documento inválida.").optional().or(z.literal("")),
 })
 
-const registerUserSchema = z.discriminatedUnion("isNgo", [
+const registerUserAndNgoSchema = z.discriminatedUnion("isNgo", [
   z.object({ isNgo: z.literal(false) }).merge(commonUserSchema),
   z
     .object({ isNgo: z.literal(true) })
@@ -39,14 +42,14 @@ const registerUserSchema = z.discriminatedUnion("isNgo", [
     .merge(ngoSchema),
 ])
 
-export type RegisterUserAndNgoInput = z.infer<typeof registerUserSchema>
+export type RegisterUserAndNgoInput = z.infer<typeof registerUserAndNgoSchema>
 
 export async function registerUserAndNgoAction(
   input: RegisterUserAndNgoInput,
 ): Promise<{ success: boolean; message: string; userId?: string; ongId?: string }> {
   const supabase = createServerActionClient({ cookies })
 
-  const validation = registerUserSchema.safeParse(input)
+  const validation = registerUserAndNgoSchema.safeParse(input)
   if (!validation.success) {
     return {
       success: false,
@@ -59,7 +62,7 @@ export async function registerUserAndNgoAction(
 
   const userMetadata: { name: string; type: string; state?: string; city?: string } = {
     name: personalName,
-    type: isNgo ? "ngo_admin" : "regular", // Using 'ngo_admin' to signify this user manages an NGO
+    type: isNgo ? "ngo_admin" : "regular",
   }
   if (userState) userMetadata.state = userState
   if (userCity) userMetadata.city = userCity
@@ -83,22 +86,19 @@ export async function registerUserAndNgoAction(
 
   const newUserId = authData.user.id
 
-  // Ensure user data exists in public.users. Ignore duplicate errors if the row already exists.
-  const { error: userInsertError } = await supabase
-    .from("users")
-    .upsert(
-      [
-        {
-          id: newUserId,
-          email,
-          name: personalName,
-          type: userMetadata.type,
-          state: userState || null,
-          city: userCity || null,
-        },
-      ],
-      { onConflict: "id" },
-    )
+  const { error: userInsertError } = await supabase.from("users").upsert(
+    [
+      {
+        id: newUserId,
+        email,
+        name: personalName,
+        type: userMetadata.type,
+        state: userState || null,
+        city: userCity || null,
+      },
+    ],
+    { onConflict: "id" },
+  )
 
   if (userInsertError && userInsertError.code !== "23505") {
     console.error("Erro ao inserir usuário em public.users:", userInsertError)
@@ -106,14 +106,14 @@ export async function registerUserAndNgoAction(
   }
 
   if (isNgo) {
-    const ngoData = validation.data // This will be the merged schema with NGO fields
+    const ngoData = validation.data
     try {
       const baseSlug = await generateEntitySlug(
         "ong",
         { name: ngoData.ngoName, city: ngoData.ngoCity, state: ngoData.ngoState },
         undefined,
       )
-      const uniqueSlug = await generateUniqueSlug(baseSlug, "ongs", undefined) // Pass undefined for new ONG ID
+      const uniqueSlug = await generateUniqueSlug(baseSlug, "ongs", undefined)
 
       const { data: ong, error: ongInsertError } = await supabase
         .from("ongs")
@@ -122,7 +122,7 @@ export async function registerUserAndNgoAction(
           name: ngoData.ngoName,
           cnpj: ngoData.cnpj || null,
           mission: ngoData.mission || null,
-          contact_email: ngoData.ngoContactEmail || email, // Default to user's email if not provided
+          contact_email: ngoData.ngoContactEmail || email,
           contact_phone: ngoData.ngoContactPhone || null,
           website: ngoData.ngoWebsite || null,
           address: ngoData.ngoAddress || null,
@@ -130,7 +130,7 @@ export async function registerUserAndNgoAction(
           state: ngoData.ngoState,
           postal_code: ngoData.ngoPostalCode || null,
           verification_document_url: ngoData.verificationDocumentUrl || null,
-          is_verified: true, // ONGs são verificadas automaticamente
+          is_verified: true,
           slug: uniqueSlug,
         })
         .select("id")
@@ -138,8 +138,6 @@ export async function registerUserAndNgoAction(
 
       if (ongInsertError) {
         console.error("ONG insert error:", ongInsertError)
-        // Potentially delete the auth user if ONG creation fails? Or let them exist as a regular user.
-        // For now, return error but user is created.
         return {
           success: false,
           message: `Usuário criado, mas falha ao registrar ONG: ${ongInsertError.message}`,
@@ -147,14 +145,7 @@ export async function registerUserAndNgoAction(
         }
       }
 
-      // Update user type in public.users table to 'ngo_admin' explicitly if AuthProvider doesn't catch it fast enough
-      // or if we want to be absolutely sure.
-      // However, relying on AuthProvider's sync is cleaner.
-      // For safety, we can do an update here.
-      const { error: userUpdateError } = await supabase
-        .from("users")
-        .update({ type: "ngo_admin" }) // Ensure type is set in public.users
-        .eq("id", newUserId)
+      const { error: userUpdateError } = await supabase.from("users").update({ type: "ngo_admin" }).eq("id", newUserId)
 
       if (userUpdateError) {
         console.warn("Failed to explicitly update user type in public.users:", userUpdateError.message)
@@ -180,5 +171,102 @@ export async function registerUserAndNgoAction(
     success: true,
     message: "Usuário registrado com sucesso! Verifique seu email para confirmação.",
     userId: newUserId,
+  }
+}
+
+export async function loginAction(formData: FormData) {
+  try {
+    const data = {
+      email: formData.get("email") as string,
+      password: formData.get("password") as string,
+    }
+
+    const validatedData = loginSchema.parse(data)
+    const supabase = createServerActionClient({ cookies })
+
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: validatedData.email,
+      password: validatedData.password,
+    })
+
+    if (authError) {
+      return { success: false, error: "Email ou senha incorretos" }
+    }
+
+    if (!authData.user) {
+      return { success: false, error: "Erro ao fazer login" }
+    }
+
+    return { success: true, user: authData.user }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.errors[0].message }
+    }
+    console.error("Login error:", error)
+    return { success: false, error: "Erro interno do servidor" }
+  }
+}
+
+export async function logoutAction() {
+  const supabase = createServerActionClient({ cookies })
+  await supabase.auth.signOut()
+  revalidatePath("/")
+  redirect("/")
+}
+
+export async function forgotPasswordAction(formData: FormData) {
+  try {
+    const data = {
+      email: formData.get("email") as string,
+    }
+
+    const validatedData = forgotPasswordSchema.parse(data)
+    const supabase = createServerActionClient({ cookies })
+
+    const { error } = await supabase.auth.resetPasswordForEmail(validatedData.email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`,
+    })
+
+    if (error) {
+      console.error("Password reset error:", error)
+      return { success: false, error: "Erro ao enviar email de recuperação" }
+    }
+
+    return { success: true, message: "Se o email existir, você receberá instruções para redefinir sua senha" }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.errors[0].message }
+    }
+    console.error("Forgot password error:", error)
+    return { success: false, error: "Erro interno do servidor" }
+  }
+}
+
+export async function resetPasswordAction(formData: FormData) {
+  try {
+    const data = {
+      password: formData.get("password") as string,
+      confirmPassword: formData.get("confirmPassword") as string,
+    }
+
+    const validatedData = resetPasswordSchema.omit({ token: true }).parse(data)
+    const supabase = createServerActionClient({ cookies })
+
+    const { error } = await supabase.auth.updateUser({
+      password: validatedData.password,
+    })
+
+    if (error) {
+      console.error("Password update error:", error)
+      return { success: false, error: "Erro ao atualizar senha" }
+    }
+
+    return { success: true, message: "Senha redefinida com sucesso" }
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: error.errors[0].message }
+    }
+    console.error("Reset password error:", error)
+    return { success: false, error: "Erro interno do servidor" }
   }
 }

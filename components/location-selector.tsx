@@ -1,302 +1,233 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-
-import { Input } from "@/components/ui/input"
-
 import { useState, useEffect } from "react"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-// Lista estática de estados brasileiros como fallback
-const ESTADOS_BRASIL = [
-  { id: 12, sigla: "AC", nome: "Acre" },
-  { id: 27, sigla: "AL", nome: "Alagoas" },
-  { id: 16, sigla: "AP", nome: "Amapá" },
-  { id: 13, sigla: "AM", nome: "Amazonas" },
-  { id: 29, sigla: "BA", nome: "Bahia" },
-  { id: 23, sigla: "CE", nome: "Ceará" },
-  { id: 53, sigla: "DF", nome: "Distrito Federal" },
-  { id: 32, sigla: "ES", nome: "Espírito Santo" },
-  { id: 52, sigla: "GO", nome: "Goiás" },
-  { id: 21, sigla: "MA", nome: "Maranhão" },
-  { id: 51, sigla: "MT", nome: "Mato Grosso" },
-  { id: 50, sigla: "MS", nome: "Mato Grosso do Sul" },
-  { id: 31, sigla: "MG", nome: "Minas Gerais" },
-  { id: 15, sigla: "PA", nome: "Pará" },
-  { id: 25, sigla: "PB", nome: "Paraíba" },
-  { id: 41, sigla: "PR", nome: "Paraná" },
-  { id: 26, sigla: "PE", nome: "Pernambuco" },
-  { id: 22, sigla: "PI", nome: "Piauí" },
-  { id: 33, sigla: "RJ", nome: "Rio de Janeiro" },
-  { id: 24, sigla: "RN", nome: "Rio Grande do Norte" },
-  { id: 43, sigla: "RS", nome: "Rio Grande do Sul" },
-  { id: 11, sigla: "RO", nome: "Rondônia" },
-  { id: 14, sigla: "RR", nome: "Roraima" },
-  { id: 42, sigla: "SC", nome: "Santa Catarina" },
-  { id: 35, sigla: "SP", nome: "São Paulo" },
-  { id: 28, sigla: "SE", nome: "Sergipe" },
-  { id: 17, sigla: "TO", nome: "Tocantins" },
-]
-
-// Algumas cidades populares por estado como fallback
-const CIDADES_POPULARES: Record<string, { id: number; nome: string }[]> = {
-  SP: [
-    { id: 3550308, nome: "São Paulo" },
-    { id: 3509502, nome: "Campinas" },
-    { id: 3548708, nome: "Santos" },
-    { id: 3547809, nome: "Santo André" },
-    { id: 3543402, nome: "Ribeirão Preto" },
-    { id: 3529401, nome: "Osasco" },
-  ],
-  RJ: [
-    { id: 3304557, nome: "Rio de Janeiro" },
-    { id: 3303500, nome: "Niterói" },
-    { id: 3301702, nome: "Duque de Caxias" },
-    { id: 3304904, nome: "São Gonçalo" },
-    { id: 3303302, nome: "Nova Iguaçu" },
-  ],
-  MG: [
-    { id: 3106200, nome: "Belo Horizonte" },
-    { id: 3170206, nome: "Uberlândia" },
-    { id: 3131702, nome: "Juiz de Fora" },
-    { id: 3118601, nome: "Contagem" },
-    { id: 3127701, nome: "Governador Valadares" },
-  ],
-  // Adicione mais estados conforme necessário
-}
+import { Label } from "@/components/ui/label"
 
 interface LocationSelectorProps {
   onStateChange: (state: string) => void
   onCityChange: (city: string) => void
-  required?: boolean
   initialState?: string
   initialCity?: string
 }
 
-export function LocationSelector({
-  onStateChange,
-  onCityChange,
-  required = false,
-  initialState = "",
-  initialCity = "",
-}: LocationSelectorProps) {
-  const [states, setStates] = useState<{ id: number; sigla: string; nome: string }[]>([])
-  const [cities, setCities] = useState<{ id: number; nome: string }[]>([])
-  const [loading, setLoading] = useState(false)
-  const [selectedState, setSelectedState] = useState(initialState)
-  const [selectedCity, setSelectedCity] = useState(initialCity)
-  const [apiError, setApiError] = useState(false)
+const STATES = [
+  { code: "AC", name: "Acre" },
+  { code: "AL", name: "Alagoas" },
+  { code: "AP", name: "Amapá" },
+  { code: "AM", name: "Amazonas" },
+  { code: "BA", name: "Bahia" },
+  { code: "CE", name: "Ceará" },
+  { code: "DF", name: "Distrito Federal" },
+  { code: "ES", name: "Espírito Santo" },
+  { code: "GO", name: "Goiás" },
+  { code: "MA", name: "Maranhão" },
+  { code: "MT", name: "Mato Grosso" },
+  { code: "MS", name: "Mato Grosso do Sul" },
+  { code: "MG", name: "Minas Gerais" },
+  { code: "PA", name: "Pará" },
+  { code: "PB", name: "Paraíba" },
+  { code: "PR", name: "Paraná" },
+  { code: "PE", name: "Pernambuco" },
+  { code: "PI", name: "Piauí" },
+  { code: "RJ", name: "Rio de Janeiro" },
+  { code: "RN", name: "Rio Grande do Norte" },
+  { code: "RS", name: "Rio Grande do Sul" },
+  { code: "RO", name: "Rondônia" },
+  { code: "RR", name: "Roraima" },
+  { code: "SC", name: "Santa Catarina" },
+  { code: "SP", name: "São Paulo" },
+  { code: "SE", name: "Sergipe" },
+  { code: "TO", name: "Tocantins" },
+]
 
-  // Carregar estados
+const CITIES_BY_STATE: Record<string, string[]> = {
+  SP: [
+    "São Paulo",
+    "Campinas",
+    "Santos",
+    "Ribeirão Preto",
+    "Sorocaba",
+    "São José dos Campos",
+    "Osasco",
+    "Santo André",
+    "São Bernardo do Campo",
+    "Guarulhos",
+  ],
+  RJ: [
+    "Rio de Janeiro",
+    "Niterói",
+    "Nova Iguaçu",
+    "Duque de Caxias",
+    "São Gonçalo",
+    "Volta Redonda",
+    "Petrópolis",
+    "Magé",
+    "Itaboraí",
+    "Cabo Frio",
+  ],
+  MG: [
+    "Belo Horizonte",
+    "Uberlândia",
+    "Contagem",
+    "Juiz de Fora",
+    "Betim",
+    "Montes Claros",
+    "Ribeirão das Neves",
+    "Uberaba",
+    "Governador Valadares",
+    "Ipatinga",
+  ],
+  PR: [
+    "Curitiba",
+    "Londrina",
+    "Maringá",
+    "Ponta Grossa",
+    "Cascavel",
+    "São José dos Pinhais",
+    "Foz do Iguaçu",
+    "Colombo",
+    "Guarapuava",
+    "Paranaguá",
+  ],
+  RS: [
+    "Porto Alegre",
+    "Caxias do Sul",
+    "Pelotas",
+    "Canoas",
+    "Santa Maria",
+    "Gravataí",
+    "Viamão",
+    "Novo Hamburgo",
+    "São Leopoldo",
+    "Rio Grande",
+  ],
+  SC: [
+    "Florianópolis",
+    "Joinville",
+    "Blumenau",
+    "São José",
+    "Criciúma",
+    "Chapecó",
+    "Itajaí",
+    "Lages",
+    "Jaraguá do Sul",
+    "Palhoça",
+  ],
+  BA: [
+    "Salvador",
+    "Feira de Santana",
+    "Vitória da Conquista",
+    "Camaçari",
+    "Itabuna",
+    "Juazeiro",
+    "Lauro de Freitas",
+    "Ilhéus",
+    "Jequié",
+    "Teixeira de Freitas",
+  ],
+  GO: [
+    "Goiânia",
+    "Aparecida de Goiânia",
+    "Anápolis",
+    "Rio Verde",
+    "Luziânia",
+    "Águas Lindas de Goiás",
+    "Valparaíso de Goiás",
+    "Trindade",
+    "Formosa",
+    "Novo Gama",
+  ],
+  PE: [
+    "Recife",
+    "Jaboatão dos Guararapes",
+    "Olinda",
+    "Caruaru",
+    "Petrolina",
+    "Paulista",
+    "Cabo de Santo Agostinho",
+    "Camaragibe",
+    "Garanhuns",
+    "Vitória de Santo Antão",
+  ],
+  CE: [
+    "Fortaleza",
+    "Caucaia",
+    "Juazeiro do Norte",
+    "Maracanaú",
+    "Sobral",
+    "Crato",
+    "Itapipoca",
+    "Maranguape",
+    "Iguatu",
+    "Quixadá",
+  ],
+}
+
+export function LocationSelector({ onStateChange, onCityChange, initialState, initialCity }: LocationSelectorProps) {
+  const [selectedState, setSelectedState] = useState(initialState || "")
+  const [selectedCity, setSelectedCity] = useState(initialCity || "")
+  const [cities, setCities] = useState<string[]>([])
+
   useEffect(() => {
-    const fetchStates = async () => {
-      try {
-        setLoading(true)
-        setApiError(false)
-
-        // Tentar buscar da API
-        const response = await fetch("https://brasilapi.com.br/api/ibge/uf/v1")
-
-        if (!response.ok) {
-          throw new Error(`Erro ao buscar estados: ${response.status}`)
-        }
-
-        const data = await response.json()
-
-        if (Array.isArray(data) && data.length > 0) {
-          console.log(`Carregados ${data.length} estados da API`)
-          setStates(data)
-        } else {
-          console.warn("API retornou uma lista vazia de estados, usando fallback")
-          setStates(ESTADOS_BRASIL)
-          setApiError(true)
-        }
-      } catch (error) {
-        console.error("Erro ao carregar estados:", error)
-        setStates(ESTADOS_BRASIL)
-        setApiError(true)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchStates()
-  }, [])
-
-  // Carregar cidades quando o estado mudar
-  useEffect(() => {
-    const fetchCities = async () => {
-      if (!selectedState) return
-
-      try {
-        setLoading(true)
-        setCities([])
-
-        if (apiError && CIDADES_POPULARES[selectedState]) {
-          // Se houve erro na API de estados, usar cidades do fallback
-          console.log(`Usando cidades fallback para ${selectedState}`)
-          setCities(CIDADES_POPULARES[selectedState] || [])
-          setLoading(false)
-          return
-        }
-
-        // Tentar buscar da API
-        const response = await fetch(`https://brasilapi.com.br/api/ibge/municipios/v1/${selectedState}`)
-
-        if (!response.ok) {
-          throw new Error(`Erro ao buscar cidades: ${response.status}`)
-        }
-
-        const data = await response.json()
-
-        if (Array.isArray(data) && data.length > 0) {
-          console.log(`Carregadas ${data.length} cidades para ${selectedState}`)
-          setCities(data)
-        } else {
-          console.warn(`API retornou uma lista vazia de cidades para ${selectedState}, usando fallback`)
-          setCities(CIDADES_POPULARES[selectedState] || [])
-        }
-      } catch (error) {
-        console.error(`Erro ao carregar cidades para ${selectedState}:`, error)
-        setCities(CIDADES_POPULARES[selectedState] || [])
-      } finally {
-        setLoading(false)
-      }
-    }
-
     if (selectedState) {
-      fetchCities()
+      setCities(CITIES_BY_STATE[selectedState] || [])
+      if (!CITIES_BY_STATE[selectedState]?.includes(selectedCity)) {
+        setSelectedCity("")
+        onCityChange("")
+      }
+    } else {
+      setCities([])
+      setSelectedCity("")
+      onCityChange("")
     }
-  }, [selectedState, apiError])
+  }, [selectedState, selectedCity, onCityChange])
 
-  const handleStateChange = (value: string) => {
-    console.log("Estado selecionado:", value)
-    setSelectedState(value)
+  const handleStateChange = (state: string) => {
+    setSelectedState(state)
+    onStateChange(state)
     setSelectedCity("")
-    onStateChange(value)
     onCityChange("")
   }
 
-  const handleCityChange = (value: string) => {
-    console.log("Cidade selecionada:", value)
-    setSelectedCity(value)
-    onCityChange(value)
-  }
-
-  // Função para criar uma cidade personalizada
-  const handleCustomCity = (cityName: string) => {
-    if (!cityName.trim()) return
-
-    const customCity = {
-      id: Date.now(), // ID único baseado no timestamp
-      nome: cityName.trim(),
-    }
-
-    setCities((prev) => [...prev, customCity])
-    setSelectedCity(customCity.nome)
-    onCityChange(customCity.nome)
+  const handleCityChange = (city: string) => {
+    setSelectedCity(city)
+    onCityChange(city)
   }
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="state" className="text-foreground">
-            Estado{required && "*"}
-          </Label>
-          <Select
-            value={selectedState}
-            onValueChange={handleStateChange}
-            required={required}
-            className="text-foreground bg-background"
-          >
-            <SelectTrigger id="state" className="w-full">
-              <SelectValue placeholder={loading ? "Carregando estados..." : "Selecione o estado"} />
-            </SelectTrigger>
-            <SelectContent>
-              {states.map((state) => (
-                <SelectItem key={`state-${state.id}`} value={state.sigla}>
-                  {state.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label htmlFor="city" className="text-foreground">
-            Cidade{required && "*"}
-          </Label>
-          <Select
-            value={selectedCity}
-            onValueChange={handleCityChange}
-            disabled={!selectedState || loading}
-            required={required}
-            className="text-foreground bg-background"
-          >
-            <SelectTrigger id="city" className="w-full">
-              <SelectValue placeholder={loading ? "Carregando cidades..." : "Selecione a cidade"} />
-            </SelectTrigger>
-            <SelectContent>
-              {cities.map((city) => (
-                <SelectItem key={`city-${city.id}`} value={city.nome}>
-                  {city.nome}
-                </SelectItem>
-              ))}
-              {selectedState && cities.length === 0 && !loading && (
-                <SelectItem value="custom" disabled>
-                  Nenhuma cidade encontrada
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-2">
+        <Label htmlFor="state">Estado (UF) *</Label>
+        <Select onValueChange={handleStateChange} value={selectedState}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione o estado" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATES.map((state) => (
+              <SelectItem key={state.code} value={state.code}>
+                {state.name} ({state.code})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {selectedState && !selectedCity && cities.length === 0 && !loading && (
-        <div className="mt-2">
-          <Label htmlFor="custom-city" className="text-foreground">
-            Cidade não encontrada? Digite manualmente:
-          </Label>
-          <div className="flex gap-2 mt-1">
-            <Input
-              id="custom-city"
-              placeholder="Digite o nome da cidade"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault()
-                  handleCustomCity((e.target as HTMLInputElement).value)
-                  ;(e.target as HTMLInputElement).value = ""
-                }
-              }}
-            />
-            <Button
-              type="button"
-              onClick={(e) => {
-                const input = e.currentTarget.previousElementSibling as HTMLInputElement
-                handleCustomCity(input.value)
-                input.value = ""
-              }}
-            >
-              Adicionar
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Área de depuração - remova em produção */}
-      {(apiError || (selectedState && cities.length === 0 && !loading)) && (
-        <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
-          {apiError ? (
-            <p>Usando dados offline para estados e cidades. Alguns dados podem estar incompletos.</p>
-          ) : (
-            <p>Não foi possível carregar cidades para {selectedState}. Você pode digitar manualmente.</p>
-          )}
-        </div>
-      )}
+      <div className="space-y-2">
+        <Label htmlFor="city">Cidade *</Label>
+        <Select onValueChange={handleCityChange} value={selectedCity} disabled={!selectedState}>
+          <SelectTrigger>
+            <SelectValue placeholder={selectedState ? "Selecione a cidade" : "Primeiro selecione o estado"} />
+          </SelectTrigger>
+          <SelectContent>
+            {cities.map((city) => (
+              <SelectItem key={city} value={city}>
+                {city}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   )
 }
-
-export default LocationSelector

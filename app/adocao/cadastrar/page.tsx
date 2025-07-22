@@ -1,16 +1,19 @@
-import { redirect } from "next/navigation"
 import type { Metadata } from "next"
+import { CadastrarPetAdocaoClientPage } from "./CadastrarPetAdocaoClientPage"
+import { getCurrentUser } from "@/lib/auth"
+import { redirect } from "next/navigation"
 
 export const metadata: Metadata = {
   title: "Cadastrar Pet para Adoção | Petadot",
-  description: "Cadastre um pet para adoção e ajude-o a encontrar um novo lar.",
+  description: "Registre um pet disponível para adoção.",
 }
 
-export default function CadastrarPetAdocaoPage() {
-  // Redirecionamento do lado do servidor para a nova rota
-  redirect("/cadastrar-pet-adocao")
+export default async function CadastrarPetAdocaoPage() {
+  const user = await getCurrentUser()
 
-  // Este código nunca será executado devido ao redirecionamento acima,
-  // mas é necessário para satisfazer o TypeScript
-  return null
+  if (!user) {
+    redirect("/login?redirect=/adocao/cadastrar")
+  }
+
+  return <CadastrarPetAdocaoClientPage />
 }
